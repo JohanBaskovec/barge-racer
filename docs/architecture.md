@@ -91,6 +91,12 @@ barge-racer/
     └── raceState.test.ts
 ```
 
+## Server
+
+`server/worker.ts` is the Cloudflare Worker: it serves `dist/` and hosts multiplayer rooms
+(Durable Objects) that run the same simulation code as the game. See
+[Multiplayer](multiplayer.md).
+
 ## Separation of logic and view
 
 The rule: **game logic does not import Phaser**.

@@ -2,7 +2,7 @@
 
 ## Concept
 
-Barge Racer is a light-hearted, top-down arcade racer on water. Big, slow
+Fast & Fluvial is a light-hearted, top-down arcade racer on water. Big, slow
 working boats race fast, flimsy pleasure boats along canals, rivers and
 harbours. Floating crates hand out absurd weapons. The tone is slapstick:
 nobody gets hurt, boats spin, sputter, sink with a comic *bloop* and pop back

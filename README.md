@@ -1,4 +1,4 @@
-# Barge Racer
+# Fast & Fluvial
 
 A top-down arcade racing game on water, built with **TypeScript** and **Phaser**.
 Four barges and boats race each other down canals, rivers and harbours, picking
@@ -14,7 +14,8 @@ The whole game is played with **one pointer**: a mouse or a single finger.
 
 ## Pitch
 
-- **4 racers per race**: you against 3 AI opponents.
+- **4 racers per race**: you against 3 AI opponents, or **online with up to 3
+  friends** in a room you share with a 4-letter code.
 - **Mouse or touch only.** Point where you want to go; the further you point,
   the more throttle you give.
 - **Crates** float along the track. Drive through one to get a random item and
@@ -36,6 +37,7 @@ The whole game is played with **one pointer**: a mouse or a single finger.
 | [Architecture](docs/architecture.md) | Tech stack, project layout, scenes, systems, data formats, testing |
 | [Real-world tracks](docs/real-world-tracks.md) | Canal de Reims from IGN open data: importer, scale, rendering |
 | [Localization](docs/localization.md) | English and French; how to add a language |
+| [Multiplayer](docs/multiplayer.md) | Online rooms: authoritative server, prediction, interpolation, Cloudflare Durable Objects |
 | [Deployment](docs/deployment.md) | Deploying to Cloudflare |
 | [Roadmap](docs/roadmap.md) | Milestones from first prototype to first release |
 
@@ -52,6 +54,7 @@ The whole game is played with **one pointer**: a mouse or a single finger.
 ```bash
 npm install
 npm run dev      # dev server on http://localhost:5173
+npm run dev:server  # multiplayer server locally on :8787 (needed for online play in dev)
 npm run build    # static production build in dist/
 npm test         # unit tests (physics, tracks, item odds, headless AI races)
 npm run typecheck
@@ -90,5 +93,10 @@ Debug URL parameters (see [Architecture](docs/architecture.md#debug-flags)):
   item and event.
 - Options: music and effects volume, left-handed layout, auto-fire, reduced shake.
 
+- **Online multiplayer**: rooms of up to 4 people (AI in the empty seats), invite
+  links, a lobby where the host picks the race, server-run races with your boat
+  predicted and the others smoothed. Hosted on the same Cloudflare Worker, one
+  Durable Object per room.
+
 Not done yet: cups and unlocks, the remaining tracks and their hazards, final
-art, online multiplayer. See the [roadmap](docs/roadmap.md).
+art, reconnecting to a race in progress. See the [roadmap](docs/roadmap.md).

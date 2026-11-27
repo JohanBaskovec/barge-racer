@@ -89,6 +89,9 @@ hazards, cup mode, save data (unlocks, best times, options).
 - More items (see [Items](items.md#ideas-for-later)).
 - Battle arena mode: last boat floating wins.
 - AI personalities.
-- Local split-screen or online multiplayer.
+- Local split-screen.
+- Online multiplayer: **version 1 done** (rooms with codes, lobby, server-run races,
+  prediction and interpolation; see [Multiplayer](multiplayer.md)). Next: reconnecting,
+  smoother corrections, spectators.
 - Track editor in the browser.
 - Boat customisation (colours, flags, horn sounds).

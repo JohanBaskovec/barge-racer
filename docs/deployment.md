@@ -10,7 +10,9 @@ Git integration. Nothing in this repository needs secrets.
 2. Build command: `npm run build`. Deploy command: `npx wrangler deploy`.
    Production branch: `main`.
 
-The game is then live at `https://barge-racer.<your-subdomain>.workers.dev`.
+The game is then live at `https://barge-racer.<your-subdomain>.workers.dev`. (The Worker
+keeps its original name `barge-racer`: the name in `wrangler.jsonc` must match the Worker
+connected in the Cloudflare dashboard. Rename both together, or add a custom domain.)
 Other branches get preview URLs. A custom domain can be added in the dashboard
 under the Worker's **Settings → Domains & Routes**.
 

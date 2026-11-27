@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { boatName, ordinal, t, trackName } from '../i18n';
 import { audio } from '../audio/AudioManager';
+import { net } from '../net/client';
 import type { Selection } from '../session';
 import { background, button, fitText, fmtTime, text } from '../view/ui';
 
@@ -18,7 +19,7 @@ export class ResultsScene extends Phaser.Scene {
     super('Results');
   }
 
-  create(data: { rows: ResultRow[]; trackId: string; selection: Selection }): void {
+  create(data: { rows: ResultRow[]; trackId: string; selection: Selection; online?: boolean }): void {
     background(this);
     const pos = data.rows.findIndex((r) => r.isPlayer);
     audio.playMusic(null);
@@ -38,6 +39,14 @@ export class ResultsScene extends Phaser.Scene {
       text(this, 900, y, (r.finished ? '' : '~') + fmtTime(r.time), 30, r.finished ? '#ffffff' : '#9fc7e2');
     });
 
+    if (data.online) {
+      button(this, 460, 640, 340, 72, t('results.backToLobby'), () => this.scene.start(net.connected ? 'Lobby' : 'Online'), { fill: 0x2d9d5a, textSize: 30 });
+      button(this, 840, 640, 300, 72, t('lobby.leave'), () => {
+        net.leave();
+        this.scene.start('Title');
+      }, { fill: 0x8a4a4a, textSize: 30 });
+      return;
+    }
     button(this, 280, 640, 300, 72, t('results.again'), () => this.scene.start('Race', data.selection), { fill: 0x2d9d5a, textSize: 32 });
     button(this, 640, 640, 300, 72, t('results.changeRace'), () => this.scene.start('TrackSelect'), { textSize: 32 });
     button(this, 1000, 640, 300, 72, t('results.changeBoat'), () => this.scene.start('BoatSelect'), { fill: 0x555f6b, textSize: 32 });

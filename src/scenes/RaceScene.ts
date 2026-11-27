@@ -9,7 +9,11 @@ import { speedOf } from '../physics/BoatPhysics';
 import { lerp } from '../physics/math';
 import { RaceSimulation, STEP } from '../race/RaceSimulation';
 import type { RaceEvent } from '../race/types';
-import type { Selection } from '../session';
+import { session, type Selection } from '../session';
+import { net } from '../net/client';
+import { OnlineRace } from '../net/onlineRace';
+import type { ServerMsg } from '../net/protocol';
+import type { ResultRow } from './ResultsScene';
 import { BoatView } from '../view/BoatView';
 import { MapRenderer, type SceneryData } from '../view/MapRenderer';
 import { TrackRenderer } from '../view/TrackRenderer';
@@ -52,8 +56,14 @@ export class RaceScene extends Phaser.Scene {
     super('Race');
   }
 
-  init(data: Selection): void {
-    this.selection = data;
+  /** Online race: the server runs it; this screen predicts your boat and shows the others. */
+  online: OnlineRace | null = null;
+  private onlineStart: Extract<ServerMsg, { t: 'start' }> | null = null;
+
+  init(data: Selection & { online?: Extract<ServerMsg, { t: 'start' }> }): void {
+    this.onlineStart = data.online ?? null;
+    this.online = null;
+    this.selection = data.online ? { ...session, trackId: data.online.settings.trackId, difficulty: data.online.settings.difficulty } : data;
     this.views = [];
     this.accumulator = 0;
     this.over = false;
@@ -80,15 +90,32 @@ export class RaceScene extends Phaser.Scene {
     const track = loadTrack(sel.trackId);
     if (DEBUG.laps) track.def.laps = DEBUG.laps;
     this.pointer = new PointerController(this, () => this.playerScreen());
-    this.sim = new RaceSimulation({
-      track,
-      playerBoat: sel.boatId,
-      difficulty: sel.difficulty as Difficulty,
-      seed: DEBUG.seed ?? (Date.now() & 0xffff),
-      aiCount: DEBUG.noAI ? 0 : 3,
-      forcedItem: DEBUG.item,
-      playerController: this.pointer,
-    });
+    const start = this.onlineStart;
+    if (start) {
+      // Online: a local copy of the server's race, kept in step by snapshots (never simulated here).
+      this.sim = new RaceSimulation({
+        track,
+        difficulty: start.settings.difficulty,
+        seed: start.seed,
+        roster: start.roster.map((e) => ({ name: e.name, boatId: e.boatId, human: e.human })),
+        localRacer: Math.max(0, start.roster.findIndex((e) => e.playerId === net.you)),
+      });
+      const online = new OnlineRace(this.sim, this.sim.player!);
+      this.online = online;
+      net.on(this, 'snap', (m) => online.onSnap(m, performance.now()));
+      net.on(this, 'results', (m) => this.finishOnline(m));
+      net.on(this, 'closed', () => this.scene.start('Online', { error: t('online.lost') }));
+    } else {
+      this.sim = new RaceSimulation({
+        track,
+        playerBoat: sel.boatId,
+        difficulty: sel.difficulty as Difficulty,
+        seed: DEBUG.seed ?? (Date.now() & 0xffff),
+        aiCount: DEBUG.noAI ? 0 : 3,
+        forcedItem: DEBUG.item,
+        playerController: this.pointer,
+      });
+    }
 
     this.trackView = track.def.scenery
       ? new MapRenderer(this, track, this.cache.json.get(track.def.scenery) as SceneryData)
@@ -143,12 +170,15 @@ export class RaceScene extends Phaser.Scene {
   update(time: number): void {
     // Raw frame time: Phaser's smoothed `delta` would slow the simulation down at low frame rates.
     const dt = Math.min(this.game.loop.rawDelta / 1000, 0.25);
-    if (this.freeze > 0) this.freeze -= dt; // hit pause: time stands still for a moment
-    else this.accumulator += dt;
-    while (this.accumulator >= STEP && this.sim.phase !== 'over') {
-      for (const v of this.views) v.snapshot();
-      this.sim.step(STEP);
-      this.accumulator -= STEP;
+    if (this.online) this.stepOnline(dt);
+    else {
+      if (this.freeze > 0) this.freeze -= dt; // hit pause: time stands still for a moment
+      else this.accumulator += dt;
+      while (this.accumulator >= STEP && this.sim.phase !== 'over') {
+        for (const v of this.views) v.snapshot();
+        this.sim.step(STEP);
+        this.accumulator -= STEP;
+      }
     }
     const alpha = this.sim.phase === 'over' ? 1 : this.accumulator / STEP;
     for (let i = 0; i < this.views.length; i++) this.views[i].render(alpha, time, dt);
@@ -157,8 +187,42 @@ export class RaceScene extends Phaser.Scene {
     this.updateTrip(time, dt);
     this.raceAudio.update(dt);
     this.updateCamera(dt, time);
-    for (const e of this.sim.takeEvents()) this.handleEvent(e);
+    for (const e of this.online ? this.online.takeEvents() : this.sim.takeEvents()) this.handleEvent(e);
     if (this.fpsText) this.fpsText.setText(`${this.game.loop.actualFps.toFixed(0)} fps`);
+  }
+
+  /** Online: your controls drive your boat locally each step (and go to the server); the others follow the snapshots. */
+  private stepOnline(dt: number): void {
+    const online = this.online!;
+    const me = this.sim.player!;
+    const myView = this.views[me.id];
+    this.accumulator += dt;
+    while (this.accumulator >= STEP) {
+      myView.snapshot();
+      online.local(this.pointer.update(me, this.sim, STEP));
+      this.accumulator -= STEP;
+    }
+    for (const v of this.views) if (v !== myView) v.snapshot();
+    online.render(performance.now());
+  }
+
+  /** Online results arrive from the server. */
+  private finishOnline(m: Extract<ServerMsg, { t: 'results' }>): void {
+    if (this.over) return;
+    this.over = true;
+    const start = this.onlineStart!;
+    const rows: ResultRow[] = m.rows.map((r) => {
+      const i = start.roster.findIndex((e) => (r.playerId ? e.playerId === r.playerId : e.name === r.name && e.boatId === r.boatId));
+      return {
+        name: r.playerId === net.you ? t('you') : r.name,
+        boatId: r.boatId,
+        color: this.sim.racers[Math.max(0, i)]?.color ?? 0xffffff,
+        time: r.time,
+        finished: r.finished,
+        isPlayer: r.playerId === net.you,
+      };
+    });
+    this.time.delayedCall(1200, () => this.scene.start('Results', { rows, trackId: this.sim.track.def.id, selection: this.selection, online: true }));
   }
 
   private updateCamera(dt: number, time: number): void {
@@ -253,7 +317,7 @@ export class RaceScene extends Phaser.Scene {
         if (e.source !== 'bank') this.fx.splash(r.x, r.y, 0.8);
         if (e.racer === player.id && !this.reduceShake()) this.cameras.main.shake(220, 0.007);
         // A short hit pause when the player is hit by an item, or lands a hit.
-        if (e.source !== 'bank' && (e.racer === player.id || e.by === player.id) && !this.reduceShake()) this.freeze = 0.07;
+        if (e.source !== 'bank' && (e.racer === player.id || e.by === player.id)) this.hitPause = 0.07;
         break;
       }
       case 'sunk': {
@@ -261,7 +325,7 @@ export class RaceScene extends Phaser.Scene {
         this.sparks.setParticleTint(0x9fd8ff);
         this.sparks.emitParticleAt(r.x, r.y, 24);
         this.fx.sink(r.x, r.y);
-        if (e.racer === player.id && !this.reduceShake()) this.freeze = 0.12;
+        if (e.racer === player.id) this.hitPause = 0.12;
         break;
       }
       case 'respawn': {
@@ -299,7 +363,7 @@ export class RaceScene extends Phaser.Scene {
         break;
       }
       case 'raceOver':
-        this.finish();
+        if (!this.online) this.finish(); // online, the server sends the results
         break;
       default:
         break;
@@ -337,6 +401,11 @@ export class RaceScene extends Phaser.Scene {
 
   private reduceShake(): boolean {
     return options.reducedShake;
+  }
+
+  /** Hit pauses only offline: an online race doesn't stop for anyone. */
+  private set hitPause(seconds: number) {
+    if (!this.online && !this.reduceShake()) this.freeze = seconds;
   }
 
   private finish(): void {

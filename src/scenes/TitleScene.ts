@@ -25,8 +25,9 @@ export class TitleScene extends Phaser.Scene {
       const b = createBoatSprite(this, getBoat(id), [0xff5a4d, 0x4da3ff, 0xffd23f, 0x62d26f][i]).setPosition(-150 - i * 260, 560 + (i % 2) * 70).setScale(2);
       this.tweens.add({ targets: b, x: 1500, duration: 9000 + i * 1500, repeat: -1, delay: i * 700 });
     });
-    text(this, 640, 210, 'BARGE RACER', 108, '#ffffff').setStroke('#0b3a5b', 14).setShadow(0, 8, '#00000066', 0);
+    fitText(text(this, 640, 210, 'FAST & FLUVIAL', 108, '#ffffff'), 1180).setStroke('#0b3a5b', 14).setShadow(0, 8, '#00000066', 0);
     fitText(text(this, 640, 310, t('title.subtitle'), 30, '#d7efff', false), 1180);
+    button(this, 640, 520, 360, 76, t('online.title'), () => this.scene.start('Online'), { fill: 0x2d9d5a, textSize: 32 });
     const tap = fitText(text(this, 640, 430, t('title.tap'), 44, '#ffe08a'), 1100).setStroke('#0b3a5b', 8);
     this.tweens.add({ targets: tap, alpha: 0.35, duration: 700, yoyo: true, repeat: -1 });
     fitText(text(this, 640, 690, t('title.hint'), 22, '#bfe1f7', false), 1200);

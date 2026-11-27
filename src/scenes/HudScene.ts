@@ -5,6 +5,7 @@ import { formatNumber, itemName, ordinal, t } from '../i18n';
 import type { RaceEvent } from '../race/types';
 import { audio } from '../audio/AudioManager';
 import { options } from '../options';
+import { net } from '../net/client';
 import { addFullscreenButton } from '../view/fullscreen';
 import { button, fmtTime, text } from '../view/ui';
 import type { RaceScene } from './RaceScene';
@@ -24,6 +25,7 @@ export class HudScene extends Phaser.Scene {
   private timeText!: Phaser.GameObjects.Text;
   private slotUi: { ring: Phaser.GameObjects.Arc; icon: Phaser.GameObjects.Image; name: Phaser.GameObjects.Text; count: Phaser.GameObjects.Text }[] = [];
   private tripGfx!: Phaser.GameObjects.Graphics;
+  private endsText!: Phaser.GameObjects.Text;
   private big!: Phaser.GameObjects.Text;
   private map!: Phaser.GameObjects.Graphics;
   private mapScale = 1;
@@ -117,6 +119,7 @@ export class HudScene extends Phaser.Scene {
     race.pointer.hudZones = fs ? [...slotBtns, PAUSE_BTN, fs] : [...slotBtns, PAUSE_BTN];
 
     this.big = text(this, 640, 300, '', 160).setStroke(stroke, 16);
+    this.endsText = text(this, 640, 104, '', 30, '#ffe08a').setStroke(stroke, 6);
 
     race.events.on('race-event', this.onEvent, this);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => race.events.off('race-event', this.onEvent, this));
@@ -135,6 +138,8 @@ export class HudScene extends Phaser.Scene {
       this.lapText.setText(t('hud.remaining', { km: formatNumber(p.finished ? 0 : left) }));
     }
     this.timeText.setText(sim.phase === 'countdown' ? '' : fmtTime(sim.time));
+    // Multiplayer: once someone has finished, the others see how long they have left.
+    this.endsText.setText(sim.finishCountdown >= 0 && !p.finished ? t('hud.raceEnds', { s: Math.ceil(sim.finishCountdown) }) : '');
 
     // Item slots: the roulette spins in the first free slot, then the item stays there.
     const rolling = p.rouletteItem ? p.slots.findIndex((s) => s === null) : -1;
@@ -241,24 +246,32 @@ export class HudScene extends Phaser.Scene {
     if (this.paused) return this.resume();
     if (this.race.sim.phase === 'over') return;
     this.paused = true;
-    this.race.scene.pause();
-    audio.muteEngines(true);
+    // An online race goes on while the menu is open: only a local race is paused.
+    const online = !!this.race.online;
+    if (!online) {
+      this.race.scene.pause();
+      audio.muteEngines(true);
+    }
     audio.duckMusic(true);
     const shade = this.add.rectangle(640, 360, 1280, 720, 0x000000, 0.6).setInteractive();
     const title = text(this, 640, 160, t('pause.title'), 80).setStroke('#0b3a5b', 10);
     const resume = button(this, 640, 280, 360, 72, t('pause.resume'), () => this.resume(), { fill: 0x2d9d5a, textSize: 36 });
-    const opts = button(this, 640, 460, 360, 72, t('menu.options'), () => this.scene.launch('Options', { overlay: true }), { fill: 0x3d5266, textSize: 36 });
+    const opts = button(this, 640, online ? 370 : 460, 360, 72, t('menu.options'), () => this.scene.launch('Options', { overlay: true }), { fill: 0x3d5266, textSize: 36 });
     const restart = button(this, 640, 370, 360, 72, t('pause.restart'), () => {
       this.resume();
       this.race.scene.restart();
-    }, { textSize: 38 });
-    const quit = button(this, 640, 550, 360, 72, t('pause.quit'), () => {
+    }, { textSize: 38 }).setVisible(!online);
+    const quit = button(this, 640, online ? 460 : 550, 360, 72, online ? t('pause.leave') : t('pause.quit'), () => {
       this.overlay?.destroy();
       this.paused = false;
       audio.muteEngines(false);
+      audio.duckMusic(false);
       this.race.scene.stop();
       this.scene.stop();
-      this.scene.start('BoatSelect');
+      if (online) {
+        net.leave();
+        this.scene.start('Online');
+      } else this.scene.start('BoatSelect');
     }, { fill: 0x8a4a4a, textSize: 36 });
     this.overlay = this.add.container(0, 0, [shade, title, resume, restart, opts, quit]).setDepth(100);
   }

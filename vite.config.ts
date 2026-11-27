@@ -8,4 +8,6 @@ export default defineConfig({
     rollupOptions: { output: { manualChunks: { phaser: ['phaser'] } } },
   },
   test: { include: ['tests/**/*.test.ts'] },
+  // In development the multiplayer server runs separately (npm run dev:server, on port 8787).
+  server: { proxy: { '/api': { target: 'http://127.0.0.1:8787', ws: true } } },
 });

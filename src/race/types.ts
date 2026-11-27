@@ -24,7 +24,10 @@ export type Slot = { id: ItemId; uses: number } | null;
 export interface Racer {
   id: number;
   name: string;
+  /** The racer this screen follows ("You"). */
   isPlayer: boolean;
+  /** Driven by a person (locally or over the network), not the AI. */
+  human: boolean;
   boat: BoatDef;
   stats: BoatStats;
   /** Tint colour used by the view to tell racers apart. */

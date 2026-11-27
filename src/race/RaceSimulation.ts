@@ -23,14 +23,32 @@ const GRID = [
 
 export interface RaceSetup {
   track: Track;
-  playerBoat: string | null; // null = no player (all AI), used by headless tests
+  /** Single player: the player's boat; null = no player (all AI, headless tests). Unused with a roster. */
+  playerBoat?: string | null;
   difficulty: Difficulty;
   seed: number;
   aiCount?: number;
   forcedItem?: ItemId | null;
   /** Overrides the player's controller (the view supplies a pointer controller). */
   playerController?: Controller;
+  /**
+   * Multiplayer: the exact starting grid, in order. Humans bring their own controller (a network
+   * input queue on the server); seats without one are driven by the AI. Replaces playerBoat/aiCount.
+   */
+  roster?: RosterEntry[];
+  /** With a roster: which racer this screen follows (isPlayer). Defaults to the first human. */
+  localRacer?: number;
 }
+
+export interface RosterEntry {
+  name: string;
+  boatId: string;
+  human: boolean;
+  controller?: Controller;
+}
+
+/** Multiplayer: once the first person finishes, the others have this long before the race ends. */
+export const FINISH_GRACE = 30;
 
 export interface RaceResult {
   racer: Racer;
@@ -54,6 +72,8 @@ export class RaceSimulation {
   private lastCountdown = 4;
   private startBoostDone = false;
   private endTimer = -1;
+  /** Multiplayer: seconds left for the others once the first person has finished (-1 = not started). */
+  finishCountdown = -1;
   private controllers = new Map<number, Controller>();
   private autopilots = new Map<number, Controller>();
   private events: RaceEvent[] = [];
@@ -65,8 +85,30 @@ export class RaceSimulation {
     this.forcedItem = setup.forcedItem ?? null;
     const diff = DIFFICULTIES[setup.difficulty];
 
-    const boats: { boat: BoatDef; isPlayer: boolean; name: string }[] = [];
-    if (setup.playerBoat) boats.push({ boat: getBoat(setup.playerBoat), isPlayer: true, name: 'You' });
+    const boats: { boat: BoatDef; isPlayer: boolean; human: boolean; name: string; controller?: Controller }[] = [];
+    if (setup.roster) {
+      const local = setup.localRacer ?? setup.roster.findIndex((e) => e.human);
+      setup.roster.forEach((e, i) => boats.push({ boat: getBoat(e.boatId), isPlayer: i === local, human: e.human, name: e.name, controller: e.controller }));
+    } else this.buildSinglePlayerGrid(setup, boats);
+
+    boats.forEach((b, i) => {
+      const slot = GRID[i % GRID.length];
+      const p = this.track.pointAt(this.track.alongOf(slot.along), slot.across);
+      const r = this.makeRacer(i, b.boat, b.name, b.isPlayer, p.x, p.y, p.heading, slot.along);
+      r.human = b.human;
+      this.racers.push(r);
+      if (b.isPlayer) this.player = r;
+      const own = b.controller ?? (b.isPlayer && !setup.roster ? setup.playerController : undefined);
+      this.controllers.set(r.id, own ?? new AIController(this.rng, diff, b.isPlayer ? 0 : this.rng.range(-0.25, 0.25)));
+    });
+    if (setup.roster && !this.player) this.player = this.racers.find((r) => r.human) ?? null;
+    this.items = new ItemSystem(this);
+    this.updateRanking();
+  }
+
+  /** One player (or none, for headless tests) against AI boats with random boats and names. */
+  private buildSinglePlayerGrid(setup: RaceSetup, boats: { boat: BoatDef; isPlayer: boolean; human: boolean; name: string }[]): void {
+    if (setup.playerBoat) boats.push({ boat: getBoat(setup.playerBoat), isPlayer: true, human: true, name: 'You' });
     const pool = BOATS.map((b) => b.id).filter((id) => id !== setup.playerBoat);
     const aiCount = setup.aiCount ?? (setup.playerBoat ? 3 : 4);
     const names = [...AI_NAMES];
@@ -75,34 +117,28 @@ export class RaceSimulation {
       const [id] = pool.splice(idx, 1);
       const nameIdx = this.rng.int(0, names.length - 1);
       const [name] = names.splice(nameIdx, 1);
-      boats.push({ boat: getBoat(id), isPlayer: false, name });
+      boats.push({ boat: getBoat(id), isPlayer: false, human: false, name });
     }
     // Put the player on the grid in third place.
     const pi = boats.findIndex((b) => b.isPlayer);
     if (pi >= 0 && boats.length > 2) boats.splice(2, 0, boats.splice(pi, 1)[0]);
+  }
 
-    boats.forEach((b, i) => {
-      const slot = GRID[i % GRID.length];
-      const p = this.track.pointAt(this.track.alongOf(slot.along), slot.across);
-      const r = this.makeRacer(i, b.boat, b.name, b.isPlayer, p.x, p.y, p.heading, slot.along);
-      this.racers.push(r);
-      if (b.isPlayer) {
-        this.player = r;
-        if (setup.playerController) this.controllers.set(r.id, setup.playerController);
-        else this.controllers.set(r.id, new AIController(this.rng, diff, 0));
-      } else {
-        this.controllers.set(r.id, new AIController(this.rng, diff, this.rng.range(-0.25, 0.25)));
-      }
-    });
-    this.items = new ItemSystem(this);
-    this.updateRanking();
+  /** Swap who drives a racer (multiplayer: a player who leaves is replaced by the AI). */
+  setController(id: number, controller: Controller | 'ai'): void {
+    const r = this.racers[id];
+    if (!r) return;
+    if (controller === 'ai') {
+      r.human = false;
+      this.controllers.set(id, new AIController(this.rng, DIFFICULTIES[this.difficulty], 0));
+    } else this.controllers.set(id, controller);
   }
 
   private makeRacer(id: number, boat: BoatDef, name: string, isPlayer: boolean, x: number, y: number, heading: number, progress: number): Racer {
     const stats = deriveStats(boat);
     const near = this.track.nearest(x, y, -1);
     return {
-      id, name, isPlayer, boat, stats, color: RACER_COLORS[id % RACER_COLORS.length],
+      id, name, isPlayer, human: isPlayer, boat, stats, color: RACER_COLORS[id % RACER_COLORS.length],
       x, y, vx: 0, vy: 0, heading, spin: 0,
       hull: stats.maxHull, effects: [], inGlue: false, sinceHit: 99, sinkTimer: 0,
       slots: [null, null], rouletteT: 0, rouletteItem: null, recentItems: [], jigsawHit: new Set(),
@@ -325,7 +361,17 @@ export class RaceSimulation {
 
   private checkEnd(dt: number): void {
     if (this.endTimer < 0) {
-      const done = this.player ? this.player.finished : this.racers.every((r) => r.finished);
+      const humans = this.racers.filter((r) => r.human);
+      let done: boolean;
+      if (humans.length > 1) {
+        // Multiplayer: everyone finished, or the others ran out of time after the first finisher.
+        done = humans.every((h) => h.finished);
+        if (!done && humans.some((h) => h.finished)) {
+          if (this.finishCountdown < 0) this.finishCountdown = FINISH_GRACE;
+          this.finishCountdown -= dt;
+          if (this.finishCountdown <= 0) done = true;
+        }
+      } else done = this.player ? this.player.finished : this.racers.every((r) => r.finished);
       if (done) this.endTimer = this.player ? 3 : 0;
     } else {
       this.endTimer -= dt;
