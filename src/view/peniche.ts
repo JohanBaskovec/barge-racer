@@ -5,7 +5,7 @@ type G = Phaser.GameObjects.Graphics;
 type Pt = { x: number; y: number };
 
 /**
- * The Garden Barge: a real péniche moored on the canal, redrawn from an aerial photo, seen from
+ * Cabourg: a real péniche moored on the canal, redrawn from an aerial photo, seen from
  * above with the bow to the right (the photo's left side is the top edge here).
  *
  * From bow to stern: a blunt rounded bow with a blue tarp over the side, a long lavender-grey roof

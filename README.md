@@ -66,7 +66,7 @@ Debug URL parameters (see [Architecture](docs/architecture.md#debug-flags)):
 
 - Pointer steering (hold and point), item button, right click / second finger /
   `Space` to fire, swipe down on the item button to fire backwards.
-- 8 boats with different stats, starting with the **Garden Barge**, a real péniche
+- 8 boats with different stats, starting with **Cabourg**, a real péniche
   from the canal drawn from an aerial photo; boat select with stat bars.
 - 3 tracks (Lock & Load, Industrial Estuary, Bayou Bends) and track select.
 - **Canal de Reims**: the real canal from boulevard Paul Doumer to the Sillery

@@ -68,7 +68,7 @@ export const BOATS: BoatDef[] = [
   {
     // A real péniche moored on the canal, drawn from an aerial photo: two long roofs with a lawn
     // between them. First in the list = the default boat.
-    id: 'gardenBarge', shape: 'peniche', accent: true, unlockedByDefault: true,
+    id: 'cabourg', shape: 'peniche', accent: true, unlockedByDefault: true,
     ratings: { speed: 4, accel: 4, handling: 5, weight: 8, hull: 9 },
     size: { length: 150, width: 25 },
   },

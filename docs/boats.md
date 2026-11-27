@@ -22,7 +22,7 @@ track with no items.
 
 ## Roster
 
-### Garden Barge (default)
+### Cabourg (default)
 *A real péniche moored on the canal, redrawn from an aerial photo: two long roofs over the holds with a lawn between them, a white wheelhouse and a wooden stern deck.*
 
 | Speed | Accel | Handling | Weight | Hull |
@@ -105,7 +105,7 @@ can cut briefly over sandbanks (not solid banks).
 
 ### Unlock order
 
-At the start: Garden Barge, Coal Barge, Tugboat, Narrowboat, Party Pontoon.
+At the start: Cabourg, Coal Barge, Tugboat, Narrowboat, Party Pontoon.
 Winning the Canal Cup unlocks the Cigarette Speedboat, winning the Open Water Cup
 unlocks the Fire Boat, and winning both cups on Ocean difficulty unlocks the
 Hovercraft.

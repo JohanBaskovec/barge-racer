@@ -8,7 +8,7 @@ export interface Selection {
 
 const KEY = 'barge-racer-selection';
 
-const defaults: Selection = { boatId: 'gardenBarge', trackId: 'lockAndLoad', difficulty: 'river' };
+const defaults: Selection = { boatId: 'cabourg', trackId: 'lockAndLoad', difficulty: 'river' };
 
 /** The player's last menu choices, remembered between races (and reloads, where possible). */
 export const session: Selection = { ...defaults };

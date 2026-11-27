@@ -7,9 +7,9 @@ import type { Racer } from '../src/race/types';
 import { session } from '../src/session';
 
 describe('boat roster', () => {
-  it('starts with the Garden Barge, which is also the default boat', () => {
-    expect(BOATS[0].id).toBe('gardenBarge');
-    expect(session.boatId).toBe('gardenBarge');
+  it('starts with Cabourg, which is also the default boat', () => {
+    expect(BOATS[0].id).toBe('cabourg');
+    expect(session.boatId).toBe('cabourg');
   });
 
   it('keeps every boat balanced: ratings add up to 30', () => {
@@ -19,7 +19,7 @@ describe('boat roster', () => {
     }
   });
 
-  it('the Garden Barge is the longest and thinnest boat, drawn in its own colours', () => {
+  it('Cabourg is the longest and thinnest boat, drawn in its own colours', () => {
     const barge = BOATS[0];
     for (const b of BOATS.slice(1)) {
       expect(barge.size.length).toBeGreaterThan(b.size.length);
@@ -43,7 +43,7 @@ describe('boat roster', () => {
 
 describe('capsule collisions (long boats)', () => {
   const two = (): [Racer, Racer, RaceSimulation] => {
-    const sim = new RaceSimulation({ track: loadTrack('lockAndLoad'), playerBoat: 'gardenBarge', difficulty: 'river', seed: 1 });
+    const sim = new RaceSimulation({ track: loadTrack('lockAndLoad'), playerBoat: 'cabourg', difficulty: 'river', seed: 1 });
     const a = sim.player!;
     const b = sim.racers.find((r) => r !== a)!;
     for (const r of [a, b]) {
@@ -101,7 +101,7 @@ describe('capsule collisions (long boats)', () => {
 
 describe('starting grid', () => {
   it('fits the longest boat without overlapping the row in front', () => {
-    const sim = new RaceSimulation({ track: loadTrack('bayouBends'), playerBoat: 'gardenBarge', difficulty: 'river', seed: 3 });
+    const sim = new RaceSimulation({ track: loadTrack('bayouBends'), playerBoat: 'cabourg', difficulty: 'river', seed: 3 });
     for (let i = 0; i < sim.racers.length; i++) {
       for (let j = i + 1; j < sim.racers.length; j++) {
         const a = sim.racers[i], b = sim.racers[j];
