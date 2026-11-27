@@ -15,6 +15,7 @@ export const MUSIC_FOR: Record<TrackDef['theme'], ThemeName> = { canal: 'race', 
 const ITEM_SOUND: Partial<Record<ItemId, SfxName>> = {
   volunteer: 'volunteer', volunteerSquad: 'volunteer', jigsaw: 'jigsaw', whitePowder: 'powder', bigBag: 'powder',
   drill: 'drill', siliconeGun: 'silicone', fakeCrate: 'drop', mushroom: 'mushroom',
+  blackout: 'blackout', raclette: 'raclette', toilet: 'toilet', karcher: 'karcher',
   // glue: the sound plays when the puddle appears (also for the silicone gun's shots)
 };
 
@@ -118,7 +119,7 @@ export class RaceAudio {
         break;
       case 'hit': {
         const r = racers[e.racer];
-        this.at(e.source === 'fakeCrate' ? 'trap' : e.source === 'bank' ? 'bank' : 'hit', r.x, r.y, e.racer === me ? 1.2 : 1);
+        this.at(e.source === 'fakeCrate' ? 'trap' : e.source === 'bank' ? 'bank' : e.source === 'toilet' ? 'toxic' : 'hit', r.x, r.y, e.racer === me ? 1.2 : 1);
         break;
       }
       case 'bank':

@@ -29,7 +29,13 @@ export interface Racer {
   /** Driven by a person (locally or over the network), not the AI. */
   human: boolean;
   boat: BoatDef;
+  /** The boat's current stats: `baseStats` scaled by `size` (smaller hull, lighter). */
   stats: BoatStats;
+  baseStats: BoatStats;
+  /** 1 normally; smaller while shrunk by a mushroom (eases there and back). */
+  size: number;
+  /** Who last sprayed this boat with a Kärcher, for the crash that follows (server and offline only). */
+  soakedBy: number | null;
   /** Tint colour used by the view to tell racers apart. */
   color: number;
 
@@ -137,10 +143,38 @@ export interface GlueBlob {
   dead: boolean;
 }
 
-export interface Crate {
+/** Food fired by the ultimate raclette: kind 0 is the potato, 1 a slice of ham. Flies straight, hits the first boat. */
+export interface Shot {
   id: number;
+  owner: number;
+  kind: 0 | 1;
   x: number;
   y: number;
+  heading: number;
+  travelled: number;
+  age: number;
+  near: number;
+  dead: boolean;
+}
+
+/** Something that lies on the water for a while: kind 0 is melted cheese, 1 is toxic smoke. */
+export interface Cloud {
+  id: number;
+  owner: number;
+  kind: 0 | 1;
+  x: number;
+  y: number;
+  age: number;
+  dead: boolean;
+}
+
+export interface Crate {
+  id: number;
+  /** Where it is now: a magic mushroom pulls crates away from home. */
+  x: number;
+  y: number;
+  homeX: number;
+  homeY: number;
   respawn: number;
 }
 

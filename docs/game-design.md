@@ -95,11 +95,15 @@ the strongest. The full item list and the luck rules are in [Items](items.md):
 | Jigsaw | A saw blade on the bow for a few seconds; damages whoever you ram |
 | White Powder | A short, strong speed boost |
 | Electric Drill | A drill bit fired straight ahead |
-| Glue | A puddle dropped behind you that slows anyone driving through it |
+| Glue | A puddle dropped behind you that nearly stops anyone driving through it: worse than a hit |
 | Silicone Gun | Shoots glue ahead of you: it lands on the boat it hits |
 | Fake Crate | A trap that looks like a real crate and hurts whoever hits it |
-| Beer Crate | Heals half your hull on the spot (never takes a slot) |
-| Magic Mushrooms | Does nothing but make your screen psychedelic; the rarest item |
+| Beer Crate | Heals half your hull when you drink it |
+| Magic Mushrooms | Everyone ahead shrinks, everyone behind speeds up, crates fly to you; the rarest item |
+| Electrical Failure | Every opponent loses their controls for a few seconds |
+| Ultimate Raclette | A potato and two slices of ham ahead, melted cheese behind, cheese over the victims' screens |
+| Clogged Toilet | A cloud of toxic smoke behind you that hurts everyone in it, you too |
+| Kärcher | Water jets on both sides push boats alongside into the bank |
 
 ## Race modes
 

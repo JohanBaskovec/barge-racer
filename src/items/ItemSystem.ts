@@ -3,7 +3,7 @@ import { addEffect, hasEffect } from '../effects/effects';
 import { isTouching } from '../physics/collisions';
 import { turnTowards } from '../physics/math';
 import type { RaceSimulation } from '../race/RaceSimulation';
-import type { Crate, Drill, FakeCrate, GlueBlob, GluePuddle, Racer, Volunteer } from '../race/types';
+import type { Cloud, Crate, Drill, FakeCrate, GlueBlob, GluePuddle, Racer, Shot, Volunteer } from '../race/types';
 import { drawItem } from './itemOdds';
 
 /** Crates, item roulette, item activation and the entities items spawn. */
@@ -14,7 +14,11 @@ export class ItemSystem {
   puddles: GluePuddle[] = [];
   fakeCrates: FakeCrate[] = [];
   blobs: GlueBlob[] = [];
+  shots: Shot[] = [];
+  clouds: Cloud[] = [];
   private nextId = 1;
+  /** When each boat last got a "toxic" hit event (the smoke hurts every step, but is announced now and then). */
+  private toxicAt = new Map<number, number>();
 
   constructor(private sim: RaceSimulation) {
     this.buildCrates();
@@ -29,7 +33,7 @@ export class ItemSystem {
         const spread = Math.min(70, (s.width * 0.7) / row.count);
         const lateral = (i - (row.count - 1) / 2) * spread;
         const p = track.pointAt(along, lateral);
-        this.crates.push({ id: this.nextId++, x: p.x, y: p.y, respawn: 0 });
+        this.crates.push({ id: this.nextId++, x: p.x, y: p.y, homeX: p.x, homeY: p.y, respawn: 0 });
       }
     }
   }
@@ -45,23 +49,10 @@ export class ItemSystem {
     return r.slots.findIndex((s) => s === null);
   }
 
-  /** Put an item into the first free slot (instant items like beer are applied instead). */
+  /** Put an item into the first free slot. */
   give(r: Racer, id: ItemId): void {
-    const info = ITEM_INFO[id];
-    if (info.instant) {
-      this.applyInstant(r, id);
-      return;
-    }
     const k = this.freeSlot(r);
-    if (k >= 0) r.slots[k] = { id, uses: info.uses };
-  }
-
-  private applyInstant(r: Racer, id: ItemId): void {
-    if (id === 'beer') {
-      const before = r.hull;
-      r.hull = Math.min(r.stats.maxHull, r.hull + r.stats.maxHull * TUNING.beer.healFraction);
-      this.sim.emit({ type: 'heal', racer: r.id, amount: r.hull - before });
-    }
+    if (k >= 0) r.slots[k] = { id, uses: ITEM_INFO[id].uses };
   }
 
   use(r: Racer, slot: number, dir: 'forward' | 'backward'): void {
@@ -110,13 +101,54 @@ export class ItemSystem {
         this.fakeCrates.push({ id: this.nextId++, owner: r.id, x: r.x + Math.cos(back) * dist, y: r.y + Math.sin(back) * dist, age: 0, dead: false });
         break;
       }
-      case 'mushroom': // The effect is purely visual, shown by the view of the player who used it.
-      case 'beer': // Instant item: never held, nothing to do.
+      case 'beer': {
+        const before = r.hull;
+        r.hull = Math.min(r.stats.maxHull, r.hull + r.stats.maxHull * TUNING.beer.healFraction);
+        this.sim.emit({ type: 'heal', racer: r.id, amount: r.hull - before });
+        break;
+      }
+      case 'mushroom': {
+        // Whoever is ahead shrinks, whoever is behind speeds up, crates come to the user.
+        // (The user's screen goes psychedelic: that part is the view's.)
+        const d = TUNING.mushroom.duration;
+        addEffect(r, 'magnet', d);
+        for (const o of this.sim.racers) {
+          if (o === r || o.finished || o.sinkTimer > 0) continue;
+          addEffect(o, o.progress > r.progress ? 'shrunk' : 'hasty', d);
+        }
+        break;
+      }
+      case 'blackout':
+        for (const o of this.sim.racers) if (o !== r && !o.finished && o.sinkTimer <= 0) addEffect(o, 'blackout', TUNING.blackout.duration);
+        break;
+      case 'raclette': {
+        // Always a potato and two slices of ham straight ahead in a fan, and cheese behind (whatever the direction).
+        const R = TUNING.raclette;
+        const front = r.boat.size.length / 2 + 12;
+        for (const [kind, off] of [[0, 0], [1, -R.spread], [1, R.spread]] as const) {
+          const a = r.heading + off;
+          this.shots.push({ id: this.nextId++, owner: r.id, kind, x: r.x + Math.cos(a) * front, y: r.y + Math.sin(a) * front, heading: a, travelled: 0, age: 0, near: r.nearestIndex, dead: false });
+        }
+        this.dropCloud(r, 0, R.cheeseRadius);
+        break;
+      }
+      case 'toilet':
+        this.dropCloud(r, 1, TUNING.toilet.radius);
+        break;
+      case 'karcher':
+        addEffect(r, 'karcher', TUNING.karcher.duration);
         break;
     }
     this.sim.emit({ type: 'itemUsed', racer: r.id, item });
     held.uses--;
     if (held.uses <= 0) r.slots[slot] = null;
+  }
+
+  /** A cloud on the water just behind the stern, like glue. */
+  private dropCloud(r: Racer, kind: 0 | 1, radius: number): void {
+    const back = r.heading + Math.PI;
+    const dist = r.boat.size.length / 2 + radius * 0.6;
+    this.clouds.push({ id: this.nextId++, owner: r.id, kind, x: r.x + Math.cos(back) * dist, y: r.y + Math.sin(back) * dist, age: 0, dead: false });
   }
 
   private spawnPuddle(x: number, y: number, owner: number): void {
@@ -137,13 +169,43 @@ export class ItemSystem {
     this.updateVolunteers(dt);
     this.updateDrills(dt);
     this.updateBlobs(dt);
+    this.updateShots(dt);
     this.updateFakeCrates(dt);
     this.updatePuddles(dt);
+    this.updateClouds(dt);
+    this.updateKarcher(dt);
     this.volunteers = this.volunteers.filter((v) => !v.dead);
     this.drills = this.drills.filter((d) => !d.dead);
     this.puddles = this.puddles.filter((p) => !p.dead);
     this.blobs = this.blobs.filter((b) => !b.dead);
     this.fakeCrates = this.fakeCrates.filter((f) => !f.dead);
+    this.shots = this.shots.filter((s) => !s.dead);
+    this.clouds = this.clouds.filter((c) => !c.dead);
+  }
+
+  /** Crates a magic mushroom is pulling: they fly to the nearest boat that has eaten one, and float home when let go. */
+  private moveCrate(c: Crate, dt: number): void {
+    const M = TUNING.mushroom;
+    let target: Racer | null = null;
+    let best = M.magnetRadius;
+    for (const r of this.sim.racers) {
+      if (!hasEffect(r, 'magnet') || r.sinkTimer > 0) continue;
+      const d = Math.hypot(r.x - c.x, r.y - c.y);
+      if (d < best) {
+        best = d;
+        target = r;
+      }
+    }
+    if (target) {
+      const step = Math.min(best, M.magnetSpeed * dt);
+      c.x += ((target.x - c.x) / (best || 1)) * step;
+      c.y += ((target.y - c.y) / (best || 1)) * step;
+    } else if (c.x !== c.homeX || c.y !== c.homeY) {
+      const d = Math.hypot(c.homeX - c.x, c.homeY - c.y);
+      const step = Math.min(d, M.homeSpeed * dt);
+      c.x += ((c.homeX - c.x) / (d || 1)) * step;
+      c.y += ((c.homeY - c.y) / (d || 1)) * step;
+    }
   }
 
   private updateCrates(dt: number): void {
@@ -153,10 +215,13 @@ export class ItemSystem {
         if (c.respawn <= 0) this.sim.emit({ type: 'crate', id: c.id, taken: false });
         continue;
       }
+      this.moveCrate(c, dt);
       for (const r of this.sim.racers) {
         if (r.sinkTimer > 0 || this.sim.isGhost(r)) continue;
         if (!isTouching(r, c.x, c.y, TUNING.crateRadius - r.stats.radius * 0.4)) continue;
         c.respawn = TUNING.crateRespawn;
+        c.x = c.homeX; // it comes back in its place
+        c.y = c.homeY;
         this.sim.emit({ type: 'crate', id: c.id, taken: true });
         // A crate only gives something if a slot is free and the roulette isn't already spinning.
         if (this.freeSlot(r) >= 0 && !r.rouletteItem) {
@@ -166,7 +231,6 @@ export class ItemSystem {
             farBehind: leader - r.progress > this.sim.track.lapLength,
             volunteersInFlight: this.volunteersInFlight,
             recentItems: r.recentItems,
-            hullFraction: r.hull / r.stats.maxHull,
           });
           if (this.sim.forcedItem) r.rouletteItem = this.sim.forcedItem;
           else r.rouletteItem = item;
@@ -216,6 +280,7 @@ export class ItemSystem {
       for (const v of this.volunteers) if (v.owner !== r.id && inCone(v.x, v.y, 12)) v.dead = true;
       for (const d of this.drills) if (d.owner !== r.id && inCone(d.x, d.y, 12)) d.dead = true;
       for (const b of this.blobs) if (b.owner !== r.id && inCone(b.x, b.y, 12)) b.dead = true;
+      for (const s of this.shots) if (s.owner !== r.id && inCone(s.x, s.y, 12)) s.dead = true;
       for (const f of this.fakeCrates) if (f.owner !== r.id && inCone(f.x, f.y, TUNING.fakeCrate.radius)) f.dead = true;
     }
   }
@@ -326,6 +391,86 @@ export class ItemSystem {
       } else if (b.travelled >= TUNING.silicone.range) {
         this.spawnPuddle(b.x, b.y, b.owner);
         b.dead = true;
+      }
+    }
+  }
+
+  /** Potato and ham: straight shots that hit the first boat and cover it in cheese. */
+  private updateShots(dt: number): void {
+    const R = TUNING.raclette;
+    for (const s of this.shots) {
+      if (s.dead) continue;
+      const spec = s.kind === 0 ? R.potato : R.ham;
+      const speed = FASTEST_TOP_SPEED * spec.speedMult;
+      s.age += dt;
+      s.x += Math.cos(s.heading) * speed * dt;
+      s.y += Math.sin(s.heading) * speed * dt;
+      s.travelled += speed * dt;
+      if (s.travelled > R.range) {
+        s.dead = true;
+        continue;
+      }
+      for (const r of this.sim.racers) {
+        if (r.sinkTimer > 0 || this.sim.isGhost(r) || (r.id === s.owner && s.age < 0.5)) continue;
+        if (isTouching(r, s.x, s.y, spec.radius)) {
+          if (this.sim.hit(r, spec.damage, s.owner, 'raclette')) addEffect(r, 'cheesed', R.splashTime);
+          s.dead = true;
+          break;
+        }
+      }
+      if (!s.dead && this.outOfWater(s, 0)) s.dead = true;
+    }
+  }
+
+  /** Melted cheese covers whoever drives through it; toxic smoke hurts them, the owner too after a moment. */
+  private updateClouds(dt: number): void {
+    const R = TUNING.raclette, T = TUNING.toilet;
+    for (const c of this.clouds) {
+      c.age += dt;
+      const [radius, life, immunity] = c.kind === 0 ? [R.cheeseRadius, R.cheeseLife, R.cheeseOwnerImmunity] : [T.radius, T.life, T.ownerImmunity];
+      if (c.age > life) c.dead = true;
+      if (c.dead) continue;
+      const grow = Math.min(1, c.age / 0.4);
+      for (const r of this.sim.racers) {
+        if (r.sinkTimer > 0 || this.sim.isGhost(r) || (r.id === c.owner && c.age < immunity)) continue;
+        const rr = radius * grow + r.stats.radius * 0.4;
+        if ((r.x - c.x) ** 2 + (r.y - c.y) ** 2 > rr * rr) continue;
+        if (c.kind === 0) addEffect(r, 'cheesed', R.cheeseTime);
+        else if (this.sim.poison(r, T.dps * dt)) {
+          if (this.sim.time - (this.toxicAt.get(r.id) ?? -99) >= T.feedbackEvery) {
+            this.toxicAt.set(r.id, this.sim.time);
+            this.sim.emit({ type: 'hit', racer: r.id, by: c.owner, source: 'toilet', damage: T.dps * T.feedbackEvery });
+          }
+        }
+      }
+    }
+  }
+
+  /** Water jets on both sides push every boat alongside away, sideways, and leave it wet. */
+  private updateKarcher(dt: number): void {
+    const K = TUNING.karcher;
+    for (const r of this.sim.racers) {
+      if (!hasEffect(r, 'karcher') || r.sinkTimer > 0) continue;
+      const hx = Math.cos(r.heading), hy = Math.sin(r.heading);
+      const nx = -hy, ny = hx;
+      const halfLen = r.boat.size.length / 2 + 160;
+      for (const o of this.sim.racers) {
+        if (o === r || o.sinkTimer > 0 || o.finished || this.sim.isGhost(o)) continue;
+        const dx = o.x - r.x, dy = o.y - r.y;
+        const f = dx * hx + dy * hy;
+        const p = dx * nx + dy * ny;
+        const gap = Math.abs(p) - r.stats.capRadius - o.stats.capRadius;
+        if (Math.abs(f) > halfLen || gap > K.reach) continue;
+        const side = p >= 0 ? 1 : -1;
+        const strength = 1 - Math.max(0, gap) / K.reach; // closer to the nozzle, harder the push
+        const away = (o.vx * nx + o.vy * ny) * side;
+        if (away < K.maxSideSpeed) {
+          const a = ((K.push * strength) / o.stats.mass) * dt;
+          o.vx += nx * side * a;
+          o.vy += ny * side * a;
+        }
+        addEffect(o, 'soaked', K.soakTime);
+        o.soakedBy = r.id;
       }
     }
   }

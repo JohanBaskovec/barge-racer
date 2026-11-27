@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { audio } from './audio/AudioManager';
 import { net } from './net/client';
 import { DEBUG, GAME_HEIGHT, GAME_WIDTH } from './config';
+import { itemName } from './i18n';
 import { BoatSelectScene } from './scenes/BoatSelectScene';
 import { BootScene } from './scenes/BootScene';
 import { HudScene } from './scenes/HudScene';
@@ -30,4 +31,4 @@ const game = new Phaser.Game({
   scene: [BootScene, TitleScene, BoatSelectScene, TrackSelectScene, RaceScene, HudScene, ResultsScene, OptionsScene, OnlineScene, LobbyScene, SectionScene],
 });
 
-if (DEBUG.enabled) Object.assign(window, { game, audio, net });
+if (DEBUG.enabled) Object.assign(window, { game, audio, net, __itemName: itemName });

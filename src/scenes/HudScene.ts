@@ -2,7 +2,8 @@ import Phaser from 'phaser';
 import { ITEM_INFO, type ItemId } from '../data/items';
 import { FONT } from '../config';
 import { formatNumber, itemName, ordinal, t } from '../i18n';
-import type { RaceEvent } from '../race/types';
+import type { EffectKind } from '../effects/effects';
+import type { RaceEvent, Racer } from '../race/types';
 import { audio } from '../audio/AudioManager';
 import { options } from '../options';
 import { net } from '../net/client';
@@ -43,6 +44,10 @@ export class HudScene extends Phaser.Scene {
   private overlay?: Phaser.GameObjects.Container;
   private lastPopup = 0;
   private watchText?: Phaser.GameObjects.Text;
+  /** Melted cheese covering the view (raclette), and which status effects were on last frame (to announce new ones). */
+  private cheese!: Phaser.GameObjects.Image;
+  private seen = new Set<string>();
+  private lastToxicPopup = -9999;
   private netText!: Phaser.GameObjects.Text;
 
   constructor() {
@@ -57,6 +62,9 @@ export class HudScene extends Phaser.Scene {
   create(): void {
     const race = this.race;
     const stroke = '#0b3a5b';
+    // First, so everything else of the HUD is drawn over it: the cheese covers the race, not the buttons.
+    this.cheese = this.add.image(640, 0, 'cheeseScreen').setOrigin(0.5, 0).setVisible(false);
+    this.seen.clear();
     this.posText = text(this, 24, 22, '', 60).setOrigin(0, 0).setStroke(stroke, 8);
     this.lapText = text(this, 26, 92, '', 30).setOrigin(0, 0).setStroke(stroke, 6);
     this.timeText = text(this, 26, 130, '', 26, '#ffe08a').setOrigin(0, 0).setStroke(stroke, 5);
@@ -185,6 +193,7 @@ export class HudScene extends Phaser.Scene {
     }
     this.timeText.setText(sim.phase === 'countdown' ? '' : fmtTime(sim.time));
     this.netText.setVisible(net.reconnecting);
+    this.updateStatus(p);
     if (this.watchText) fitText(this.watchText.setText(t('watch.title', { name: p.name })), 760);
     // Multiplayer: once someone has finished, the others see how long they have left.
     this.endsText.setText(sim.finishCountdown >= 0 && !p.finished ? t('hud.raceEnds', { s: Math.ceil(sim.finishCountdown) }) : '');
@@ -215,6 +224,29 @@ export class HudScene extends Phaser.Scene {
     this.drawTrip(time);
 
     this.drawMap();
+  }
+
+  /**
+   * Status effects on the player: announce the ones that just started, and cover the screen with
+   * cheese while the player is cheesed: it drops in with a splat, stays, then runs down and off.
+   */
+  private updateStatus(p: Racer): void {
+    const now = new Set<string>();
+    for (const e of p.effects) if (e.remaining > 0) now.add(e.kind);
+    const announce: [EffectKind, string, string][] = [
+      ['blackout', 'hud.blackout', '#ffe04a'], ['cheesed', 'hud.cheese', '#ffd23f'], ['shrunk', 'hud.shrunk', '#bfe1f7'], ['hasty', 'hud.hasty', '#ffb0d9'],
+    ];
+    for (const [kind, key, color] of announce) if (now.has(kind) && !this.seen.has(kind)) this.popup(t(key as 'hud.blackout'), color);
+    this.seen = now;
+
+    const e = p.effects.find((x) => x.kind === 'cheesed' && x.remaining > 0);
+    this.cheese.setVisible(!!e);
+    if (!e) return;
+    const age = e.duration - e.remaining;
+    const drop = Math.min(1, age / 0.3);
+    const eased = 1 - (1 - drop) ** 3;
+    const leave = Math.max(0, Math.min(1, 1 - e.remaining)); // the last second: it runs down
+    this.cheese.setY(-900 * (1 - eased) + leave * leave * 760).setAlpha(1 - leave * 0.4);
   }
 
   /** A slowly cycling rainbow wash over the whole screen while the player is tripping. */
@@ -255,8 +287,13 @@ export class HudScene extends Phaser.Scene {
         if (e.racer === me) this.popup(t('hud.heal'), '#9dff9d');
         break;
       case 'hit':
-        if (e.racer === me) this.popup(e.source === 'bank' ? t('hud.crunch') : e.source === 'fakeCrate' ? t('hud.trap') : t('hud.hit'), '#ff8a7a');
-        else if (e.by === me) this.popup(t('hud.gotHim'), '#ffe08a');
+        if (e.racer === me) {
+          if (e.source === 'toilet') {
+            // The smoke hurts every step: say so now and then, not every time.
+            if (this.time.now - this.lastToxicPopup > 1800) this.popup(t('hud.toxic'), '#b7d85a');
+            this.lastToxicPopup = this.time.now;
+          } else this.popup(e.source === 'bank' ? t('hud.crunch') : e.source === 'fakeCrate' ? t('hud.trap') : e.source === 'karcher' ? t('hud.washed') : t('hud.hit'), '#ff8a7a');
+        } else if (e.by === me && e.source !== 'toilet') this.popup(t('hud.gotHim'), '#ffe08a');
         break;
       case 'sunk':
         if (e.racer === me) this.popup(t('hud.sunk'), '#9fd8ff');

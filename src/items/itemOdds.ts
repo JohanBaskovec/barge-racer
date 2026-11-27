@@ -8,8 +8,6 @@ export interface DrawContext {
   farBehind?: boolean;
   volunteersInFlight: number;
   recentItems: ItemId[];
-  /** 0..1. Beer heals, so it is never drawn for a boat that is (nearly) undamaged. */
-  hullFraction?: number;
 }
 
 const ITEMS = Object.keys(ITEM_ODDS) as ItemId[];
@@ -31,7 +29,6 @@ export function drawItem(rng: Rng, ctx: DrawContext): ItemId {
     }
     const isVolunteer = pick === 'volunteer' || pick === 'volunteerSquad';
     if (isVolunteer && ctx.volunteersInFlight >= TUNING.maxVolunteersInFlight) continue;
-    if (pick === 'beer' && (ctx.hullFraction ?? 0) > 0.9) continue;
     const n = ctx.recentItems.length;
     if (n >= 2 && ctx.recentItems[n - 1] === pick && ctx.recentItems[n - 2] === pick) continue;
     return pick;

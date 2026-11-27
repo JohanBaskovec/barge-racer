@@ -122,6 +122,99 @@ const ICONS: Record<string, (g: G) => void> = {
     for (const [x, y, r, c] of spots) g.fillStyle(c).fillCircle(x, y, r).lineStyle(2, OUTLINE).strokeCircle(x, y, r);
   },
 
+  // Electrical failure: a cable cut in two, the copper ends sparking, a bolt between them.
+  icon_blackout: (g) => {
+    g.lineStyle(14, OUTLINE).lineBetween(6, 82, 38, 60).lineBetween(58, 38, 90, 14); // cable outline
+    g.lineStyle(9, 0x3b4048).lineBetween(6, 82, 38, 60).lineBetween(58, 38, 90, 14);
+    g.lineStyle(3, 0x6f7780).lineBetween(8, 78, 36, 58).lineBetween(60, 34, 88, 12);
+    g.fillStyle(0xe8832f).fillCircle(41, 57, 6).fillCircle(55, 41, 6); // copper
+    g.lineStyle(2, 0xffc27a);
+    for (const [x, y, dx, dy] of [[41, 57, 7, 1], [41, 57, 5, -5], [55, 41, -7, -1], [55, 41, -5, 5]]) g.lineBetween(x, y, x + dx, y + dy);
+    // the bolt
+    const bolt = [V(52, 24), V(36, 50), V(48, 50), V(40, 76), V(66, 42), V(53, 42), V(62, 24)];
+    g.fillStyle(0xffe04a).fillPoints(bolt, true);
+    g.lineStyle(3, OUTLINE).strokePoints(bolt, true, true);
+    g.fillStyle(0xffffff, 0.8).fillTriangle(53, 28, 45, 44, 50, 44);
+    // sparks
+    g.fillStyle(0xfff8c0);
+    for (const [x, y, sz] of [[20, 40, 6], [78, 62, 7], [30, 18, 5], [70, 84, 5]]) {
+      g.fillTriangle(x - sz, y, x, y - sz * 1.6, x + sz, y).fillTriangle(x - sz, y, x, y + sz * 1.6, x + sz, y);
+    }
+  },
+
+  // Ultimate raclette: a half wheel of cheese melting over the heater, a potato and a slice of ham.
+  icon_raclette: (g) => {
+    g.fillStyle(0x3a3f46).fillRoundedRect(6, 66, 84, 20, 6); // base
+    g.lineStyle(3, OUTLINE).strokeRoundedRect(6, 66, 84, 20, 6);
+    g.fillStyle(0x2b2f35).fillRect(14, 84, 10, 8).fillRect(72, 84, 10, 8); // feet
+    g.fillStyle(0xd23b2b).fillRoundedRect(12, 58, 72, 10, 4); // heating element
+    g.lineStyle(2, 0xffb36b).lineBetween(18, 63, 78, 63);
+    g.lineStyle(3, OUTLINE).strokeRoundedRect(12, 58, 72, 10, 4);
+    // the half wheel of cheese, melting
+    const wheel: Phaser.Math.Vector2[] = [];
+    for (let k = 0; k <= 16; k++) {
+      const a = Math.PI + (Math.PI * k) / 16;
+      wheel.push(V(34 + Math.cos(a) * 28, 58 + Math.sin(a) * 28));
+    }
+    g.fillStyle(0xffd23f).fillPoints(wheel, true);
+    g.fillStyle(0xf2b705).fillRect(6, 52, 56, 7); // the cut face
+    g.lineStyle(3, OUTLINE).strokePoints(wheel, true, true);
+    g.fillStyle(0xd68f00).fillCircle(24, 40, 4).fillCircle(40, 34, 3).fillCircle(46, 46, 3.5).fillCircle(16, 50, 2.5); // holes
+    g.fillStyle(0xffd23f).fillRoundedRect(14, 56, 12, 30, 5).fillRoundedRect(34, 56, 9, 22, 4).fillRoundedRect(48, 56, 10, 16, 4); // drips
+    g.fillStyle(0xffd23f).fillEllipse(20, 86, 16, 7).fillEllipse(38.5, 78, 12, 6);
+    g.lineStyle(2, 0xc98a00).strokeRoundedRect(14, 56, 12, 30, 5);
+    // a potato and a slice of ham on top
+    g.fillStyle(0xc49a55).fillEllipse(74, 40, 26, 20);
+    g.lineStyle(3, OUTLINE).strokeEllipse(74, 40, 26, 20);
+    g.fillStyle(0x8a6532).fillCircle(69, 38, 2).fillCircle(79, 43, 2);
+    g.fillStyle(0xf09aa3).fillRoundedRect(58, 14, 32, 18, 8);
+    g.lineStyle(3, OUTLINE).strokeRoundedRect(58, 14, 32, 18, 8);
+    g.lineStyle(2, 0xfde3e0).lineBetween(64, 22, 78, 20).lineBetween(70, 27, 84, 25);
+  },
+
+  // Clogged toilet: a bowl brimming with green sludge, stink clouds rising.
+  icon_toilet: (g) => {
+    g.fillStyle(0xf2f2f2).fillRoundedRect(22, 52, 52, 34, 10); // bowl base
+    g.lineStyle(3, OUTLINE).strokeRoundedRect(22, 52, 52, 34, 10);
+    g.fillStyle(0xe4e7ea).fillRect(30, 84, 36, 8);
+    g.lineStyle(3, OUTLINE).strokeRect(30, 84, 36, 8);
+    g.fillStyle(0xffffff).fillEllipse(48, 54, 66, 24); // rim
+    g.lineStyle(3, OUTLINE).strokeEllipse(48, 54, 66, 24);
+    g.fillStyle(0x7fa334).fillEllipse(48, 54, 48, 14); // sludge
+    g.fillStyle(0x4f6e1f).fillEllipse(52, 55, 28, 7);
+    g.fillStyle(0xb7d85a).fillCircle(38, 52, 3.5).fillCircle(54, 50, 4.5).fillCircle(61, 56, 3); // bubbles
+    g.fillStyle(0xffffff).fillRoundedRect(24, 38, 48, 12, 4); // tank
+    g.lineStyle(3, OUTLINE).strokeRoundedRect(24, 38, 48, 12, 4);
+    g.fillStyle(0xb8bec4).fillCircle(48, 44, 3);
+    // the stink
+    g.fillStyle(0x9bbd3c, 0.9).fillCircle(32, 26, 11).fillCircle(48, 18, 13).fillCircle(64, 26, 11).fillCircle(42, 30, 9).fillCircle(56, 31, 9);
+    g.fillStyle(0xc8e070, 0.9).fillCircle(44, 14, 6).fillCircle(30, 22, 4);
+    g.lineStyle(3, 0x4f6e1f).beginPath().arc(48, 18, 13, Math.PI * 1.05, Math.PI * 1.95).strokePath();
+    g.lineStyle(2.5, 0x4f6e1f);
+    for (const x of [20, 76]) g.beginPath().moveTo(x, 40).lineTo(x - 5, 32).lineTo(x + 3, 26).lineTo(x - 2, 18).strokePath(); // stink lines
+  },
+
+  // A Kärcher-style pressure washer: yellow body, black grip, a long lance and a fan of water.
+  icon_karcher: (g) => {
+    g.lineStyle(7, OUTLINE).beginPath().moveTo(18, 62).lineTo(18, 84).lineTo(34, 90).strokePath(); // hose
+    g.lineStyle(4, 0x2f3338).beginPath().moveTo(18, 62).lineTo(18, 84).lineTo(34, 90).strokePath();
+    g.fillStyle(0x2f3338).fillRoundedRect(16, 54, 14, 26, 6); // grip
+    g.lineStyle(3, OUTLINE).strokeRoundedRect(16, 54, 14, 26, 6);
+    g.fillStyle(0xf5c518).fillRoundedRect(4, 30, 46, 28, 10); // body
+    g.lineStyle(3, OUTLINE).strokeRoundedRect(4, 30, 46, 28, 10);
+    g.fillStyle(0xffffff, 0.45).fillRoundedRect(10, 34, 28, 6, 3);
+    g.fillStyle(0x8f969d).fillRoundedRect(32, 56, 8, 14, 3); // trigger guard
+    g.lineStyle(2, OUTLINE).strokeRoundedRect(32, 56, 8, 14, 3);
+    g.fillStyle(0xb8bec4).fillRect(50, 40, 28, 8); // lance
+    g.lineStyle(3, OUTLINE).strokeRect(50, 40, 28, 8);
+    g.fillStyle(0x3b6ea8).fillRect(74, 38, 8, 12); // nozzle
+    g.lineStyle(2, OUTLINE).strokeRect(74, 38, 8, 12);
+    // the jet
+    g.lineStyle(4, 0xbfe6ff);
+    for (const [dy, w] of [[-26, 3], [-13, 4], [0, 5], [13, 4], [26, 3]]) g.lineStyle(w, 0xbfe6ff, 0.9).lineBetween(82, 44, 94, 44 + dy * 0.9);
+    g.fillStyle(0xffffff, 0.95).fillCircle(90, 20, 3).fillCircle(93, 30, 2.5).fillCircle(92, 58, 3).fillCircle(90, 70, 2.5).fillCircle(86, 44, 3);
+  },
+
   // A tipped glue bottle with a long drip and a puddle.
   icon_glue: (g) => {
     g.fillStyle(0xf2e27a).fillEllipse(48, 84, 70, 18); // puddle

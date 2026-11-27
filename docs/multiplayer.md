@@ -105,6 +105,11 @@ deploy (Cloudflare builds from `main` as before):
 | `src/scenes/OnlineScene.ts`, `LobbyScene.ts` | Name and room code; the lobby |
 | `server/worker.ts` | The Cloudflare Worker and the `RaceRoom` Durable Object |
 
+A snapshot also carries the raclette's shots, the cheese and smoke clouds, each boat's
+size (mushrooms) and the crates a mushroom has pulled away from home (only those: the
+others sit at home on every screen). Moving shots and pulled crates glide between
+snapshots like the other projectiles.
+
 Messages are JSON. A snapshot is about 1.2 KB, so about 24 KB/s per player. That could be made
 much smaller with a binary format if ever needed.
 

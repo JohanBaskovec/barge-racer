@@ -1,6 +1,21 @@
 import { TUNING } from '../data/items';
 
-export type EffectKind = 'boost' | 'jigsaw' | 'spinOut' | 'invulnerable' | 'sinking' | 'glued';
+export type EffectKind =
+  | 'boost' | 'jigsaw' | 'spinOut' | 'invulnerable' | 'sinking' | 'glued'
+  /** Mushrooms: on the user, crates fly to them. */
+  | 'magnet'
+  /** Mushrooms: was ahead of the user, now small, light and a little slower. */
+  | 'shrunk'
+  /** Mushrooms: was behind the user, now faster. */
+  | 'hasty'
+  /** Electrical failure: controls are stuck. */
+  | 'blackout'
+  /** Raclette: the screen is covered in melted cheese (the AI can't see where it is going either). */
+  | 'cheesed'
+  /** Kärcher, on the user: spraying water to both sides. */
+  | 'karcher'
+  /** Kärcher, on the victims: wet, so reaching the bank is a crash. */
+  | 'soaked';
 
 export interface Effect {
   kind: EffectKind;
@@ -15,6 +30,8 @@ export interface Mods {
   mass: number;
   /** 0 disables steering and thrust (spin-out, sinking). */
   control: number;
+  /** Extra forward drag per second (glue). */
+  drag: number;
 }
 
 export interface EffectHolder {
@@ -43,7 +60,7 @@ export function tickEffects(holder: EffectHolder, dt: number): void {
 
 /** Multiply the multipliers of every active effect together. */
 export function computeMods(holder: EffectHolder): Mods {
-  const m: Mods = { topSpeed: 1, accel: 1, turnRate: 1, mass: 1, control: 1 };
+  const m: Mods = { topSpeed: 1, accel: 1, turnRate: 1, mass: 1, control: 1, drag: 0 };
   const boosted = hasEffect(holder, 'boost');
   for (const e of holder.effects) {
     switch (e.kind) {
@@ -60,7 +77,22 @@ export function computeMods(holder: EffectHolder): Mods {
         if (holder.inGlue) {
           m.topSpeed *= TUNING.glue.speedMult;
           m.turnRate *= TUNING.glue.turnMult;
-        } else m.topSpeed *= TUNING.glue.stickyMult;
+          m.accel *= TUNING.glue.accelMult;
+          m.drag += TUNING.glue.drag;
+        } else {
+          m.topSpeed *= TUNING.glue.stickyMult;
+          m.accel *= TUNING.glue.stickyAccelMult;
+        }
+        break;
+      case 'shrunk':
+        m.topSpeed *= TUNING.mushroom.shrunkSpeed;
+        break;
+      case 'soaked':
+        m.turnRate *= TUNING.karcher.soakedTurnMult;
+        break;
+      case 'hasty':
+        m.topSpeed *= TUNING.mushroom.hastySpeed;
+        m.accel *= TUNING.mushroom.hastyAccel;
         break;
       case 'spinOut':
       case 'sinking':

@@ -19,6 +19,7 @@ import { MapRenderer, type SceneryData } from '../view/MapRenderer';
 import { generateScenery } from '../view/sceneryGen';
 import { WORLD_ART_SCALE } from '../view/textures';
 import { options } from '../options';
+import { hasEffect } from '../effects/effects';
 import { Fx } from '../view/fx';
 import { RaceAudio } from '../view/raceAudio';
 import { audio } from '../audio/AudioManager';
@@ -38,6 +39,8 @@ export class RaceScene extends Phaser.Scene {
   private puddleSprites = new Map<number, Sprite>();
   private fakeSprites = new Map<number, Sprite>();
   private blobSprites = new Map<number, Sprite>();
+  private shotSprites = new Map<number, Sprite>();
+  private cloudSprites = new Map<number, Sprite>();
   /** 0..1: how psychedelic the screen is (mushrooms). The HUD reads this for its colour wash. */
   trip = 0;
   private tripT = 0;
@@ -78,6 +81,8 @@ export class RaceScene extends Phaser.Scene {
     this.puddleSprites.clear();
     this.fakeSprites.clear();
     this.blobSprites.clear();
+    this.shotSprites.clear();
+    this.cloudSprites.clear();
     this.trip = 0;
     this.tripT = 0;
     this.tripFx = null;
@@ -203,7 +208,7 @@ export class RaceScene extends Phaser.Scene {
     }
     const alpha = this.sim.phase === 'over' ? 1 : this.accumulator / STEP;
     for (let i = 0; i < this.views.length; i++) this.views[i].render(alpha, time, dt);
-    this.syncEntities(time);
+    this.syncEntities(time, dt);
     this.trackView.update(time);
     this.updateTrip(time, dt);
     this.raceAudio.update(dt);
@@ -272,10 +277,18 @@ export class RaceScene extends Phaser.Scene {
     cam.centerOn(this.camX, this.camY);
   }
 
-  private syncEntities(time: number): void {
+  private syncEntities(time: number, dt: number): void {
     const items = this.sim.items;
     for (const c of items.crates) {
       const s = this.crateSprites.get(c.id)!;
+      // A mushroom pulls crates away from home: glide to where the crate really is (online, that
+      // arrives 20 times a second), and snap when it jumps home after being taken.
+      const d = Math.hypot(c.x - s.x, c.y - s.y);
+      if (d > 300 || c.respawn > 0) s.setPosition(c.x, c.y);
+      else if (d > 0.3) {
+        const k = 1 - Math.exp(-dt * 18);
+        s.setPosition(s.x + (c.x - s.x) * k, s.y + (c.y - s.y) * k);
+      }
       s.setVisible(c.respawn <= 0).setRotation(Math.sin(time / 500 + c.id) * 0.12);
     }
     this.syncGroup(this.volSprites, items.volunteers, (v) => this.add.image(v.x, v.y, 'volunteer').setDepth(14).setScale(WORLD_ART_SCALE * 1.15), (s, v) => {
@@ -299,6 +312,30 @@ export class RaceScene extends Phaser.Scene {
     this.syncGroup(this.blobSprites, items.blobs, (b) => this.add.image(b.x, b.y, 'blob').setDepth(14), (s, b) => {
       s.setPosition(b.x, b.y).setRotation(b.heading).setScale((1 + Math.sin(b.age * 30) * 0.08) * WORLD_ART_SCALE);
     }, (s) => this.retire(s, 'fade'));
+    // Raclette: a potato and slices of ham, tumbling as they fly.
+    this.syncGroup(this.shotSprites, items.shots, (s) => this.add.image(s.x, s.y, s.kind === 0 ? 'potato' : 'ham').setDepth(14).setScale(WORLD_ART_SCALE * 1.2), (sp, s) => {
+      sp.setPosition(s.x, s.y).setRotation(s.heading + Math.sin(s.age * 18 + s.id) * 0.5);
+    }, (sp) => {
+      this.fx.cheese(sp.x, sp.y);
+      this.retire(sp, 'fade');
+    });
+    // Melted cheese and toxic smoke lying on the water.
+    this.syncGroup(this.cloudSprites, items.clouds, (c) => {
+      this.raceAudio.at(c.kind === 0 ? 'glue' : 'drop', c.x, c.y, 0.7);
+      if (c.kind === 0) this.fx.cheese(c.x, c.y);
+      return this.add.image(c.x, c.y, c.kind === 0 ? 'cheese' : 'smoke').setDepth(c.kind === 0 ? 4 : 12);
+    }, (sp, c) => {
+      const life = c.kind === 0 ? TUNING.raclette.cheeseLife : TUNING.toilet.life;
+      const radius = c.kind === 0 ? TUNING.raclette.cheeseRadius : TUNING.toilet.radius;
+      const grow = Math.min(1, c.age / 0.4);
+      const fade = c.age > life - 2 ? Math.max(0, (life - c.age) / 2) : 1;
+      if (c.kind === 0) sp.setPosition(c.x, c.y).setDisplaySize(radius * 2.15 * grow, radius * 2.15 * grow).setAlpha(fade);
+      else {
+        // Smoke rolls slowly and breathes; a bit bigger than the area that hurts, as it is soft at the edges.
+        const k = radius * 2.5 * grow * (1 + Math.sin(time / 380 + c.id) * 0.04);
+        sp.setPosition(c.x, c.y).setDisplaySize(k, k).setRotation(time / 2600 + c.id).setAlpha(0.85 * fade);
+      }
+    }, (sp) => this.retire(sp, 'fade'));
     this.syncGroup(this.puddleSprites, items.puddles, (p) => {
       // Glue lands: from the glue item or a silicone gun shot.
       this.fx.glue(p.x, p.y);
@@ -344,6 +381,11 @@ export class RaceScene extends Phaser.Scene {
     switch (e.type) {
       case 'hit': {
         const r = this.sim.racers[e.racer];
+        if (e.source === 'toilet') {
+          this.fx.toxic(r.x, r.y); // breathing the smoke: a green puff, no jolt
+          break;
+        }
+        if (e.source === 'raclette') this.fx.cheese(r.x, r.y);
         this.sparks.setParticleTint(e.source === 'bank' ? 0xcccccc : 0xfff2a0);
         this.sparks.emitParticleAt(r.x, r.y, 14);
         if (e.source !== 'bank') this.fx.splash(r.x, r.y, 0.8);
@@ -385,6 +427,15 @@ export class RaceScene extends Phaser.Scene {
       case 'itemUsed': {
         const r = this.sim.racers[e.racer];
         if (e.racer === player.id && e.item === 'mushroom') this.tripT = TUNING.mushroom.duration;
+        if (e.item === 'blackout') {
+          // Sparks on every boat that lost its controls
+          for (const o of this.sim.racers) {
+            if (o.id === e.racer || !hasEffect(o, 'blackout')) continue;
+            this.sparks.setParticleTint(0xffe04a);
+            this.sparks.emitParticleAt(o.x, o.y, 14);
+          }
+        }
+        if (e.item === 'toilet') this.fx.toxic(r.x - Math.cos(r.heading) * r.boat.size.length * 0.5, r.y - Math.sin(r.heading) * r.boat.size.length * 0.5);
         if (e.item === 'whitePowder' || e.item === 'bigBag') this.fx.puff(r.x - Math.cos(r.heading) * r.boat.size.length * 0.5, r.y - Math.sin(r.heading) * r.boat.size.length * 0.5);
         break;
       }

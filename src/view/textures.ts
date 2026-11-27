@@ -3,7 +3,7 @@ import { BOATS, type BoatDef } from '../data/boats';
 import { generateItemIcons } from './itemIcons';
 import { BOAT_ART_PAD, drawBoatArt, hasBoatArt } from './boatArt';
 import { drawPeniche, drawPenicheAccent } from './peniche';
-import { drawCrate, drawDrill, drawGlueBlob, drawGluePuddle, drawSaw, drawVolunteer, drawWaterTile } from './worldArt';
+import { drawCheesePuddle, drawCheeseScreen, drawCrate, drawDrill, drawGlueBlob, drawGluePuddle, drawHam, drawPotato, drawSaw, drawToxicSmoke, drawVolunteer, drawWaterTile } from './worldArt';
 
 type G = Phaser.GameObjects.Graphics;
 
@@ -74,6 +74,11 @@ export function generateTextures(scene: Phaser.Scene): void {
   world('glue', 128, 128, drawGluePuddle, 1); // big and soft: its game size is enough
   world('blob', 30, 30, drawGlueBlob);
   world('saw', 56, 40, drawSaw);
+  world('potato', 28, 24, drawPotato);
+  world('ham', 32, 24, drawHam);
+  world('cheese', 160, 160, drawCheesePuddle, 1);
+  world('smoke', 220, 220, drawToxicSmoke, 1);
+  world('cheeseScreen', 1280, 900, drawCheeseScreen, 1);
   world('water', 256, 256, drawWaterTile, 1);
   // A tree crown seen from above, in greys so a tint colours it: darker rim, lighter top-left.
   gen(scene, 'crown', 64, 64, (g) => {

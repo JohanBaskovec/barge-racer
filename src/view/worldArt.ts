@@ -445,3 +445,227 @@ export function drawWaterTile(c: Ctx): void {
     tiled((ox, oy) => disc(c, 'rgba(255,255,255,0.4)', x + ox, y + oy, r));
   }
 }
+
+/** A potato in flight, 28 x 24: a lumpy brown spud with eyes and a bite of steam, pointing right. */
+export function drawPotato(c: Ctx): void {
+  shadowed(c, 1.5, 0.45, () => {
+    c.beginPath();
+    c.moveTo(3, 13);
+    c.bezierCurveTo(2, 5, 12, 2.5, 20, 4);
+    c.bezierCurveTo(27, 5.5, 27, 17, 21, 20);
+    c.bezierCurveTo(14, 23, 4, 22, 3, 13);
+    c.closePath();
+    const g = c.createRadialGradient(15, 9, 1, 14, 12, 14);
+    g.addColorStop(0, '#e8c27a');
+    g.addColorStop(0.6, '#c49a55');
+    g.addColorStop(1, '#8a6532');
+    c.fillStyle = g;
+    c.fill();
+  });
+  c.strokeStyle = 'rgba(70,45,15,0.85)';
+  c.lineWidth = 0.9;
+  c.stroke();
+  // eyes and a scar
+  for (const [x, y] of [[9, 9], [17, 15], [20, 8], [11, 16]] as const) {
+    disc(c, 'rgba(90,60,25,0.75)', x, y, 1.1);
+    disc(c, 'rgba(255,235,190,0.5)', x - 0.4, y - 0.4, 0.4);
+  }
+  c.strokeStyle = 'rgba(90,60,25,0.6)';
+  c.lineWidth = 0.7;
+  c.beginPath();
+  c.moveTo(13, 7);
+  c.quadraticCurveTo(15, 11, 14, 13);
+  c.stroke();
+  disc(c, 'rgba(255,245,215,0.65)', 8, 7, 2); // highlight
+}
+
+/** A slice of ham in flight, 32 x 24: pink, with a fat rim, a wobbly edge and marbling, pointing right. */
+export function drawHam(c: Ctx): void {
+  shadowed(c, 1.5, 0.45, () => {
+    c.beginPath();
+    c.moveTo(3, 12);
+    c.bezierCurveTo(2, 4, 12, 1.5, 21, 3);
+    c.bezierCurveTo(29, 4.5, 31, 10, 30, 14);
+    c.bezierCurveTo(29, 20, 22, 22.5, 14, 22);
+    c.bezierCurveTo(6, 21.5, 3, 18, 3, 12);
+    c.closePath();
+    const g = c.createLinearGradient(0, 2, 0, 22);
+    g.addColorStop(0, '#f6b3b8');
+    g.addColorStop(1, '#e07f8a');
+    c.fillStyle = g;
+    c.fill();
+  });
+  c.strokeStyle = '#f7e7dc'; // the rim of fat
+  c.lineWidth = 2.2;
+  c.stroke();
+  c.strokeStyle = 'rgba(120,40,50,0.6)';
+  c.lineWidth = 0.7;
+  c.stroke();
+  // marbling
+  c.strokeStyle = 'rgba(255,235,225,0.75)';
+  c.lineWidth = 1;
+  for (const [x0, y0, x1, y1] of [[8, 9, 16, 7], [10, 15, 22, 13], [17, 11, 25, 15]] as const) {
+    c.beginPath();
+    c.moveTo(x0, y0);
+    c.quadraticCurveTo((x0 + x1) / 2, (y0 + y1) / 2 - 2, x1, y1);
+    c.stroke();
+  }
+  disc(c, 'rgba(255,255,255,0.4)', 9, 6.5, 2);
+}
+
+/** A puddle of melted cheese on the water, 160 x 160: orange-yellow, glossy, full of holes, with stretchy strings. */
+export function drawCheesePuddle(c: Ctx): void {
+  const splat = (scale: number): void => {
+    c.beginPath();
+    const n = 12;
+    const rad = (k: number): number => (58 + [8, -4, 12, 3, -6, 10, 0, -3, 11, 5, -5, 9][k % 12]) * scale;
+    for (let k = 0; k <= n; k++) {
+      const a0 = ((k - 1) / n) * Math.PI * 2, a1 = (k / n) * Math.PI * 2, am = (a0 + a1) / 2;
+      const r0 = rad((k - 1 + n) % n), r1 = rad(k % n);
+      const x1 = 80 + Math.cos(a1) * r1, y1 = 80 + Math.sin(a1) * r1;
+      if (k === 0) c.moveTo(x1, y1);
+      else c.quadraticCurveTo(80 + Math.cos(am) * ((r0 + r1) / 2) * 1.15, 80 + Math.sin(am) * ((r0 + r1) / 2) * 1.15, x1, y1);
+    }
+    c.closePath();
+  };
+  shadowed(c, 3, 0.3, () => {
+    splat(1);
+    c.fillStyle = '#f0a81e';
+    c.fill();
+  });
+  c.save();
+  splat(1);
+  c.clip();
+  const g = c.createRadialGradient(68, 66, 6, 80, 80, 78);
+  g.addColorStop(0, '#ffe58a');
+  g.addColorStop(0.55, '#fbc233');
+  g.addColorStop(1, '#e08e12');
+  c.fillStyle = g;
+  c.fillRect(0, 0, 160, 160);
+  // holes
+  for (const [x, y, r] of [[56, 60, 8], [98, 52, 6], [86, 96, 9], [52, 100, 5.5], [112, 88, 4.5], [76, 70, 4]] as const) {
+    disc(c, 'rgba(160,90,0,0.55)', x, y, r);
+    disc(c, 'rgba(255,230,140,0.55)', x - r * 0.25, y - r * 0.25, r * 0.6);
+  }
+  c.strokeStyle = 'rgba(210,130,10,0.6)';
+  c.lineWidth = 2;
+  splat(0.7);
+  c.stroke();
+  c.restore();
+  splat(1);
+  c.strokeStyle = 'rgba(150,80,0,0.9)';
+  c.lineWidth = 2;
+  c.stroke();
+  c.strokeStyle = 'rgba(255,255,255,0.75)';
+  c.lineWidth = 3.5;
+  c.lineCap = 'round';
+  c.beginPath();
+  c.arc(80, 80, 50, Math.PI * 1.1, Math.PI * 1.4);
+  c.stroke();
+  // a few drips of cheese around it
+  for (const [x, y, r] of [[22, 40, 4], [140, 62, 3.5], [128, 128, 4.5]] as const) disc(c, '#f7b52a', x, y, r);
+}
+
+/** A cloud of toxic smoke, 220 x 220: sickly green-brown billows, darker at the heart, with stink swirls. Drawn translucent. */
+export function drawToxicSmoke(c: Ctx): void {
+  const puffs: [number, number, number][] = [
+    [110, 110, 70], [70, 90, 46], [150, 96, 48], [88, 148, 50], [140, 146, 46], [108, 60, 40], [58, 130, 36], [162, 130, 34], [110, 170, 34], [112, 108, 52],
+  ];
+  for (const [x, y, r] of puffs) {
+    const g = c.createRadialGradient(x - r * 0.2, y - r * 0.2, r * 0.1, x, y, r);
+    g.addColorStop(0, 'rgba(150,160,60,0.62)');
+    g.addColorStop(0.6, 'rgba(96,120,40,0.5)');
+    g.addColorStop(1, 'rgba(70,90,30,0)');
+    c.fillStyle = g;
+    c.fillRect(x - r, y - r, r * 2, r * 2);
+  }
+  // darker brown at the heart
+  const h = c.createRadialGradient(110, 112, 4, 110, 112, 54);
+  h.addColorStop(0, 'rgba(70,52,20,0.55)');
+  h.addColorStop(1, 'rgba(70,52,20,0)');
+  c.fillStyle = h;
+  c.fillRect(50, 50, 120, 120);
+  // swirls
+  c.strokeStyle = 'rgba(210,225,120,0.45)';
+  c.lineWidth = 3;
+  c.lineCap = 'round';
+  for (const [cx, cy, r, a0] of [[82, 100, 26, 0.3], [140, 126, 30, 2.4], [112, 150, 20, 4.4]] as const) {
+    c.beginPath();
+    c.arc(cx, cy, r, a0, a0 + 3.4);
+    c.stroke();
+    c.beginPath();
+    c.arc(cx, cy, r * 0.55, a0 + 0.8, a0 + 3.6);
+    c.stroke();
+  }
+  // bubbles
+  for (const [x, y, r] of [[96, 80, 5], [136, 100, 4], [118, 140, 6], [80, 140, 3.5], [150, 70, 3]] as const) {
+    c.beginPath();
+    c.arc(x, y, r, 0, Math.PI * 2);
+    c.strokeStyle = 'rgba(230,240,150,0.55)';
+    c.lineWidth = 1.3;
+    c.stroke();
+  }
+}
+
+/**
+ * Melted cheese over the screen, 1280 x 900 (drawn once): overlapping blobs that reach from the top
+ * down in long drips, with holes and a gloss. It covers most of the view but not all of it.
+ */
+export function drawCheeseScreen(c: Ctx): void {
+  let seed = 11;
+  const rnd = (): number => {
+    seed = (seed * 1664525 + 1013904223) >>> 0;
+    return seed / 4294967296;
+  };
+  const cheese = (): CanvasGradient => {
+    const g = c.createLinearGradient(0, 0, 0, 900);
+    g.addColorStop(0, '#ffd965');
+    g.addColorStop(0.6, '#fbc233');
+    g.addColorStop(1, '#e8a01c');
+    return g;
+  };
+  c.fillStyle = cheese();
+  c.strokeStyle = 'rgba(150,80,0,0.55)';
+  c.lineWidth = 5;
+  const blob = (x: number, y: number, rx: number, ry: number): void => {
+    c.beginPath();
+    c.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2);
+    c.fill();
+  };
+  // big overlapping blobs
+  for (let i = 0; i < 38; i++) blob(rnd() * 1280, 40 + rnd() * 720, 90 + rnd() * 150, 70 + rnd() * 110);
+  // drips running down
+  for (let i = 0; i < 22; i++) {
+    const x = rnd() * 1280, w = 22 + rnd() * 38, len = 160 + rnd() * 380, y0 = 100 + rnd() * 400;
+    rr(c, x - w / 2, y0, w, len, w / 2);
+    c.fill();
+    blob(x, y0 + len, w * 0.78, w * 0.9);
+  }
+  // an unmelted edge round the screen
+  const edge = c.createRadialGradient(640, 450, 300, 640, 450, 800);
+  edge.addColorStop(0, 'rgba(160,90,0,0)');
+  edge.addColorStop(1, 'rgba(160,90,0,0.5)');
+  c.fillStyle = edge;
+  c.fillRect(0, 0, 1280, 900);
+  // holes: where the view shows through a little
+  c.globalCompositeOperation = 'destination-out';
+  for (let i = 0; i < 16; i++) {
+    const x = 60 + rnd() * 1160, y = 60 + rnd() * 700, r = 14 + rnd() * 28;
+    c.fillStyle = 'rgba(0,0,0,0.92)';
+    c.beginPath();
+    c.ellipse(x, y, r, r * 0.85, 0, 0, Math.PI * 2);
+    c.fill();
+  }
+  c.globalCompositeOperation = 'source-over';
+  // gloss
+  c.strokeStyle = 'rgba(255,255,255,0.45)';
+  c.lineWidth = 9;
+  c.lineCap = 'round';
+  for (let i = 0; i < 14; i++) {
+    const x = rnd() * 1280, y = rnd() * 700, len = 40 + rnd() * 100;
+    c.beginPath();
+    c.moveTo(x, y);
+    c.quadraticCurveTo(x + len * 0.3, y + len * 0.5, x + len * 0.1, y + len);
+    c.stroke();
+  }
+}

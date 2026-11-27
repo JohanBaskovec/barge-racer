@@ -38,7 +38,9 @@ This is the most important milestone: steering feel decides the game.
 - Crates, roulette, item slot button, firing forward and backward.
 - Hull, damage, spin-out, invulnerability, sinking and respawn.
 - The items: Volunteers, Jigsaw, White Powder, Electric Drill, Glue, then Silicone
-  Gun, Fake Crate, Beer Crate and Magic Mushrooms, held two at a time.
+  Gun, Fake Crate, Beer Crate and Magic Mushrooms, held two at a time; later the
+  Electrical Failure, Ultimate Raclette, Clogged Toilet and Kärcher (13 items in all,
+  plus the squad and the big bag).
 - Position-based odds.
 - AI item use.
 
@@ -49,7 +51,7 @@ good way.
 
 Done: all 8 boats (including Cabourg, a real péniche) and Boat Select, 3 of 8
 drawn tracks plus the real Canal de Reims, Track Select, difficulty levels and
-rubber-banding, nine items in two slots. Still to do: the other 5 tracks and their
+rubber-banding, thirteen items in two slots. Still to do: the other 5 tracks and their
 hazards, cup mode, save data (unlocks, best times, options).
 
 - All boats with stats and placeholder sprites; Boat Select scene.

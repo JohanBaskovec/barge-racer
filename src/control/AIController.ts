@@ -81,6 +81,16 @@ export class AIController implements Controller {
         if (f > 0 && f < 280 && Math.abs(p) < gap) lateralPx += (p >= 0 ? -1 : 1) * (gap - Math.abs(p) + 10);
       }
     }
+    // Steer round clouds on the water: toxic smoke hurts, melted cheese blinds.
+    for (const c of sim.items.clouds) {
+      if (c.owner === r.id && c.age < 2) continue;
+      const dx = c.x - r.x;
+      const dy = c.y - r.y;
+      const f = dx * hx + dy * hy;
+      const p = -dx * hy + dy * hx;
+      const gap = (c.kind === 0 ? TUNING.raclette.cheeseRadius : TUNING.toilet.radius) + r.stats.radius;
+      if (f > 0 && f < 300 && Math.abs(p) < gap) lateralPx += (p >= 0 ? -1 : 1) * (gap - Math.abs(p) + 10);
+    }
     // Steer around fake crates (they look like real ones; better AIs spot them more often).
     for (const f of sim.items.fakeCrates) {
       if (f.owner === r.id) continue;
@@ -94,8 +104,8 @@ export class AIController implements Controller {
         if (this.dodge.get(f.id)) lateralPx += (side >= 0 ? -1 : 1) * (gap - Math.abs(side) + 15);
       }
     }
-    // Dodge incoming drill bits (sometimes).
-    for (const d of sim.items.drills) {
+    // Dodge incoming drill bits and raclette shots (sometimes).
+    for (const d of [...sim.items.drills, ...sim.items.shots]) {
       if (d.owner === r.id) continue;
       const dx = r.x - d.x;
       const dy = r.y - d.y;
@@ -109,7 +119,10 @@ export class AIController implements Controller {
     const maxLat = Math.max(20, hw - r.stats.radius - 8);
     lateralPx = clamp(lateralPx, -maxLat, maxLat);
     const target = track.pointAt(along + lookAhead, lateralPx);
-    const desired = Math.atan2(target.y - r.y, target.x - r.x);
+    let desired = Math.atan2(target.y - r.y, target.x - r.x);
+    // Covered in cheese the AI can't see where it is going: it wanders.
+    const blind = hasEffect(r, 'cheesed');
+    if (blind) desired += Math.sin(sim.time * 3.1 + this.noisePhase) * 0.45;
     intent.desiredHeading = desired;
 
     // --- Throttle: lift off for sharp corners ------------------------------
@@ -119,6 +132,7 @@ export class AIController implements Controller {
     for (let k = 0; k < steps; k++) kmax = Math.max(kmax, Math.abs(track.samples[track.wrap(i0 + k)].curvature));
     const vmax = (r.stats.turnRate * 0.9) / Math.max(kmax, 1e-4);
     intent.throttle = speed > vmax * 1.05 ? clamp(vmax / speed, 0.4, 1) : 1;
+    if (blind) intent.throttle = Math.min(intent.throttle, 0.75);
     if (Math.abs(angleDiff(desired, r.heading)) > 1.2) intent.throttle = Math.min(intent.throttle, 0.5);
 
     // --- Stuck recovery ---------------------------------------------------
@@ -233,10 +247,41 @@ export class AIController implements Controller {
           return gap > 40 && gap < (item === 'glue' ? 400 : 500) && gap < L / 2;
         })) return 'forward';
         break;
-      case 'mushroom':
-        return 'forward'; // Does nothing for an AI; just clear the slot.
+      case 'mushroom': {
+        // Worth it when more boats are ahead (they shrink) than behind (they speed up).
+        const ahead = sim.racers.filter((o) => o !== r && !o.finished && o.progress > r.progress).length;
+        const behind = sim.racers.filter((o) => o !== r && !o.finished && o.progress <= r.progress).length;
+        if (ahead > behind) return 'forward';
+        break;
+      }
       case 'beer':
-        break; // Instant: never held.
+        if (r.hull < r.stats.maxHull * 0.55) return 'forward';
+        break;
+      case 'blackout':
+        // Best from behind, with someone worth passing in reach.
+        if (r.position > 0 && others.some((o) => o.progress > r.progress && o.progress - r.progress < 1500)) return 'forward';
+        if (others.some((o) => o.progress < r.progress && r.progress - o.progress < 250)) return 'forward';
+        break;
+      case 'raclette':
+        if (others.some((o) => {
+          const q = rel(o);
+          return q.f > 0 && q.f < 900 && Math.abs(q.p) < 90 + o.stats.radius;
+        })) return 'forward';
+        break;
+      case 'toilet':
+        // A trap dropped behind, when someone is close behind.
+        if (others.some((o) => {
+          const gap = r.progress - o.progress;
+          return gap > 40 && gap < 450 && gap < L / 2;
+        })) return 'forward';
+        break;
+      case 'karcher':
+        // Someone alongside, close enough for the jet to push them.
+        if (others.some((o) => {
+          const q = rel(o);
+          return Math.abs(q.f) < r.boat.size.length / 2 + 120 && Math.abs(q.p) > 20 && Math.abs(q.p) < 220;
+        })) return 'forward';
+        break;
     }
     return heldFor > 25 ? 'forward' : 'none';
   }

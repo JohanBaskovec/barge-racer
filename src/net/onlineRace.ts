@@ -141,5 +141,14 @@ export class OnlineRace {
     blend(this.sim.items.volunteers, a.state.vols, 3);
     blend(this.sim.items.drills, a.state.drills, 2);
     blend(this.sim.items.blobs, a.state.blobs, 2);
+    blend(this.sim.items.shots, a.state.shots, 3);
+    // Crates a mushroom is pulling glide too.
+    for (const c of this.sim.items.crates) {
+      const o = a.state.cpos.find((row) => row[0] === c.id);
+      if (o && (c.x !== c.homeX || c.y !== c.homeY)) {
+        c.x = lerp(o[1], c.x);
+        c.y = lerp(o[2], c.y);
+      }
+    }
   }
 }

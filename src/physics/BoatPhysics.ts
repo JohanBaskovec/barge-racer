@@ -1,6 +1,14 @@
 import { clamp, turnTowards } from './math';
-import { computeMods } from '../effects/effects';
+import { scaleStats } from '../data/boats';
+import { computeMods, hasEffect } from '../effects/effects';
 import type { ControlIntent, Racer } from '../race/types';
+
+/** Make a racer bigger or smaller (mushrooms): its collision shape and mass follow. */
+export function setRacerSize(r: Racer, size: number): void {
+  if (r.size === size) return;
+  r.size = size;
+  r.stats = scaleStats(r.baseStats, size);
+}
 
 /**
  * One fixed step of the boat model (docs/boats.md#physics-model):
@@ -19,11 +27,14 @@ export function stepBoat(r: Racer, intent: ControlIntent, dt: number, canDrive: 
   let vf = r.vx * hx + r.vy * hy;
   let vl = -r.vx * hy + r.vy * hx;
 
-  const throttle = clamp(intent.throttle, -1, 1) * control;
+  // Electrical failure: the controls are stuck, so the boat keeps its last throttle and heading.
+  const stuck = hasEffect(r, 'blackout');
+  const desiredHeading = stuck ? null : intent.desiredHeading;
+  const throttle = clamp(stuck ? r.throttle : intent.throttle, -1, 1) * control;
 
   // Steering: boats can't turn on the spot, so the turn rate fades in with speed.
-  if (control > 0 && intent.desiredHeading !== null) {
-    const target = throttle < 0 ? intent.desiredHeading + Math.PI : intent.desiredHeading;
+  if (control > 0 && desiredHeading !== null) {
+    const target = throttle < 0 ? desiredHeading + Math.PI : desiredHeading;
     const speedFactor = clamp(Math.abs(vf) / (0.3 * s.topSpeed), 0.2, 1);
     r.heading = turnTowards(r.heading, target, s.turnRate * mods.turnRate * speedFactor * dt);
   }
@@ -33,7 +44,7 @@ export function stepBoat(r: Racer, intent: ControlIntent, dt: number, canDrive: 
   let thrust = throttle * accel;
   if (throttle < 0 && vf < -0.3 * topSpeed) thrust = 0;
   const coast = Math.abs(throttle) < 0.01 ? 1.6 : 1;
-  vf += (thrust - k * vf * coast) * dt;
+  vf += (thrust - k * vf * coast - vf * mods.drag) * dt;
 
   // Sideways drag: high grip carves through turns, low grip drifts.
   vl -= vl * Math.min(1, s.lateralGrip * dt);

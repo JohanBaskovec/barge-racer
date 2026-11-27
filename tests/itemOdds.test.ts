@@ -42,10 +42,17 @@ describe('item odds', () => {
     expect(c.glue).toBeUndefined();
   });
 
-  it('never draws beer for a boat with a (nearly) full hull, but does for a damaged one', () => {
-    expect(draws(3, 5000, { hullFraction: 1 }).beer).toBeUndefined();
-    expect(draws(3, 5000, { hullFraction: 0.95 }).beer).toBeUndefined();
-    expect(draws(3, 5000, { hullFraction: 0.4 }).beer).toBeGreaterThan(0);
+  it('beer is an ordinary item now (held, drunk when you like): drawn whatever the hull', () => {
+    for (let pos = 0; pos < 4; pos++) expect(draws(pos, 5000).beer).toBeGreaterThan(0);
+  });
+
+  it('the electrical failure and the raclette only go to the back two positions', () => {
+    for (const item of ['blackout', 'raclette'] as const) {
+      expect(draws(0, 5000)[item]).toBeUndefined();
+      expect(draws(1, 5000)[item]).toBeUndefined();
+      expect(draws(2, 5000)[item]).toBeGreaterThan(0);
+      expect(draws(3, 5000)[item]).toBeGreaterThan(draws(2, 5000)[item]);
+    }
   });
 });
 
@@ -64,9 +71,9 @@ describe('balance: the leader gets worse items than the boats behind', () => {
 
   it('1st place gets mostly defensive items and never the strongest boosts', () => {
     const total = items.reduce((s, id) => s + ITEM_ODDS[id][0], 0);
-    const defensive = ITEM_ODDS.glue[0] + ITEM_ODDS.fakeCrate[0] + ITEM_ODDS.beer[0];
+    const defensive = ITEM_ODDS.glue[0] + ITEM_ODDS.fakeCrate[0] + ITEM_ODDS.beer[0] + ITEM_ODDS.toilet[0];
     expect(defensive / total).toBeGreaterThan(0.45);
-    expect(ITEM_ODDS.bigBag[0] + ITEM_ODDS.volunteerSquad[0]).toBe(0);
+    expect(ITEM_ODDS.bigBag[0] + ITEM_ODDS.volunteerSquad[0] + ITEM_ODDS.blackout[0] + ITEM_ODDS.raclette[0]).toBe(0);
     expect(ITEM_ODDS.whitePowder[0]).toBeLessThan(ITEM_ODDS.whitePowder[3]);
     expect(ITEM_ODDS.volunteer[0]).toBeLessThan(ITEM_ODDS.volunteer[2]);
   });
@@ -80,11 +87,15 @@ describe('balance: the leader gets worse items than the boats behind', () => {
     }
   });
 
-  it('every item has info and a power rating', () => {
+  it('every item has info, odds and a power rating, and the ultimate ones are the most powerful', () => {
+    expect(Object.keys(ITEM_INFO).sort()).toEqual([...items].sort());
+    expect(Object.keys(ITEM_POWER).sort()).toEqual([...items].sort());
     for (const id of items) {
       expect(ITEM_INFO[id].icon).toMatch(/^icon_/);
       expect(ITEM_POWER[id]).toBeGreaterThanOrEqual(0);
     }
-    expect(ITEM_INFO.beer.instant).toBe(true);
+    expect(Math.max(...items.map((id) => ITEM_POWER[id]))).toBe(10);
+    expect(ITEM_POWER.blackout).toBe(10);
+    expect(ITEM_POWER.raclette).toBe(10);
   });
 });

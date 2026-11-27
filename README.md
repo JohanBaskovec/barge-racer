@@ -9,7 +9,7 @@ The whole game is played with **one pointer**: a mouse or a single finger.
 
 > **Status:** playable prototype (milestones M0 to M3 of the [roadmap](docs/roadmap.md)).
 > You can pick one of 8 boats, race 3 AI opponents on 3 tracks at 3 difficulty
-> levels, and use nine items (two at a time). Art is placeholder (drawn in code) and there
+> levels, and use thirteen items (two at a time). Art is placeholder (drawn in code) and there
 > is no sound yet. See [what is implemented](#implemented-so-far).
 
 ## Pitch
@@ -78,10 +78,11 @@ Debug URL parameters (see [Architecture](docs/architecture.md#debug-flags)):
 - 4-boat races with countdown, start boost, laps, ranking, results screen.
 - AI opponents (racing line, avoidance, stuck recovery, item use, rubber-banding,
   3 difficulty levels).
-- Crates, item roulette and **nine items** in **two slots** (right click and middle
+- Crates, item roulette and **thirteen items** in **two slots** (right click and middle
   click, or two on-screen buttons): Volunteers, Jigsaw, White Powder, Electric
-  Drill, Glue, Silicone Gun, Fake Crate, Beer Crate (instant heal) and Magic
-  Mushrooms. Leaders get weaker items than the boats behind. Hull, spin-outs,
+  Drill, Glue, Silicone Gun, Fake Crate, Beer Crate, Magic Mushrooms, Electrical
+  Failure, Ultimate Raclette, Clogged Toilet and Kärcher. Leaders get weaker items
+  than the boats behind. Hull, spin-outs,
   sinking, respawn; blinking boats pass through other boats.
 - HUD: position, lap, time, minimap, item slot, pause menu.
 - English and French (auto-detected, switchable on the title screen).

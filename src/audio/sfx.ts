@@ -75,6 +75,35 @@ export const SFX = {
       tone(c, d, { type: 'sine', freq: midiToFreq(m), freqEnd: midiToFreq(m + 12), dur: 1.3, gain: 0.07, attack: 0.2, release: 0.5, vibrato: [60, 3 + i], at: i * 0.05 }),
     );
   },
+  /** Electrical failure: a zap, crackles and a power-down whine */
+  blackout: (c: Ctx, d: AudioNode) => {
+    noise(c, d, { dur: 0.12, filter: 'highpass', freq: 3000, gain: 0.5 });
+    tone(c, d, { type: 'sawtooth', freq: 1100, freqEnd: 70, dur: 0.8, gain: 0.16, lowpass: 2400 });
+    for (let i = 0; i < 7; i++) noise(c, d, { dur: 0.03, filter: 'bandpass', freq: 2500 + ((i * 731) % 2500), q: 3, gain: 0.3, at: 0.1 + i * 0.09 });
+  },
+  /** Ultimate raclette: a sizzle, a pop and a wet thwip */
+  raclette: (c: Ctx, d: AudioNode) => {
+    noise(c, d, { dur: 0.55, filter: 'highpass', freq: 4200, gain: 0.22, attack: 0.03 });
+    tone(c, d, { type: 'triangle', freq: 520, freqEnd: 230, dur: 0.1, gain: 0.3 });
+    noise(c, d, { dur: 0.22, filter: 'bandpass', freq: 700, freqEnd: 2200, q: 1.5, gain: 0.35, at: 0.08 });
+    tone(c, d, { type: 'sine', freq: 300, freqEnd: 90, dur: 0.25, gain: 0.25, at: 0.3 });
+  },
+  /** A toilet flushing, with a gurgle */
+  toilet: (c: Ctx, d: AudioNode) => {
+    noise(c, d, { dur: 1.0, filter: 'lowpass', freq: 1800, freqEnd: 250, gain: 0.5, attack: 0.1 });
+    tone(c, d, { type: 'sine', freq: 140, freqEnd: 70, dur: 0.7, gain: 0.3, vibrato: [25, 9] });
+    for (let i = 0; i < 4; i++) tone(c, d, { type: 'sine', freq: 200 + i * 40, freqEnd: 120, dur: 0.09, gain: 0.18, at: 0.5 + i * 0.13 });
+  },
+  /** A pressure washer: a long hiss */
+  karcher: (c: Ctx, d: AudioNode) => {
+    noise(c, d, { dur: 3.3, filter: 'highpass', freq: 2200, gain: 0.3, attack: 0.15 });
+    noise(c, d, { dur: 3.3, filter: 'bandpass', freq: 1200, q: 0.7, gain: 0.22, attack: 0.15 });
+  },
+  /** Breathing in toxic smoke: a low, wet cough */
+  toxic: (c: Ctx, d: AudioNode) => {
+    tone(c, d, { type: 'sawtooth', freq: 150, freqEnd: 70, dur: 0.2, gain: 0.2, lowpass: 600 });
+    noise(c, d, { dur: 0.18, filter: 'lowpass', freq: 500, gain: 0.3 });
+  },
   /** Being hit by an item: thud and clang */
   hit: (c: Ctx, d: AudioNode) => {
     tone(c, d, { type: 'sine', freq: 130, freqEnd: 50, dur: 0.28, gain: 0.5 });

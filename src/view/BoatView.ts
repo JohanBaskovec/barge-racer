@@ -14,6 +14,10 @@ export class BoatView {
   private boost: Phaser.GameObjects.Graphics;
   private smoke: Phaser.GameObjects.Graphics;
   private bar: Phaser.GameObjects.Graphics;
+  /** Drawn over the hull, in the boat's own frame: Kärcher jets, electrical sparks, cheese. */
+  private over: Phaser.GameObjects.Graphics;
+  /** In the world, under the boats: the magnet's rings. */
+  private aura: Phaser.GameObjects.Graphics;
   private label: Phaser.GameObjects.Text | null = null;
   private prev: { x: number; y: number; h: number };
   x: number;
@@ -29,7 +33,9 @@ export class BoatView {
     this.boost = scene.add.graphics();
     this.smoke = scene.add.graphics();
     this.bar = scene.add.graphics();
-    this.container = scene.add.container(r.x, r.y, [this.shadow, this.boost, hull, this.saw, this.smoke]).setDepth(10);
+    this.over = scene.add.graphics();
+    this.aura = scene.add.graphics().setDepth(9);
+    this.container = scene.add.container(r.x, r.y, [this.shadow, this.boost, hull, this.saw, this.smoke, this.over]).setDepth(10);
     this.bar.setDepth(30);
     if (r.isPlayer) {
       this.label = scene.add.text(0, 0, '▼', { fontSize: '26px', color: '#ffffff', stroke: '#000', strokeThickness: 4, resolution: 2 }).setOrigin(0.5).setDepth(31);
@@ -85,7 +91,7 @@ export class BoatView {
     // Hit flashing, sinking, bobbing
     let a = 1;
     if (hasEffect(r, 'invulnerable') && !sinking) a = Math.floor(time / 90) % 2 ? 0.45 : 1;
-    let scale = 1 + Math.sin(time / 300 + r.id) * 0.015;
+    let scale = (1 + Math.sin(time / 300 + r.id) * 0.015) * r.size; // smaller while shrunk by a mushroom
     if (sinking) {
       const t = 1 - r.sinkTimer / 2;
       scale *= Math.max(0.05, 1 - t);
@@ -106,6 +112,17 @@ export class BoatView {
       this.boost.fillStyle(0xffffff, 0.8).fillTriangle(-L / 2, -8, -L / 2, 8, -L / 2 - 36 * flick, 0);
       this.boost.fillStyle(0xbfe6ff, 0.6).fillTriangle(-L / 2, -14, -L / 2, 14, -L / 2 - 20 * flick, 0);
     }
+
+    // Hasty (mushrooms: the boats behind the user): pink flames, like a boost but cheekier
+    if (hasEffect(r, 'hasty') && !sinking) {
+      const L = r.boat.size.length;
+      const flick = 0.7 + Math.random() * 0.5;
+      this.boost.fillStyle(0xff9ad5, 0.75).fillTriangle(-L / 2, -7, -L / 2, 7, -L / 2 - 28 * flick, 0);
+      this.boost.fillStyle(0xffe3f2, 0.7).fillTriangle(-L / 2, -3.5, -L / 2, 3.5, -L / 2 - 14 * flick, 0);
+    }
+
+    this.drawOver(time, sinking);
+    this.drawAura(time, sinking);
 
     // Damage smoke
     this.smoke.clear();
@@ -135,7 +152,67 @@ export class BoatView {
     }
   }
 
+  /** Kärcher jets, electrical sparks and cheese drips on the hull. */
+  private drawOver(time: number, sinking: boolean): void {
+    const r = this.r;
+    const g = this.over.clear();
+    if (sinking) return;
+    const { length: L, width: W } = r.boat.size;
+    if (hasEffect(r, 'karcher')) {
+      // A fan of water to each side, from the middle of the boat: streaks and drops.
+      for (const side of [-1, 1]) {
+        // a soft fan of spray under the streaks
+        const x0 = -L * 0.2, x1 = L * 0.2, reach = 250 + Math.sin(time / 45) * 25;
+        g.fillStyle(0xbfe6ff, 0.22).fillTriangle(x0, side * (W / 2), x1, side * (W / 2), 0, side * (W / 2 + reach));
+        g.fillStyle(0xffffff, 0.2).fillTriangle(x0 * 0.5, side * (W / 2), x1 * 0.5, side * (W / 2), 0, side * (W / 2 + reach * 0.8));
+        for (let k = 0; k < 7; k++) {
+          const a = (k - 3) * 0.1 + Math.sin(time / 40 + k * 2 + side) * 0.03;
+          const reach = 150 + ((k * 53 + Math.floor(time / 30)) % 7) * 18;
+          const x0 = ((k - 3) * L) / 14, y0 = side * (W / 2);
+          g.lineStyle(5 - Math.abs(k - 3) * 0.6, k % 2 ? 0xffffff : 0xbfe6ff, 0.9)
+            .lineBetween(x0, y0, x0 + Math.sin(a) * reach, y0 + side * Math.cos(a) * reach);
+        }
+        g.fillStyle(0xffffff, 0.85);
+        for (let k = 0; k < 7; k++) g.fillCircle(((k - 3) * L) / 9 + Math.sin(time / 50 + k) * 8, side * (W / 2 + 120 + ((k * 37 + Math.floor(time / 35)) % 7) * 22), 3.2);
+      }
+    }
+    if (hasEffect(r, 'blackout')) {
+      // Crackling arcs over the hull
+      g.fillStyle(0x59b8ff, 0.18 + Math.random() * 0.12).fillCircle(0, 0, L * 0.5 + 12);
+      for (let k = 0; k < 6; k++) {
+        let x = (Math.random() - 0.5) * L * 0.8, y = (Math.random() - 0.5) * W * 0.6;
+        g.lineStyle(k % 2 ? 3 : 5, k % 2 ? 0xffffff : 0xffe04a, 0.95).beginPath().moveTo(x, y);
+        for (let j = 0; j < 5; j++) {
+          x += (Math.random() - 0.5) * 34;
+          y += (Math.random() - 0.5) * 26;
+          g.lineTo(x, y);
+        }
+        g.strokePath();
+      }
+      g.fillStyle(0x000000, 0.18 + Math.random() * 0.2).fillRoundedRect(-L / 2, -W / 2, L, W, 6); // the lights flicker
+    }
+    if (hasEffect(r, 'cheesed')) {
+      g.fillStyle(0xffc933, 0.95);
+      for (const [fx, fy, fr] of [[-0.25, -0.15, 0.16], [0.05, 0.2, 0.2], [0.3, -0.1, 0.14], [-0.02, -0.28, 0.12]] as const) g.fillCircle(fx * L, fy * W, fr * W);
+      g.fillStyle(0xffe58a, 0.9).fillCircle(0.0 * L, 0.2 * W, 0.08 * W);
+    }
+  }
+
+  /** Mushrooms: rings contract on the boat, pulling the crates in. */
+  private drawAura(time: number, sinking: boolean): void {
+    const g = this.aura.clear();
+    if (!hasEffect(this.r, 'magnet') || sinking) return;
+    for (let k = 0; k < 3; k++) {
+      const phase = ((time / 1100 + k / 3) % 1);
+      const radius = 30 + 190 * (1 - phase);
+      const c = Phaser.Display.Color.HSVToRGB(((time / 2000) + k / 3) % 1, 0.7, 1) as Phaser.Types.Display.ColorObject;
+      g.lineStyle(5, Phaser.Display.Color.GetColor(c.r, c.g, c.b), 0.55 * phase).strokeCircle(this.x, this.y, radius);
+    }
+  }
+
   destroy(): void {
+    this.over.destroy();
+    this.aura.destroy();
     this.container.destroy();
     this.bar.destroy();
     this.label?.destroy();

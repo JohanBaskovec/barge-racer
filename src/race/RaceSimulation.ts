@@ -3,7 +3,7 @@ import { DIFFICULTIES, type Difficulty } from '../data/difficulty';
 import { type ItemId, TUNING } from '../data/items';
 import { addEffect, hasEffect, removeEffect, tickEffects } from '../effects/effects';
 import { ItemSystem } from '../items/ItemSystem';
-import { stepBoat } from '../physics/BoatPhysics';
+import { setRacerSize, stepBoat } from '../physics/BoatPhysics';
 import { resolveBank, resolveBoatPair } from '../physics/collisions';
 import { AIController } from '../control/AIController';
 import { Rng } from '../physics/math';
@@ -11,6 +11,8 @@ import type { Track } from '../track/Track';
 import type { Controller, ControlIntent, Racer, RaceEvent } from './types';
 
 export const STEP = 1 / 60;
+/** How fast a boat shrinks and grows back, in size per second. */
+const SIZE_RATE = 1.8;
 export const RACER_COLORS = [0xff5a4d, 0x4da3ff, 0xffd23f, 0x62d26f];
 const AI_NAMES = ['Captain Bob', 'Molly Moor', 'Dredge', 'Admiral Fizz', 'Bilge', 'Skipper Sue'];
 /** Starting slots behind the line; rows are far enough apart for the longest boat (150 px). */
@@ -145,7 +147,7 @@ export class RaceSimulation {
     const stats = deriveStats(boat);
     const near = this.track.nearest(x, y, -1);
     return {
-      id, name, isPlayer, human: isPlayer, boat, stats, color: RACER_COLORS[id % RACER_COLORS.length],
+      id, name, isPlayer, human: isPlayer, boat, stats, baseStats: stats, size: 1, soakedBy: null, color: RACER_COLORS[id % RACER_COLORS.length],
       x, y, vx: 0, vy: 0, heading, spin: 0,
       hull: stats.maxHull, effects: [], inGlue: false, sinceHit: 99, sinkTimer: 0,
       slots: [null, null], rouletteT: 0, rouletteItem: null, recentItems: [], jigsawHit: new Set(),
@@ -180,7 +182,8 @@ export class RaceSimulation {
     for (const r of this.racers) {
       const ctrl = r.autopilot ? this.autopilot(r) : this.controllers.get(r.id)!;
       const intent = ctrl.update(r, this, dt);
-      r.throttle = intent.throttle;
+      // Electrical failure freezes the throttle at its last value (stepBoat reads it from here).
+      if (!hasEffect(r, 'blackout')) r.throttle = intent.throttle;
       intents.set(r.id, intent);
       if (r.firstFullThrottleT === null && intent.throttle >= 0.8) r.firstFullThrottleT = this.clock;
     }
@@ -208,6 +211,12 @@ export class RaceSimulation {
       }
       if (hasEffect(r, 'spinOut')) r.spin += dt * 14;
       else r.spin = 0;
+      // Mushrooms: shrink and grow back smoothly (the hull collides at its current size).
+      const targetSize = hasEffect(r, 'shrunk') ? TUNING.mushroom.shrink : 1;
+      if (r.size !== targetSize) {
+        const step = SIZE_RATE * dt;
+        setRacerSize(r, Math.abs(targetSize - r.size) <= step ? targetSize : r.size + Math.sign(targetSize - r.size) * step);
+      }
     }
 
     // 3. Physics and item use
@@ -215,7 +224,7 @@ export class RaceSimulation {
       if (r.sinkTimer > 0) continue;
       const intent = intents.get(r.id)!;
       stepBoat(r, intent, dt, canDrive);
-      if (canDrive && intent.fire && !hasEffect(r, 'spinOut')) this.items.use(r, intent.fire.slot, intent.fire.dir);
+      if (canDrive && intent.fire && !hasEffect(r, 'spinOut') && !hasEffect(r, 'blackout')) this.items.use(r, intent.fire.slot, intent.fire.dir);
     }
 
     // 4. Collisions
@@ -224,7 +233,12 @@ export class RaceSimulation {
       const impact = resolveBank(r, this.track);
       if (impact > 0) {
         this.emit({ type: 'bank', racer: r.id, strength: impact });
-        if (impact > r.stats.topSpeed * 0.55 && r.bankHitCooldown <= 0) {
+        if (hasEffect(r, 'soaked') && impact > r.stats.topSpeed * 0.2 && r.bankHitCooldown <= 0) {
+          // Pushed into the bank by a Kärcher: a proper crash, and a spin-out.
+          r.bankHitCooldown = 1;
+          removeEffect(r, 'soaked');
+          this.hit(r, TUNING.karcher.crashDamage, r.soakedBy, 'karcher');
+        } else if (impact > r.stats.topSpeed * 0.55 && r.bankHitCooldown <= 0) {
           r.bankHitCooldown = 1;
           this.hit(r, TUNING.bankHitDamage, null, 'bank', false);
         }
@@ -286,6 +300,18 @@ export class RaceSimulation {
       r.vy *= 0.3;
     }
     this.emit({ type: 'hit', racer: r.id, by, source, damage });
+    if (r.hull <= 0) this.sink(r);
+    return true;
+  }
+
+  /**
+   * Damage over time (toxic smoke): no spin-out and no blinking, so it can be applied every step.
+   * Boats that are blinking after a hit, sinking or finished are spared. Returns true if it landed.
+   */
+  poison(r: Racer, amount: number): boolean {
+    if (hasEffect(r, 'invulnerable') || r.sinkTimer > 0 || this.isGhost(r)) return false;
+    r.hull -= amount;
+    r.sinceHit = 0;
     if (r.hull <= 0) this.sink(r);
     return true;
   }

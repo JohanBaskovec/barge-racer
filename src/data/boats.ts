@@ -59,6 +59,18 @@ export function deriveStats(def: BoatDef): BoatStats {
   };
 }
 
+/** The stats of a boat shrunk to `size` (1 = normal): a smaller hull, and lighter in proportion to its area. */
+export function scaleStats(base: BoatStats, size: number): BoatStats {
+  if (size === 1) return base;
+  return {
+    ...base,
+    radius: base.radius * size,
+    halfLen: base.halfLen * size,
+    capRadius: base.capRadius * size,
+    mass: base.mass * size * size,
+  };
+}
+
 export const BOATS: BoatDef[] = [
   {
     // A real péniche moored on the canal, drawn from an aerial photo: two long roofs with a lawn
