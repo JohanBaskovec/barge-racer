@@ -34,6 +34,7 @@ The whole game is played with **one pointer**: a mouse or a single finger.
 | [Tracks](docs/tracks.md) | The races, track format, hazards, cups |
 | [AI](docs/ai.md) | How the opponents drive and use items |
 | [Architecture](docs/architecture.md) | Tech stack, project layout, scenes, systems, data formats, testing |
+| [Deployment](docs/deployment.md) | Deploying to Cloudflare (CLI, Git integration, GitHub Actions) |
 | [Roadmap](docs/roadmap.md) | Milestones from first prototype to first release |
 
 ## Planned tech stack

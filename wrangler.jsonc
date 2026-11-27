@@ -1,0 +1,9 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "barge-racer",
+  "compatibility_date": "2025-11-01",
+  // The game is a static site: Cloudflare serves the Vite build output directly.
+  "assets": {
+    "directory": "./dist"
+  }
+}
