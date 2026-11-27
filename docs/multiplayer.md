@@ -66,7 +66,8 @@ own boat and **interpolation** of everyone else.
   The first person in is the **host**.
 - **Invite**: the lobby has a "copy the invite link" button: `https://…/?room=ABCD`. Opening it
   goes straight to the online screen with the code filled in. Or type the code by hand.
-- In the lobby everyone picks a boat. The host picks the race and the AI difficulty, and starts
+- In the lobby everyone picks a boat. The host picks the race (and, on the Reims canal, the
+  stretch) and the AI difficulty, and starts
   once everyone else is ready. Alone, the host races the AI.
 - A room is full at 4 people (including anyone watching or reconnecting).
 - **Joining during a race**: you watch it. The camera follows a boat with its HUD (position,

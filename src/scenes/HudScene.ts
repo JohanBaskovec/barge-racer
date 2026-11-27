@@ -77,6 +77,12 @@ export class HudScene extends Phaser.Scene {
     const step = Math.max(1, Math.floor(tr.samples.length / 400));
     const outline = tr.samples.filter((_, i) => i % step === 0).map((s) => new Phaser.Math.Vector2(s.x * this.mapScale + this.mapOx, s.y * this.mapScale + this.mapOy));
     base.lineStyle(7, 0xffffff, 0.35).strokePoints(outline, tr.closed, tr.closed);
+    if (!tr.closed && tr.def.range) {
+      // A track raced in part (the Reims canal): the stretch stands out from the rest of the canal.
+      const from = Math.floor(tr.startDist / tr.spacing), to = Math.ceil((tr.startDist + tr.lapLength) / tr.spacing);
+      const stretch = tr.samples.slice(from, to + 1).filter((_, i) => i % step === 0).map((s) => new Phaser.Math.Vector2(s.x * this.mapScale + this.mapOx, s.y * this.mapScale + this.mapOy));
+      if (stretch.length > 1) base.lineStyle(5, 0x6fc3ff, 0.9).strokePoints(stretch, false, false);
+    }
     if (!tr.closed) {
       for (const [d, color] of [[tr.startDist, 0x62d26f], [tr.startDist + tr.lapLength, 0xffffff]] as const) {
         const s = tr.sampleAt(d);

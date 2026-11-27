@@ -1,9 +1,12 @@
 import type { Difficulty } from './data/difficulty';
+import type { Section } from './data/tracks';
 
 export interface Selection {
   boatId: string;
   trackId: string;
   difficulty: Difficulty;
+  /** The stretch picked for each track that has one (the Reims canal). */
+  sections?: Record<string, Section>;
 }
 
 const KEY = 'barge-racer-selection';

@@ -1,6 +1,6 @@
 import { BOATS } from '../data/boats';
 import { DIFFICULTIES, type Difficulty } from '../data/difficulty';
-import { TRACK_DEFS, loadTrack } from '../data/tracks';
+import { TRACK_DEFS, clampSection, getTrackDef, hasSections, loadTrack } from '../data/tracks';
 import { Rng } from '../physics/math';
 import { RaceSimulation, STEP } from '../race/RaceSimulation';
 import type { RaceEvent } from '../race/types';
@@ -167,7 +167,9 @@ export class RoomCore {
         break;
       case 'settings':
         if (!this.racing && p.id === this.hostId && msg.settings && TRACK_DEFS.some((t) => t.id === msg.settings.trackId) && msg.settings.difficulty in DIFFICULTIES) {
-          this.settings = { trackId: msg.settings.trackId, difficulty: msg.settings.difficulty as Difficulty };
+          const def = getTrackDef(msg.settings.trackId);
+          this.settings = { trackId: def.id, difficulty: msg.settings.difficulty as Difficulty };
+          if (hasSections(def)) this.settings.section = clampSection(def, msg.settings.section);
           this.broadcast(this.lobbyState());
         }
         break;
@@ -278,7 +280,7 @@ export class RoomCore {
     }
     const seed = this.rng.int(1, 2 ** 30);
     this.sim = new RaceSimulation({
-      track: loadTrack(this.settings.trackId),
+      track: loadTrack(this.settings.trackId, this.settings.section),
       difficulty: this.settings.difficulty,
       seed,
       roster: roster.map((e) => ({ name: e.name, boatId: e.boatId, human: e.human, controller: e.input })),

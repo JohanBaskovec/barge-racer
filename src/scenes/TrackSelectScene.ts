@@ -1,7 +1,8 @@
 import Phaser from 'phaser';
 import { DIFFICULTIES, type Difficulty } from '../data/difficulty';
 import { difficultyName, formatNumber, t, trackDesc, trackName } from '../i18n';
-import { TRACK_DEFS, loadTrack } from '../data/tracks';
+import { TRACK_DEFS, hasSections, loadTrack } from '../data/tracks';
+import { describeSection } from '../view/sectionInfo';
 import { saveSession, session } from '../session';
 import { audio } from '../audio/AudioManager';
 import { background, button, fitText, setSelected, text } from '../view/ui';
@@ -10,6 +11,8 @@ export class TrackSelectScene extends Phaser.Scene {
   private cards: { id: string; frame: Phaser.GameObjects.Rectangle }[] = [];
   private diffButtons: { id: Difficulty; b: Phaser.GameObjects.Container }[] = [];
   private credit!: Phaser.GameObjects.Text;
+  private sectionBtn!: Phaser.GameObjects.Container;
+  private sectionText!: Phaser.GameObjects.Text;
 
   constructor() {
     super('TrackSelect');
@@ -33,14 +36,14 @@ export class TrackSelectScene extends Phaser.Scene {
       this.add
         .text(x, 438, trackDesc(def.id), { fontSize: '16px', color: '#d7efff', align: 'center', wordWrap: { width: 270 }, fontFamily: 'Trebuchet MS, Verdana, sans-serif', resolution: 2 })
         .setOrigin(0.5, 0);
-      const track = loadTrack(def.id);
+      const track = loadTrack(def.id, session.sections?.[def.id]);
       const info = track.closed ? t('trackSelect.laps', { n: def.laps }) : t('trackSelect.distance', { km: formatNumber(track.lapLength / (def.pxPerM ?? 10) / 1000) });
       text(this, x, 128, info, 20, '#ffe08a');
     });
 
-    fitText(text(this, 250, 568, t('trackSelect.opponents'), 26, '#bfe1f7', false), 200);
+    fitText(text(this, 250, 558, t('trackSelect.opponents'), 26, '#bfe1f7', false), 200);
     (Object.keys(DIFFICULTIES) as Difficulty[]).forEach((id, i) => {
-      const b = button(this, 470 + i * 190, 568, 170, 54, difficultyName(id), () => this.pickDiff(id), { textSize: 26 });
+      const b = button(this, 470 + i * 190, 558, 170, 54, difficultyName(id), () => this.pickDiff(id), { textSize: 26 });
       this.diffButtons.push({ id, b });
     });
 
@@ -50,7 +53,13 @@ export class TrackSelectScene extends Phaser.Scene {
       this.scene.start('Race', { ...session });
     }, { fill: 0x2d9d5a, textSize: 38 });
     // Map data credit, shown when a real-world track is selected.
-    this.credit = text(this, 640, 612, '', 16, '#bfe1f7', false);
+    this.credit = text(this, 640, 624, '', 14, '#bfe1f7', false);
+    // A track whose stretch can be picked (the Reims canal): which stretch, and a button to change it.
+    this.sectionBtn = button(this, 640, 668, 330, 52, t('section.button'), () => {
+      saveSession();
+      this.scene.start('Section', { trackId: session.trackId, section: session.sections?.[session.trackId] });
+    }, { fill: 0x3d5266, textSize: 26 });
+    this.sectionText = text(this, 640, 604, '', 18, '#ffe08a', false);
     this.pick(session.trackId);
     this.pickDiff(session.difficulty);
   }
@@ -59,6 +68,10 @@ export class TrackSelectScene extends Phaser.Scene {
     session.trackId = id;
     const source = TRACK_DEFS.find((d) => d.id === id)?.attribution;
     this.credit?.setText(source ? t('credits.map', { source }) : '');
+    const def = TRACK_DEFS.find((d) => d.id === id);
+    const sections = !!def && hasSections(def);
+    this.sectionBtn?.setVisible(sections);
+    if (this.sectionText) fitText(this.sectionText.setText(sections ? describeSection(id, session.sections?.[id]) : ''), 1200);
     for (const c of this.cards) c.frame.setStrokeStyle(c.id === id ? 8 : 5, c.id === id ? 0xffe08a : 0xffffff, c.id === id ? 1 : 0.5);
   }
 
@@ -68,7 +81,7 @@ export class TrackSelectScene extends Phaser.Scene {
   }
 
   private drawPreview(id: string, cx: number, cy: number): void {
-    const track = loadTrack(id);
+    const track = loadTrack(id, session.sections?.[id]);
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
     for (const s of track.samples) {
       minX = Math.min(minX, s.x); maxX = Math.max(maxX, s.x);

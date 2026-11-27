@@ -63,6 +63,7 @@ export class RaceScene extends Phaser.Scene {
   private onlineStart: Extract<ServerMsg, { t: 'start' }> | null = null;
 
   init(data: Selection & { online?: Extract<ServerMsg, { t: 'start' }> }): void {
+    // Online, the room's settings say which stretch is raced; offline, the stretch saved for the track.
     this.onlineStart = data.online ?? null;
     this.online = null;
     this.spectating = false;
@@ -90,7 +91,7 @@ export class RaceScene extends Phaser.Scene {
 
   create(): void {
     const sel = this.selection;
-    const track = loadTrack(sel.trackId);
+    const track = loadTrack(sel.trackId, this.onlineStart ? this.onlineStart.settings.section : sel.sections?.[sel.trackId]);
     if (DEBUG.laps) track.def.laps = DEBUG.laps;
     this.pointer = new PointerController(this, () => this.playerScreen());
     const start = this.onlineStart;

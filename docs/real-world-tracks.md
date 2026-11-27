@@ -1,22 +1,25 @@
 # Real-world tracks
 
-**Canal de Reims** is the real Canal de l'Aisne à la Marne, from boulevard Paul
-Doumer (Reims) to the Écluse n°13 de Sillery, at true scale. It is built from
-IGN open data: BD TOPO®, under the Licence Ouverte Etalab 2.0. The credit is
-shown on the track select screen.
+**Canal de Reims** is the real Canal de l'Aisne à la Marne, from Passage Marx
+Dormoy (la Neuvillette, north of Reims) to the Écluse n°13 de Sillery, at true
+scale. Any stretch of it can be raced (see [Picking the stretch](#picking-the-stretch));
+the usual race runs from boulevard Paul Doumer to the lock. It is built from IGN
+open data: BD TOPO®, under the Licence Ouverte Etalab 2.0. The credit is shown on
+the track select screen.
 
 ## Facts
 
 | | |
 | --- | --- |
-| Race length | 9.9 km, point-to-point (one run, no laps) |
+| Map length | 15.9 km of canal, Passage Marx Dormoy to the Sillery lock |
+| Race length | 9.9 km for the usual race (boulevard Paul Doumer to the lock); any stretch of 1 km or more can be picked. Point-to-point (one run, no laps) |
 | Scale | 10 px per metre: boats are about 7–10 m long, like small motorboats |
 | Canal width | 57 m at the start basin, 14–30 m elsewhere |
-| Race time (AI, River) | about 4 min for the fastest boats, 4 min 50 s for the slowest |
+| Race time (AI, River) | usual race: about 4 min for the fastest boats, 4 min 50 s for the slowest (about 25 s per km) |
 | Locks removed | n°10 Fléchambault, n°11 Château d'Eau, n°12 Huon (and n°13, where the race ends) |
-| Scenery | 1,423 buildings, 1,733 road segments, railways, vegetation, 14 sports grounds, 1 cemetery, bridges, other water |
-| Street names | 64 labels for 63 streets, written along the streets (see below) |
-| Bridge names | 7 bridges over the canal are labelled (see below) |
+| Scenery | 2,448 buildings, 2,787 road segments, railways, vegetation, 18 sports grounds, 1 cemetery, bridges, other water |
+| Street names | 117 labels for 115 streets, written along the streets (see below) |
+| Bridge names | 14 bridges over the canal are labelled (see below) |
 
 ## Importer
 
@@ -28,18 +31,22 @@ npm run import:reims
 `scripts/import-reims.mjs` downloads from IGN's Géoplateforme WFS
 (`data.geopf.fr`, no key needed) and writes two files:
 
-- `src/data/maps/reimsCanal.track.json`, about 20 KB, bundled with the game: the
-  centre line, a width every 8 m, and the start and finish distances.
-- `public/maps/reims-canal.json`, about 450 KB, loaded only when the race starts:
+- `src/data/maps/reimsCanal.track.json`, about 34 KB, bundled with the game: the
+  centre line, a width every 8 m, the usual start and finish, the range a stretch
+  can be picked in, and the named places along the canal (the ends, the bridges,
+  the removed locks) for the stretch picker.
+- `public/maps/reims-canal.json`, about 700 KB, loaded only when the race starts:
   the scenery.
 
 The game never calls IGN while you play. What the importer does:
 
 1. Chains the canal's centre-line sections (`troncon_hydrographique`) from north
    to south.
-2. Puts the start line at the canal point nearest boulevard Paul Doumer. The
-   geocoder only knows the street, not number 25, so `CONFIG.startShift` moves it
-   along the canal. The finish is 25 m before lock n°13.
+2. Starts the map at the canal point nearest Passage Marx Dormoy (`CONFIG.north`)
+   and ends it at lock n°13. The usual race starts at the canal point nearest
+   boulevard Paul Doumer (`CONFIG.start`; the geocoder only knows the street, not
+   number 25, so `CONFIG.startShift` moves it along the canal) and finishes 25 m
+   before the lock.
 3. Measures the canal's real width every 4 m by walking out from the centre line
    until it leaves the water surfaces (`surface_hydrographique`), and re-centres
    the line between the banks.
@@ -101,6 +108,27 @@ without accents, so the importer restores the few that are on this route
 (Fléchambault, Nicéphore Niépce, Saint-Léonard); a new route may need more entries
 in `ACCENTS`. Run `DEBUG_BRIDGES=1 npm run import:reims` to see every crossing and
 the names it considered.
+
+## Picking the stretch
+
+On the track select screen, the Reims canal has a **Choose the stretch** button
+(online, the host clicks the stretch shown in the lobby). The screen has:
+
+- **one slider** for the whole canal, Neuvillette (north) on the left, Sillery
+  (south) on the right, with a **start handle** (green) and a **finish handle**
+  (chequered). Drag a handle, or press on the bar to move the nearer one there.
+  The race always goes north to south.
+- a **tick for each named place**: bridges, the old locks, the ends. A handle
+  dropped near one snaps onto it, so "from Pont de Venise to Pont Huon" is easy.
+- a **map** of the canal with the stretch highlighted, and for each end its
+  kilometre and where it is ("Pont de Venise", "300 m past Pont Huon"), plus the
+  length and a rough race time.
+- **Usual race** (Paul Doumer to the lock) and **Whole canal** buttons.
+
+A stretch is at least 1 km. It is remembered per track (with the other menu
+choices); online it is part of the room's settings, and the server checks it.
+Crates are spread over whatever stretch is raced (a row of three every 250 m), and
+the minimap highlights it.
 
 ## In the game
 

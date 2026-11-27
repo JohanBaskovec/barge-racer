@@ -1,4 +1,5 @@
 import type { Difficulty } from '../data/difficulty';
+import type { Section } from '../data/tracks';
 import type { RaceEvent } from '../race/types';
 import type { SimState } from './snapshot';
 
@@ -31,6 +32,8 @@ export type InputTuple = [number, number | null, number, number, number];
 export interface RoomSettings {
   trackId: string;
   difficulty: Difficulty;
+  /** For a track whose stretch can be picked: the stretch (otherwise absent). */
+  section?: Section;
 }
 
 export interface LobbyPlayer {

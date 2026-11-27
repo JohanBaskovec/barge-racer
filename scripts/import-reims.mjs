@@ -5,13 +5,17 @@
  *   npm run import:reims
  *
  * Downloads the canal centre line, water surfaces, buildings, roads, railways, vegetation and
- * bridges along the Canal de l'Aisne à la Marne, from boulevard Paul Doumer (Reims) to the
- * Écluse n°13 de Sillery, and writes:
+ * bridges along the Canal de l'Aisne à la Marne, from Passage Marx Dormoy (la Neuvillette, north of
+ * Reims) to the Écluse n°13 de Sillery, and writes:
  *   src/data/maps/reimsCanal.track.json  centre line + widths (bundled with the game)
  *   public/maps/reims-canal.json         scenery (loaded when the race starts)
  *
  * Everything is in game pixels at true scale (PX_PER_M pixels per metre). Locks on the way are
  * removed: the canal keeps its normal width through them.
+ *
+ * Any stretch of the canal can be raced (the game has a slider for it). The track file gives the
+ * default stretch (boulevard Paul Doumer to the Sillery lock), the range that can be picked, and
+ * named places along the canal (bridges, removed locks, the ends) to show on the slider.
  *
  * Behind a proxy, Node's fetch needs NODE_USE_ENV_PROXY=1 (Node >= 22.21).
  */
@@ -23,8 +27,10 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 const CONFIG = {
   canalName: "Canal de la Marne a l'Aisne",
-  /** Start line: the canal point nearest to boulevard Paul Doumer (geocoder street position). */
-  start: { lon: 4.027292, lat: 49.248586 },
+  /** Default start line: the canal point nearest to boulevard Paul Doumer (geocoder street position). Also the map's origin. */
+  start: { lon: 4.027292, lat: 49.248586, name: 'Boulevard Paul Doumer' },
+  /** The map begins here: the canal point nearest to Passage Marx Dormoy, la Neuvillette. */
+  north: { lon: 4.004011, lat: 49.292089, name: 'Passage Marx Dormoy' },
   /** Finish line just before this lock. */
   endLock: 'Écluse Numéro 13 de Sillery',
   /** Shift the start line along the canal, in metres (positive = further south). */
@@ -46,7 +52,7 @@ const CONFIG = {
   maxWidth: 60,
   /** Locks are removed within this distance of their outline. */
   lockMargin: 35,
-  searchBox: { minLon: 3.99, minLat: 49.17, maxLon: 4.17, maxLat: 49.27 },
+  searchBox: { minLon: 3.97, minLat: 49.17, maxLon: 4.17, maxLat: 49.31 },
 };
 
 const WFS = 'https://data.geopf.fr/wfs/ows';
@@ -299,11 +305,13 @@ async function main() {
   if (!endLock) throw new Error(`Lock not found: ${C.endLock}`);
   const lockCentre = (f) => { const ring = polygons(f.geometry)[0][0]; const b = bboxOf(ring); return [(b.minX + b.maxX) / 2, (b.minY + b.maxY) / 2]; };
   const startS = locate(canal, [0, 0]).s + C.startShift;
+  const northS = locate(canal, project([C.north.lon, C.north.lat])).s;
   const lockS = locate(canal, lockCentre(endLock)).s;
   const finishS = lockS - C.finishBeforeLock;
-  canal = cut(canal, startS - C.leadIn, finishS + C.runOut);
+  const cutS = northS - C.leadIn; // the map's centre line starts here
+  canal = cut(canal, cutS, finishS + C.runOut);
   const raceLength = finishS - startS;
-  log(`  race: ${(raceLength / 1000).toFixed(2)} km, start ${locate(canal, [0, 0]).d.toFixed(1)} m from the boulevard`);
+  log(`  default race: ${(raceLength / 1000).toFixed(2)} km, start ${locate(canal, [0, 0]).d.toFixed(1)} m from the boulevard; whole map ${((finishS - northS) / 1000).toFixed(2)} km from ${C.north.name}`);
 
   // 3. Sample the centre line and measure the canal from the water surfaces.
   const sampleStep = 4;
@@ -439,8 +447,11 @@ async function main() {
   // IGN's "collaborative" names are upper case without accents; restore the ones we know are on the route.
   const ACCENTS = { Flechambault: 'Fléchambault', Nicephore: 'Nicéphore', Niepce: 'Niépce', Leonard: 'Léonard', Rivieres: 'Rivières', Riviere: 'Rivière', Prolonge: 'Prolongé' };
   const fixAccents = (name) => name.replace(/\p{L}+/gu, (w) => ACCENTS[w] ?? w);
+  /** "Écluse Numéro 13 de Sillery" -> "Écluse n°13 Sillery". */
+  const prettyLock = (name) => fixAccents(name.replace(/Num[ée]ro\s*/i, 'n°').replace(/\s+de\s+/i, ' '));
   /** BAN sometimes abbreviates the first word ("R des Bains", "Bd du Val"). */
-  const expandBan = (n) => n.replace(/^R /, 'Rue ').replace(/^Bd /, 'Boulevard ').replace(/^Av /, 'Avenue ').replace(/\p{Lu}{3,}/gu, (w) => capitalize(w));
+  // BAN names in hamlets carry the hamlet: "Rue Louis Pasteur - la Neuvillette". The map shows the street.
+  const expandBan = (n) => n.replace(/\s+-\s+.*$/, '').replace(/^R /, 'Rue ').replace(/^Bd /, 'Boulevard ').replace(/^Av /, 'Avenue ').replace(/\p{Lu}{3,}/gu, (w) => capitalize(w));
   const streetName = (p) => {
     const ban = p.nom_voie_ban_droite || p.nom_voie_ban_gauche;
     if (ban) return expandBan(ban);
@@ -634,6 +645,24 @@ async function main() {
 
   const waterOut = water.filter((poly) => nearCanal(poly[0]) || coversCanal(poly)).map((poly) => ring(poly[0], 0.5));
 
+  // Named places along the canal, for the slider that picks the stretch to race:
+  // [x, y, kind, name] with kind 0 = end or default start, 1 = named bridge, 2 = removed lock,
+  // 3 = bridge named after the street it carries (name = the street), 4 = railway bridge.
+  const at = (s) => centre[Math.max(0, Math.min(n - 1, Math.round(s / sampleStep)))];
+  const places = [
+    [...at(C.leadIn).map(px), 0, C.north.name],
+    [...at(startS - cutS).map(px), 0, C.start.name],
+    [...at(finishS - cutS).map(px), 0, prettyLock(C.endLock)],
+    ...labels.map(([x, y, kind, name]) => [x, y, [1, 3, 4][kind], name]),
+  ];
+  for (const f of locks) {
+    if (f === endLock || !f.properties.toponyme) continue;
+    const l = locate(canal, lockCentre(f));
+    if (l.d > 60 || l.s < C.leadIn || l.s > finishS - cutS) continue;
+    places.push([...at(l.s).map(px), 2, prettyLock(f.properties.toponyme)]);
+  }
+  log(`  ${places.length} named places: ${places.map((p) => p[3]).join(', ')}`);
+
   // 5. Write.
   const step = 2; // control points every 8 m
   const control = [];
@@ -650,7 +679,12 @@ async function main() {
   const sceneryFile = join(ROOT, 'public/maps/reims-canal.json');
   mkdirSync(dirname(trackFile), { recursive: true });
   mkdirSync(dirname(sceneryFile), { recursive: true });
-  writeFileSync(trackFile, JSON.stringify({ ...meta, startDist: px(C.leadIn), finishDist: px(C.leadIn + raceLength), centerLine: control }));
+  writeFileSync(trackFile, JSON.stringify({
+    ...meta,
+    // The default stretch, and the range any stretch must stay within (water behind the start for the grid).
+    startDist: px(startS - cutS), finishDist: px(finishS - cutS), range: [px(C.leadIn), px(finishS - cutS)],
+    places, centerLine: control,
+  }));
   writeFileSync(sceneryFile, JSON.stringify({ ...meta, water: waterOut, vegetation, roads, rails, buildings, bridges, labels, streets, sports, cemeteries }));
   log(`\nWrote ${trackFile}\n  ${control.length / 3} control points`);
   log(`Wrote ${sceneryFile}\n  ${buildings.length} buildings, ${roads.length} roads, ${rails.length} railways, ${vegetation.length} vegetation, ${bridges.length} bridges, ${labels.length} bridge labels, ${streets.length} street labels, ${sports.length} sports grounds, ${cemeteries.length} cemeteries, ${waterOut.length} water`);

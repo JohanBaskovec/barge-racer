@@ -6,6 +6,7 @@ import { BoatSelectScene } from './scenes/BoatSelectScene';
 import { BootScene } from './scenes/BootScene';
 import { HudScene } from './scenes/HudScene';
 import { OptionsScene } from './scenes/OptionsScene';
+import { SectionScene } from './scenes/SectionScene';
 import { LobbyScene } from './scenes/LobbyScene';
 import { OnlineScene } from './scenes/OnlineScene';
 import { RaceScene } from './scenes/RaceScene';
@@ -26,7 +27,7 @@ const game = new Phaser.Game({
   // HTML text fields (player name, room code) on the online screen.
   dom: { createContainer: true },
   render: { antialias: true },
-  scene: [BootScene, TitleScene, BoatSelectScene, TrackSelectScene, RaceScene, HudScene, ResultsScene, OptionsScene, OnlineScene, LobbyScene],
+  scene: [BootScene, TitleScene, BoatSelectScene, TrackSelectScene, RaceScene, HudScene, ResultsScene, OptionsScene, OnlineScene, LobbyScene, SectionScene],
 });
 
 if (DEBUG.enabled) Object.assign(window, { game, audio, net });

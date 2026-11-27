@@ -17,7 +17,6 @@ const crateRowsEvery = (length: number, spacing: number, count: number) => {
   return rows;
 };
 
-const reimsLength = reims.finishDist - reims.startDist;
 
 export const TRACK_DEFS: TrackDef[] = [
   {
@@ -62,7 +61,8 @@ export const TRACK_DEFS: TrackDef[] = [
     colors: { land: 0x2f4a2a, shore: 0x6e7a3a, water: 0x4d7a4a, waterDeep: 0x3a6140 },
   },
   {
-    // Canal de l'Aisne à la Marne, boulevard Paul Doumer (Reims) to the Sillery lock, at true scale.
+    // Canal de l'Aisne à la Marne, from Passage Marx Dormoy (la Neuvillette) to the Sillery lock, at
+    // true scale. Any stretch can be raced; by default boulevard Paul Doumer to the lock.
     // Generated from IGN open data by scripts/import-reims.mjs.
     id: 'reimsCanal',
     laps: 1,
@@ -71,14 +71,56 @@ export const TRACK_DEFS: TrackDef[] = [
     centerLine: flatPts(reims.centerLine),
     startDist: reims.startDist,
     finishDist: reims.finishDist,
+    range: reims.range as [number, number],
+    places: reims.places as [number, number, number, string][],
+    crateSpacing: { every: 2500, count: 3 },
     pxPerM: reims.pxPerM,
     scenery: 'maps/reims-canal.json',
     attribution: `${reims.source}, ${reims.generated}`,
     checkpoints: [0.25, 0.5, 0.75],
-    crateRows: crateRowsEvery(reimsLength, 2500, 3),
+    crateRows: [], // from crateSpacing, for the stretch raced
     colors: { land: 0xd9d2b4, shore: 0xbdb5a2, water: 0x3f7fa8, waterDeep: 0x2f6a92 },
   },
 ];
 
 export const getTrackDef = (id: string): TrackDef => TRACK_DEFS.find((t) => t.id === id) ?? TRACK_DEFS[0];
-export const loadTrack = (id: string): Track => new Track(getTrackDef(id));
+
+/** A stretch of a point-to-point track to race, as distances along its centre line (pixels). */
+export interface Section {
+  start: number;
+  finish: number;
+}
+
+/** The shortest stretch that can be picked, in metres. */
+export const MIN_SECTION_M = 1000;
+
+/** Whether this track's stretch can be picked. */
+export const hasSections = (def: TrackDef): boolean => !!def.range;
+
+/** The default stretch of a track whose stretch can be picked. */
+export const defaultSection = (def: TrackDef): Section => ({ start: def.startDist ?? 0, finish: def.finishDist ?? 0 });
+
+/**
+ * Make a stretch valid for a track: inside its range, start before finish, at least MIN_SECTION_M
+ * long, whole pixels. Anything unusable (missing, not numbers) gives the default stretch.
+ */
+export function clampSection(def: TrackDef, s: unknown): Section {
+  const fallback = defaultSection(def);
+  const range = def.range;
+  if (!range || !s || typeof s !== 'object') return fallback;
+  const { start, finish } = s as Record<string, unknown>;
+  if (typeof start !== 'number' || typeof finish !== 'number' || !Number.isFinite(start) || !Number.isFinite(finish)) return fallback;
+  const min = MIN_SECTION_M * (def.pxPerM ?? 10);
+  const a = Math.round(Math.max(range[0], Math.min(range[1] - min, start)));
+  const b = Math.round(Math.max(a + min, Math.min(range[1], finish)));
+  return { start: a, finish: b };
+}
+
+/** Load a track; for a track whose stretch can be picked, race `section` (default: its default stretch). */
+export function loadTrack(id: string, section?: Section | null): Track {
+  const def = getTrackDef(id);
+  if (!hasSections(def)) return new Track(def);
+  const { start, finish } = clampSection(def, section ?? undefined);
+  const crateRows = def.crateSpacing ? crateRowsEvery(finish - start, def.crateSpacing.every, def.crateSpacing.count) : def.crateRows;
+  return new Track({ ...def, startDist: start, finishDist: finish, crateRows });
+}

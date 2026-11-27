@@ -18,6 +18,15 @@ export interface TrackDef {
   closed?: boolean;
   startDist?: number;
   finishDist?: number;
+  /**
+   * Point-to-point tracks whose stretch can be picked (see `Section`): the start and finish must
+   * stay within [range[0], range[1]] along the centre line; crate rows are then placed every
+   * `crateSpacing.every` pixels of the race.
+   */
+  range?: [number, number];
+  crateSpacing?: { every: number; count: number };
+  /** Named places along the canal for the stretch picker: [x, y, kind, name], kind 0 end, 1 named bridge, 2 lock, 3 bridge named by its street, 4 railway bridge. */
+  places?: [number, number, number, string][];
   /** Real-world tracks: pixels per metre, scenery file (in public/) and data attribution. */
   pxPerM?: number;
   scenery?: string;
@@ -38,6 +47,13 @@ export interface NearestResult {
 
 export const SAMPLE_SPACING = 16;
 
+/**
+ * Sampling a long centre line is slow (the 16 km Reims canal takes tens of ms), and the menus load
+ * the same track several times with different stretches. The samples and racing line only depend
+ * on the centre line, so they are computed once per centre line. Nothing changes them afterwards.
+ */
+const geometryCache = new WeakMap<ControlPoint[], { samples: Sample[]; racingOffset: number[] }>();
+
 /** A loaded track: the sampled centre line plus queries used by the simulation. */
 export class Track {
   readonly samples: Sample[];
@@ -54,7 +70,8 @@ export class Track {
 
   constructor(readonly def: TrackDef) {
     this.closed = def.closed !== false;
-    this.samples = sampleSpline(def.centerLine, this.closed, SAMPLE_SPACING);
+    const cached = geometryCache.get(def.centerLine);
+    this.samples = cached?.samples ?? sampleSpline(def.centerLine, this.closed, SAMPLE_SPACING);
     const n = this.samples.length;
     const last = this.samples[n - 1];
     const first = this.samples[0];
@@ -62,7 +79,8 @@ export class Track {
     this.length = this.closed ? last.dist + Math.hypot(first.x - last.x, first.y - last.y) : last.dist;
     this.startDist = this.closed ? 0 : (def.startDist ?? 0);
     this.lapLength = this.closed ? this.length : (def.finishDist ?? this.length) - this.startDist;
-    this.racingOffset = this.buildRacingLine();
+    this.racingOffset = cached?.racingOffset ?? this.buildRacingLine();
+    if (!cached) geometryCache.set(def.centerLine, { samples: this.samples, racingOffset: this.racingOffset });
   }
 
   get laps(): number {

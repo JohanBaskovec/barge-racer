@@ -2,7 +2,8 @@ import Phaser from 'phaser';
 import { audio } from '../audio/AudioManager';
 import { BOATS } from '../data/boats';
 import { DIFFICULTIES, type Difficulty } from '../data/difficulty';
-import { TRACK_DEFS } from '../data/tracks';
+import { TRACK_DEFS, getTrackDef, hasSections } from '../data/tracks';
+import { describeSection } from '../view/sectionInfo';
 import { boatName, difficultyName, t, trackName } from '../i18n';
 import { net } from '../net/client';
 import type { ServerMsg } from '../net/protocol';
@@ -106,13 +107,24 @@ export class LobbyScene extends Phaser.Scene {
     const ti = Math.max(0, TRACK_DEFS.findIndex((d) => d.id === lobby.settings.trackId));
     add(fitText(text(this, 950, 440, trackName(lobby.settings.trackId), 28), 300));
     const diffs = Object.keys(DIFFICULTIES) as Difficulty[];
-    const send = (trackId: string, difficulty: Difficulty): void => net.send({ t: 'settings', settings: { trackId, difficulty } });
+    // A new track brings the host's saved stretch for it; a new difficulty keeps the stretch.
+    const send = (trackId: string, difficulty: Difficulty): void => net.send({
+      t: 'settings',
+      settings: { trackId, difficulty, section: trackId === lobby.settings.trackId ? lobby.settings.section : session.sections?.[trackId] },
+    });
     if (host) {
       add(button(this, 760, 440, 60, 56, '‹', () => send(TRACK_DEFS[(ti - 1 + TRACK_DEFS.length) % TRACK_DEFS.length].id, lobby.settings.difficulty), { textSize: 36 }));
       add(button(this, 1140, 440, 60, 56, '›', () => send(TRACK_DEFS[(ti + 1) % TRACK_DEFS.length].id, lobby.settings.difficulty), { textSize: 36 }));
     }
+    // The stretch of the Reims canal: the host can change it.
+    if (hasSections(getTrackDef(lobby.settings.trackId))) {
+      const desc = describeSection(lobby.settings.trackId, lobby.settings.section, true);
+      if (host) {
+        add(button(this, 950, 482, 470, 38, `✎ ${desc}`, () => this.scene.start('Section', { trackId: lobby.settings.trackId, section: lobby.settings.section, online: true }), { fill: 0x3d5266, textSize: 17 }));
+      } else add(fitText(text(this, 950, 482, desc, 18, '#ffe08a', false), 470));
+    }
     diffs.forEach((d, k) => {
-      const b = add(button(this, 820 + k * 130, 515, 120, 50, difficultyName(d), () => host && send(lobby.settings.trackId, d), { textSize: 22 }));
+      const b = add(button(this, 820 + k * 130, 540, 120, 50, difficultyName(d), () => host && send(lobby.settings.trackId, d), { textSize: 22 }));
       setSelected(b, d === lobby.settings.difficulty);
       if (!host) b.disableInteractive();
     });
