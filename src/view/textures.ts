@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { BOATS, type BoatDef } from '../data/boats';
+import { generateItemIcons } from './itemIcons';
 
 type G = Phaser.GameObjects.Graphics;
 
@@ -72,6 +73,7 @@ function gen(scene: Phaser.Scene, key: string, w: number, h: number, draw: (g: G
 }
 
 export function generateTextures(scene: Phaser.Scene): void {
+  generateItemIcons(scene);
   for (const b of BOATS) gen(scene, `boat_${b.id}`, b.size.length, b.size.width, (g) => drawBoat(g, b));
 
   gen(scene, 'crate', 44, 44, (g) => {

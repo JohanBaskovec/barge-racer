@@ -1,5 +1,4 @@
 import Phaser from 'phaser';
-import { FONT } from '../config';
 import { ITEM_INFO, type ItemId } from '../data/items';
 import type { RaceEvent } from '../race/types';
 import { addFullscreenButton } from '../view/fullscreen';
@@ -15,7 +14,8 @@ export class HudScene extends Phaser.Scene {
   private posText!: Phaser.GameObjects.Text;
   private lapText!: Phaser.GameObjects.Text;
   private timeText!: Phaser.GameObjects.Text;
-  private itemIcon!: Phaser.GameObjects.Text;
+  private itemIcon!: Phaser.GameObjects.Image;
+  private itemName!: Phaser.GameObjects.Text;
   private itemCount!: Phaser.GameObjects.Text;
   private itemRing!: Phaser.GameObjects.Arc;
   private big!: Phaser.GameObjects.Text;
@@ -58,9 +58,9 @@ export class HudScene extends Phaser.Scene {
 
     // Item button
     this.itemRing = this.add.circle(ITEM_BTN.x, ITEM_BTN.y, ITEM_BTN.r, 0x0b3a5b, 0.7).setStrokeStyle(6, 0xffffff, 0.9);
-    this.itemIcon = this.add.text(ITEM_BTN.x, ITEM_BTN.y, '', { fontSize: '64px', fontFamily: FONT, resolution: 2 }).setOrigin(0.5);
+    this.itemIcon = this.add.image(ITEM_BTN.x, ITEM_BTN.y, 'icon_glue').setDisplaySize(80, 80).setVisible(false);
     this.itemCount = text(this, ITEM_BTN.x + 40, ITEM_BTN.y + 40, '', 28, '#ffe08a').setStroke(stroke, 5);
-    text(this, ITEM_BTN.x, ITEM_BTN.y + ITEM_BTN.r + 22, 'FIRE', 18, '#ffffffaa', true);
+    this.itemName = text(this, ITEM_BTN.x, ITEM_BTN.y + ITEM_BTN.r + 26, '', 24, '#ffffff').setStroke(stroke, 5);
     this.itemRing.setInteractive({ useHandCursor: true });
     this.itemRing.on('pointerdown', (p: Phaser.Input.Pointer) => (this.downY = p.y));
     this.itemRing.on('pointerup', (p: Phaser.Input.Pointer) => {
@@ -95,14 +95,19 @@ export class HudScene extends Phaser.Scene {
     // Item slot: roulette flicker, then the held item
     let icon = '';
     let count = '';
+    let name = '';
     if (p.rouletteItem) {
       const all = Object.keys(ITEM_INFO) as ItemId[];
       icon = ITEM_INFO[all[Math.floor(time / 80) % all.length]].icon;
+      name = '...';
     } else if (p.item) {
       icon = ITEM_INFO[p.item].icon;
+      name = ITEM_INFO[p.item].name;
       if (p.itemUses > 1) count = `×${p.itemUses}`;
     }
-    this.itemIcon.setText(icon);
+    this.itemIcon.setVisible(icon !== '');
+    if (icon) this.itemIcon.setTexture(icon).setDisplaySize(80, 80);
+    this.itemName.setText(name);
     this.itemCount.setText(count);
     this.itemRing.setStrokeStyle(6, p.item ? 0xffe08a : 0xffffff, p.item ? 1 : 0.6);
     this.itemRing.setScale(p.item ? 1 + Math.sin(time / 180) * 0.03 : 1);

@@ -1,0 +1,91 @@
+import Phaser from 'phaser';
+
+type G = Phaser.GameObjects.Graphics;
+const V = (x: number, y: number): Phaser.Math.Vector2 => new Phaser.Math.Vector2(x, y);
+const OUTLINE = 0x2b2b2b;
+
+/** HUD icons for the items, 96x96, drawn in code (replace with sprites when real art exists). */
+const ICONS: Record<string, (g: G) => void> = {
+  // A cheerful volunteer in an orange life vest, waving both arms.
+  icon_volunteer: (g) => {
+    g.lineStyle(5, 0xffd2a8).lineBetween(30, 56, 16, 30).lineBetween(66, 56, 80, 30); // arms
+    g.fillStyle(0xffd2a8).fillCircle(16, 28, 6).fillCircle(80, 28, 6); // hands
+    g.fillStyle(0x3b6ea8).fillRoundedRect(32, 62, 12, 26, 4).fillRoundedRect(52, 62, 12, 26, 4); // legs
+    g.fillStyle(0xff8a1f).fillRoundedRect(26, 44, 44, 28, 10); // vest
+    g.lineStyle(3, OUTLINE).strokeRoundedRect(26, 44, 44, 28, 10);
+    g.fillStyle(0xf2f2f2).fillRect(34, 44, 6, 28).fillRect(56, 44, 6, 28); // reflective stripes
+    g.fillStyle(0xffd2a8).fillCircle(48, 28, 15); // head
+    g.lineStyle(3, OUTLINE).strokeCircle(48, 28, 15);
+    g.fillStyle(0xffd23f).fillRoundedRect(33, 10, 30, 10, 5); // cap
+    g.fillStyle(OUTLINE).fillCircle(42, 28, 2).fillCircle(54, 28, 2);
+    g.lineStyle(2.5, OUTLINE).beginPath().arc(48, 31, 6, 0.2, Math.PI - 0.2).strokePath(); // smile
+  },
+
+  // A jigsaw: yellow body with a long toothed blade.
+  icon_jigsaw: (g) => {
+    g.fillStyle(0xd7dde2).fillRect(46, 52, 14, 40); // blade
+    g.fillStyle(0x9aa3aa);
+    for (let i = 0; i < 6; i++) g.fillTriangle(46, 56 + i * 6, 46, 62 + i * 6, 40, 59 + i * 6);
+    g.lineStyle(3, OUTLINE).strokeRect(46, 52, 14, 40);
+    g.fillStyle(0xf2b705).fillRoundedRect(18, 14, 62, 40, 10); // motor body
+    g.lineStyle(3, OUTLINE).strokeRoundedRect(18, 14, 62, 40, 10);
+    g.fillStyle(0x333333).fillRoundedRect(36, 4, 30, 14, 6); // handle grip
+    g.fillStyle(0x2b2b2b).fillRoundedRect(26, 24, 18, 22, 4);
+    g.fillStyle(0xe8532f).fillCircle(66, 30, 6); // switch
+    g.fillStyle(0xffffff, 0.7).fillRect(48, 40, 4, 10);
+  },
+
+  // A tied-off bag of white powder with sparkles.
+  icon_powder: (g) => {
+    g.fillStyle(0xffffff).fillPoints([V(34, 30), V(62, 30), V(80, 58), V(76, 82), V(20, 82), V(16, 58)], true);
+    g.fillStyle(0xf2f2f2).fillEllipse(48, 72, 62, 22);
+    g.lineStyle(3, OUTLINE).strokePoints([V(34, 30), V(62, 30), V(80, 58), V(76, 82), V(20, 82), V(16, 58)], true);
+    g.fillStyle(0xe8eef2).fillRect(32, 22, 32, 10); // gathered neck
+    g.lineStyle(3, OUTLINE).strokeRect(32, 22, 32, 10);
+    g.fillStyle(0xd23b3b).fillRect(30, 26, 36, 5); // tie
+    g.fillStyle(0xffffff).fillTriangle(30, 12, 36, 12, 33, 2).fillTriangle(60, 10, 66, 10, 63, 0);
+    // sparkles
+    g.fillStyle(0xfff8c0);
+    for (const [x, y, s] of [[12, 22, 7], [84, 34, 9], [86, 76, 6], [10, 80, 6]]) {
+      g.fillTriangle(x - s, y, x, y - s * 1.6, x + s, y).fillTriangle(x - s, y, x, y + s * 1.6, x + s, y);
+    }
+  },
+
+  // An electric drill: red body, trigger, grey chuck and a spiral bit.
+  icon_drill: (g) => {
+    g.fillStyle(0xd62f2f).fillRoundedRect(8, 22, 54, 30, 10); // body
+    g.lineStyle(3, OUTLINE).strokeRoundedRect(8, 22, 54, 30, 10);
+    g.fillStyle(0x2f2f2f).fillRoundedRect(20, 48, 22, 40, 6); // handle
+    g.lineStyle(3, OUTLINE).strokeRoundedRect(20, 48, 22, 40, 6);
+    g.fillStyle(0xffc933).fillRect(12, 28, 8, 18); // battery band
+    g.fillStyle(0x9aa3aa).fillRect(62, 28, 12, 18); // chuck
+    g.lineStyle(2, OUTLINE).strokeRect(62, 28, 12, 18);
+    g.fillStyle(0xdde3e8).fillTriangle(74, 30, 74, 44, 94, 37); // bit
+    g.lineStyle(2, 0x777f86).lineBetween(78, 32, 80, 42).lineBetween(84, 33, 86, 41).lineBetween(89, 35, 90, 39);
+    g.lineStyle(3, OUTLINE).strokeTriangle(74, 30, 74, 44, 94, 37);
+    g.fillStyle(0xffffff, 0.35).fillRoundedRect(14, 25, 38, 6, 3);
+  },
+
+  // A tipped glue bottle with a long drip and a puddle.
+  icon_glue: (g) => {
+    g.fillStyle(0xf2e27a).fillEllipse(48, 84, 70, 18); // puddle
+    g.lineStyle(3, 0xc9b44a).strokeEllipse(48, 84, 70, 18);
+    g.fillStyle(0xf2e27a).fillRoundedRect(44, 52, 8, 26, 4).fillCircle(48, 78, 6); // drip
+    g.fillStyle(0xffffff).fillRoundedRect(24, 6, 48, 40, 10); // bottle
+    g.lineStyle(3, OUTLINE).strokeRoundedRect(24, 6, 48, 40, 10);
+    g.fillStyle(0x2f7fb5).fillRect(24, 18, 48, 16); // label
+    g.fillStyle(0xffffff).fillCircle(40, 26, 3).fillCircle(48, 26, 3).fillCircle(56, 26, 3);
+    g.fillStyle(0xe8832f).fillTriangle(38, 46, 58, 46, 48, 58); // nozzle
+    g.lineStyle(3, OUTLINE).strokeTriangle(38, 46, 58, 46, 48, 58);
+  },
+};
+
+export function generateItemIcons(scene: Phaser.Scene): void {
+  for (const [key, draw] of Object.entries(ICONS)) {
+    if (scene.textures.exists(key)) continue;
+    const g = scene.make.graphics({ x: 0, y: 0 }, false);
+    draw(g);
+    g.generateTexture(key, 96, 96);
+    g.destroy();
+  }
+}

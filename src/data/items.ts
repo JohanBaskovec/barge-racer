@@ -4,17 +4,18 @@ export interface ItemInfo {
   id: ItemId;
   name: string;
   uses: number;
-  icon: string; // emoji shown in the HUD
+  /** Texture key of the HUD icon (drawn in view/itemIcons.ts). */
+  icon: string;
 }
 
 export const ITEM_INFO: Record<ItemId, ItemInfo> = {
-  volunteer: { id: 'volunteer', name: 'Volunteers', uses: 1, icon: '🙋' },
-  volunteerSquad: { id: 'volunteerSquad', name: 'Volunteer Squad', uses: 3, icon: '🙋' },
-  jigsaw: { id: 'jigsaw', name: 'Jigsaw', uses: 1, icon: '🪚' },
-  whitePowder: { id: 'whitePowder', name: 'White Powder', uses: 1, icon: '🧂' },
-  bigBag: { id: 'bigBag', name: 'Big Bag', uses: 3, icon: '🧂' },
-  drill: { id: 'drill', name: 'Electric Drill', uses: 1, icon: '🔩' },
-  glue: { id: 'glue', name: 'Glue', uses: 1, icon: '🧴' },
+  volunteer: { id: 'volunteer', name: 'Volunteers', uses: 1, icon: 'icon_volunteer' },
+  volunteerSquad: { id: 'volunteerSquad', name: 'Volunteer Squad', uses: 3, icon: 'icon_volunteer' },
+  jigsaw: { id: 'jigsaw', name: 'Jigsaw', uses: 1, icon: 'icon_jigsaw' },
+  whitePowder: { id: 'whitePowder', name: 'White Powder', uses: 1, icon: 'icon_powder' },
+  bigBag: { id: 'bigBag', name: 'Big Bag', uses: 3, icon: 'icon_powder' },
+  drill: { id: 'drill', name: 'Electric Drill', uses: 1, icon: 'icon_drill' },
+  glue: { id: 'glue', name: 'Glue', uses: 1, icon: 'icon_glue' },
 };
 
 /** Draw weights per position (index 0 = 1st place). See docs/items.md. */
