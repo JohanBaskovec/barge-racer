@@ -1,8 +1,9 @@
 import Phaser from 'phaser';
 import { ITEM_INFO, type ItemId } from '../data/items';
+import { itemName, ordinal, t } from '../i18n';
 import type { RaceEvent } from '../race/types';
 import { addFullscreenButton } from '../view/fullscreen';
-import { button, fmtTime, ordinal, text } from '../view/ui';
+import { button, fitText, fmtTime, text } from '../view/ui';
 import type { RaceScene } from './RaceScene';
 
 const ITEM_BTN = { x: 1160, y: 590, r: 62 };
@@ -89,7 +90,7 @@ export class HudScene extends Phaser.Scene {
     const p = sim.player!;
     this.posText.setText(`${ordinal(p.position + 1)}`);
     const lap = Math.min(sim.track.laps, p.lapsDone + 1);
-    this.lapText.setText(`Lap ${lap}/${sim.track.laps}`);
+    this.lapText.setText(t('hud.lap', { n: lap, total: sim.track.laps }));
     this.timeText.setText(sim.phase === 'countdown' ? '' : fmtTime(sim.time));
 
     // Item slot: roulette flicker, then the held item
@@ -99,15 +100,16 @@ export class HudScene extends Phaser.Scene {
     if (p.rouletteItem) {
       const all = Object.keys(ITEM_INFO) as ItemId[];
       icon = ITEM_INFO[all[Math.floor(time / 80) % all.length]].icon;
-      name = '...';
+      name = t('item.rolling');
     } else if (p.item) {
       icon = ITEM_INFO[p.item].icon;
-      name = ITEM_INFO[p.item].name;
+      name = itemName(p.item);
       if (p.itemUses > 1) count = `×${p.itemUses}`;
     }
     this.itemIcon.setVisible(icon !== '');
     if (icon) this.itemIcon.setTexture(icon).setDisplaySize(80, 80);
     this.itemName.setText(name);
+    fitText(this.itemName, 205); // long names (e.g. in French) must stay on screen
     this.itemCount.setText(count);
     this.itemRing.setStrokeStyle(6, p.item ? 0xffe08a : 0xffffff, p.item ? 1 : 0.6);
     this.itemRing.setScale(p.item ? 1 + Math.sin(time / 180) * 0.03 : 1);
@@ -135,26 +137,26 @@ export class HudScene extends Phaser.Scene {
     const me = sim.player!.id;
     switch (e.type) {
       case 'countdown':
-        this.flashBig(e.value === 0 ? 'GO!' : String(e.value), e.value === 0 ? '#62d26f' : '#ffffff');
+        this.flashBig(e.value === 0 ? t('hud.go') : String(e.value), e.value === 0 ? '#62d26f' : '#ffffff');
         break;
       case 'itemUsed':
         break;
       case 'hit':
-        if (e.racer === me) this.popup(e.source === 'bank' ? 'Crunch!' : 'Hit!', '#ff8a7a');
-        else if (e.by === me) this.popup('Got him!', '#ffe08a');
+        if (e.racer === me) this.popup(e.source === 'bank' ? t('hud.crunch') : t('hud.hit'), '#ff8a7a');
+        else if (e.by === me) this.popup(t('hud.gotHim'), '#ffe08a');
         break;
       case 'sunk':
-        if (e.racer === me) this.popup('Sunk!', '#9fd8ff');
-        else if (e.racer !== me) this.popup(`${sim.racers[e.racer].name} sank!`, '#ffe08a');
+        if (e.racer === me) this.popup(t('hud.sunk'), '#9fd8ff');
+        else if (e.racer !== me) this.popup(t('hud.otherSunk', { name: sim.racers[e.racer].name }), '#ffe08a');
         break;
       case 'lap':
         if (e.racer === me) {
-          if (e.lap === sim.track.laps - 1) this.popup('Final lap!', '#ffe08a');
-          else if (e.lap < sim.track.laps) this.popup(`Lap ${e.lap + 1}`, '#ffffff');
+          if (e.lap === sim.track.laps - 1) this.popup(t('hud.finalLap'), '#ffe08a');
+          else if (e.lap < sim.track.laps) this.popup(t('hud.lapPopup', { n: e.lap + 1 }), '#ffffff');
         }
         break;
       case 'finish':
-        if (e.racer === me) this.flashBig(e.position === 0 ? 'WINNER!' : 'FINISH!', '#ffe08a', 90);
+        if (e.racer === me) this.flashBig(e.position === 0 ? t('hud.winner') : t('hud.finish'), '#ffe08a', 90);
         break;
       default:
         break;
@@ -182,13 +184,13 @@ export class HudScene extends Phaser.Scene {
     this.paused = true;
     this.race.scene.pause();
     const shade = this.add.rectangle(640, 360, 1280, 720, 0x000000, 0.6).setInteractive();
-    const title = text(this, 640, 190, 'Paused', 80).setStroke('#0b3a5b', 10);
-    const resume = button(this, 640, 320, 360, 78, 'Resume', () => this.resume(), { fill: 0x2d9d5a, textSize: 38 });
-    const restart = button(this, 640, 420, 360, 78, 'Restart', () => {
+    const title = text(this, 640, 190, t('pause.title'), 80).setStroke('#0b3a5b', 10);
+    const resume = button(this, 640, 320, 360, 78, t('pause.resume'), () => this.resume(), { fill: 0x2d9d5a, textSize: 38 });
+    const restart = button(this, 640, 420, 360, 78, t('pause.restart'), () => {
       this.resume();
       this.race.scene.restart();
     }, { textSize: 38 });
-    const quit = button(this, 640, 520, 360, 78, 'Quit', () => {
+    const quit = button(this, 640, 520, 360, 78, t('pause.quit'), () => {
       this.overlay?.destroy();
       this.paused = false;
       this.race.scene.stop();

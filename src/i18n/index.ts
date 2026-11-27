@@ -1,0 +1,81 @@
+import { en, enOrdinal, type TranslationKey } from './en';
+import { fr, frOrdinal } from './fr';
+
+export type { TranslationKey };
+
+export interface Language {
+  /** BCP 47 code, also used for <html lang>. */
+  code: string;
+  /** Name in the language itself, shown in the language picker. */
+  name: string;
+  strings: Record<TranslationKey, string>;
+  ordinal: (n: number) => string;
+}
+
+/** Add a language here (and create its file next to en.ts); see docs/localization.md. */
+export const LANGUAGES: Language[] = [
+  { code: 'en', name: 'English', strings: en, ordinal: enOrdinal },
+  { code: 'fr', name: 'Français', strings: fr, ordinal: frOrdinal },
+];
+
+const KEY = 'barge-racer-lang';
+const byCode = (code: string | null | undefined): Language | undefined => LANGUAGES.find((l) => l.code === code);
+
+/** Saved choice, else the first browser language we support, else English. */
+function detect(): Language {
+  try {
+    const saved = byCode(localStorage.getItem(KEY));
+    if (saved) return saved;
+  } catch {
+    /* storage unavailable */
+  }
+  const prefs = typeof navigator !== 'undefined' ? (navigator.languages?.length ? navigator.languages : [navigator.language]) : [];
+  for (const p of prefs) {
+    const found = byCode(p?.toLowerCase().split('-')[0]);
+    if (found) return found;
+  }
+  return LANGUAGES[0];
+}
+
+let current: Language = detect();
+
+/** Keep the page itself (lang attribute, the "rotate your device" overlay) in the chosen language. */
+function applyToDocument(): void {
+  if (typeof document === 'undefined') return;
+  document.documentElement.lang = current.code;
+  const rotate = document.getElementById('rotate');
+  if (rotate) rotate.textContent = t('rotate');
+}
+
+export const getLanguage = (): Language => current;
+
+export function setLanguage(code: string): void {
+  const lang = byCode(code);
+  if (!lang) return;
+  current = lang;
+  try {
+    localStorage.setItem(KEY, lang.code);
+  } catch {
+    /* ignore */
+  }
+  applyToDocument();
+}
+
+/** Translate a key, filling {placeholders}. Missing keys fall back to English. */
+export function t(key: TranslationKey, params?: Record<string, string | number>): string {
+  const s = current.strings[key] ?? en[key];
+  return params ? s.replace(/\{(\w+)\}/g, (m, k: string) => (k in params ? String(params[k]) : m)) : s;
+}
+
+export const ordinal = (n: number): string => current.ordinal(n);
+
+// Names of game content, looked up by id so the data files stay language-free.
+const key = (s: string): TranslationKey => s as TranslationKey;
+export const boatName = (id: string): string => t(key(`boat.${id}.name`));
+export const boatDesc = (id: string): string => t(key(`boat.${id}.desc`));
+export const trackName = (id: string): string => t(key(`track.${id}.name`));
+export const trackDesc = (id: string): string => t(key(`track.${id}.desc`));
+export const itemName = (id: string): string => t(key(`item.${id}`));
+export const difficultyName = (id: string): string => t(key(`difficulty.${id}`));
+
+applyToDocument();

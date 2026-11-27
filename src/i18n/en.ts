@@ -1,0 +1,92 @@
+/**
+ * English strings: the reference language. Every other language must provide
+ * exactly the same keys and the same {placeholders} (checked by tests/i18n.test.ts).
+ */
+export const en = {
+  you: 'You',
+  rotate: 'Please rotate your device to landscape',
+
+  'title.subtitle': 'Race, shove, saw and glue your way to the finish',
+  'title.tap': 'Tap or click to start',
+  'title.hint': 'Hold to steer · tap the item button to fire',
+
+  'common.back': 'Back',
+
+  'boatSelect.title': 'Choose your boat',
+  'boatSelect.next': 'Next ▸',
+  'boatSelect.stats': 'Top speed {speed} · Hull {hull}',
+  'stat.speed': 'Speed',
+  'stat.accel': 'Acceleration',
+  'stat.handling': 'Handling',
+  'stat.weight': 'Weight',
+  'stat.hull': 'Hull',
+
+  'boat.coalBarge.name': 'Coal Barge',
+  'boat.coalBarge.desc': 'Slow to start and impossible to stop. Shrugs off hits and shoves everyone aside.',
+  'boat.tugboat.name': 'Tugboat',
+  'boat.tugboat.desc': 'Short, round and stubborn. Great acceleration, heavy enough to win most shoves.',
+  'boat.narrowboat.name': 'Narrowboat',
+  'boat.narrowboat.desc': 'Colourful canal boat with flower pots. Turns on a coin; great for beginners.',
+  'boat.cigaretteSpeedboat.name': 'Cigarette Speedboat',
+  'boat.cigaretteSpeedboat.desc': 'Highest top speed, wide drifting turns, sinks after a couple of hits.',
+  'boat.partyPontoon.name': 'Party Pontoon',
+  'boat.partyPontoon.desc': 'Barbecue and a disco ball. The all-rounder: no weakness, no strength.',
+  'boat.fireBoat.name': 'Fire Boat',
+  'boat.fireBoat.desc': 'Its water cannons wash away any glue it touches.',
+  'boat.hovercraft.name': 'Hovercraft',
+  'boat.hovercraft.desc': 'Not technically a boat. Slides a lot, but is quick and ignores shallow water.',
+
+  'trackSelect.title': 'Choose a race',
+  'trackSelect.laps': '{n} laps',
+  'trackSelect.opponents': 'Opponents',
+  'trackSelect.race': 'Race! ▸',
+  'track.lockAndLoad.name': 'Lock & Load',
+  'track.lockAndLoad.desc': 'City canal with brick walls. Wide, gentle turns: a good place to learn.',
+  'track.industrialEstuary.name': 'Industrial Estuary',
+  'track.industrialEstuary.desc': 'Factories and cranes. A long loop with a tight notch in the middle.',
+  'track.bayouBends.name': 'Bayou Bends',
+  'track.bayouBends.desc': 'Narrow swamp river full of S-bends. Handling beats speed.',
+  'difficulty.pond': 'Pond',
+  'difficulty.river': 'River',
+  'difficulty.ocean': 'Ocean',
+
+  'item.volunteer': 'Volunteers',
+  'item.volunteerSquad': 'Volunteer Squad',
+  'item.jigsaw': 'Jigsaw',
+  'item.whitePowder': 'White Powder',
+  'item.bigBag': 'Big Bag',
+  'item.drill': 'Electric Drill',
+  'item.glue': 'Glue',
+  'item.rolling': '...',
+
+  'hud.lap': 'Lap {n}/{total}',
+  'hud.lapPopup': 'Lap {n}',
+  'hud.finalLap': 'Final lap!',
+  'hud.go': 'GO!',
+  'hud.crunch': 'Crunch!',
+  'hud.hit': 'Hit!',
+  'hud.gotHim': 'Got him!',
+  'hud.sunk': 'Sunk!',
+  'hud.otherSunk': '{name} sank!',
+  'hud.winner': 'WINNER!',
+  'hud.finish': 'FINISH!',
+
+  'pause.title': 'Paused',
+  'pause.resume': 'Resume',
+  'pause.restart': 'Restart',
+  'pause.quit': 'Quit',
+
+  'results.won': 'You won!',
+  'results.finished': 'You finished {place}',
+  'results.again': 'Race again',
+  'results.changeRace': 'Change race',
+  'results.changeBoat': 'Change boat',
+} as const;
+
+export type TranslationKey = keyof typeof en;
+
+export const enOrdinal = (n: number): string => {
+  const mod100 = n % 100;
+  if (mod100 >= 11 && mod100 <= 13) return `${n}th`;
+  return `${n}${({ 1: 'st', 2: 'nd', 3: 'rd' } as Record<number, string>)[n % 10] ?? 'th'}`;
+};

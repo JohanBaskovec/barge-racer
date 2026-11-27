@@ -1,8 +1,9 @@
 import Phaser from 'phaser';
 import { DIFFICULTIES, type Difficulty } from '../data/difficulty';
+import { difficultyName, t, trackDesc, trackName } from '../i18n';
 import { TRACK_DEFS, loadTrack } from '../data/tracks';
 import { saveSession, session } from '../session';
-import { background, button, text } from '../view/ui';
+import { background, button, fitText, text } from '../view/ui';
 
 export class TrackSelectScene extends Phaser.Scene {
   private cards: { id: string; frame: Phaser.GameObjects.Rectangle }[] = [];
@@ -16,30 +17,30 @@ export class TrackSelectScene extends Phaser.Scene {
     this.cards = [];
     this.diffButtons = [];
     background(this);
-    text(this, 640, 56, 'Choose a race', 52).setStroke('#0b3a5b', 8);
+    fitText(text(this, 640, 56, t('trackSelect.title'), 52), 1000).setStroke('#0b3a5b', 8);
 
     TRACK_DEFS.forEach((def, i) => {
       const x = 240 + i * 400;
-      const frame = this.add.rectangle(x, 300, 360, 400, 0x0b3a5b, 0.7).setStrokeStyle(5, 0xffffff, 0.5);
+      const frame = this.add.rectangle(x, 310, 360, 420, 0x0b3a5b, 0.7).setStrokeStyle(5, 0xffffff, 0.5);
       frame.setInteractive({ useHandCursor: true });
       frame.on('pointerup', () => this.pick(def.id));
       this.cards.push({ id: def.id, frame });
       this.drawPreview(def.id, x, 250);
-      text(this, x, 410, def.name, 32);
+      fitText(text(this, x, 410, trackName(def.id), 32), 330);
       this.add
-        .text(x, 438, def.description, { fontSize: '18px', color: '#d7efff', align: 'center', wordWrap: { width: 320 }, fontFamily: 'Trebuchet MS, Verdana, sans-serif', resolution: 2 })
+        .text(x, 438, trackDesc(def.id), { fontSize: '18px', color: '#d7efff', align: 'center', wordWrap: { width: 320 }, fontFamily: 'Trebuchet MS, Verdana, sans-serif', resolution: 2 })
         .setOrigin(0.5, 0);
-      text(this, x, 175, `${def.laps} laps`, 20, '#ffe08a');
+      text(this, x, 175, t('trackSelect.laps', { n: def.laps }), 20, '#ffe08a');
     });
 
-    text(this, 250, 540, 'Opponents', 26, '#bfe1f7', false);
+    fitText(text(this, 250, 568, t('trackSelect.opponents'), 26, '#bfe1f7', false), 200);
     (Object.keys(DIFFICULTIES) as Difficulty[]).forEach((id, i) => {
-      const b = button(this, 470 + i * 190, 540, 170, 54, DIFFICULTIES[id].name, () => this.pickDiff(id), { textSize: 26 });
+      const b = button(this, 470 + i * 190, 568, 170, 54, difficultyName(id), () => this.pickDiff(id), { textSize: 26 });
       this.diffButtons.push({ id, bg: b.list[0] as Phaser.GameObjects.Rectangle });
     });
 
-    button(this, 150, 660, 200, 64, 'Back', () => this.scene.start('BoatSelect'), { fill: 0x555f6b, textSize: 28 });
-    button(this, 1090, 660, 300, 72, 'Race! ▸', () => {
+    button(this, 150, 660, 200, 64, t('common.back'), () => this.scene.start('BoatSelect'), { fill: 0x555f6b, textSize: 28 });
+    button(this, 1090, 660, 300, 72, t('trackSelect.race'), () => {
       saveSession();
       this.scene.start('Race', { ...session });
     }, { fill: 0x2d9d5a, textSize: 38 });

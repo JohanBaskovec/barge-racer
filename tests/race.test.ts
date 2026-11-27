@@ -16,7 +16,7 @@ describe('headless races', () => {
       expect(res.every((r) => r.finished)).toBe(true);
       const lap = res.map((r) => Math.min(...r.racer.lapTimes));
       // eslint-disable-next-line no-console
-      console.log(def.id, res.map((r) => `${r.racer.boat.name} ${r.time.toFixed(1)}s (best lap ${Math.min(...r.racer.lapTimes).toFixed(1)}, hull ${r.racer.hull.toFixed(0)})`).join(' | '));
+      console.log(def.id, res.map((r) => `${r.racer.boat.id} ${r.time.toFixed(1)}s (best lap ${Math.min(...r.racer.lapTimes).toFixed(1)}, hull ${r.racer.hull.toFixed(0)})`).join(' | '));
       expect(Math.min(...lap)).toBeGreaterThan(10);
     });
   }

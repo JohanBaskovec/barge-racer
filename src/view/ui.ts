@@ -7,6 +7,12 @@ export function text(scene: Phaser.Scene, x: number, y: number, s: string, size 
     .setOrigin(0.5);
 }
 
+/** Shrink a text object so it is never wider than maxWidth (translations vary in length). */
+export function fitText<T extends Phaser.GameObjects.Text>(t: T, maxWidth: number): T {
+  t.setScale(t.width > maxWidth ? maxWidth / t.width : 1);
+  return t;
+}
+
 export interface ButtonOpts {
   fill?: number;
   textSize?: number;
@@ -16,7 +22,7 @@ export interface ButtonOpts {
 export function button(scene: Phaser.Scene, x: number, y: number, w: number, h: number, label: string, onClick: () => void, opts: ButtonOpts = {}): Phaser.GameObjects.Container {
   const fill = opts.fill ?? 0x2f7fb5;
   const bg = scene.add.rectangle(0, 0, w, h, fill).setStrokeStyle(4, 0xffffff, 0.9);
-  const t = text(scene, 0, 0, label, opts.textSize ?? 30, opts.textColor ?? '#ffffff');
+  const t = fitText(text(scene, 0, 0, label, opts.textSize ?? 30, opts.textColor ?? '#ffffff'), w - 28);
   const c = scene.add.container(x, y, [bg, t]).setSize(w, h);
   c.setInteractive({ useHandCursor: true });
   c.on('pointerover', () => bg.setFillStyle(Phaser.Display.Color.ValueToColor(fill).lighten(15).color));
@@ -44,4 +50,3 @@ export function fmtTime(t: number): string {
   return `${m}:${s.toFixed(2).padStart(5, '0')}`;
 }
 
-export const ordinal = (n: number): string => ['1st', '2nd', '3rd', '4th', '5th', '6th'][n - 1] ?? `${n}th`;

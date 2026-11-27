@@ -34,6 +34,7 @@ The whole game is played with **one pointer**: a mouse or a single finger.
 | [Tracks](docs/tracks.md) | The races, track format, hazards, cups |
 | [AI](docs/ai.md) | How the opponents drive and use items |
 | [Architecture](docs/architecture.md) | Tech stack, project layout, scenes, systems, data formats, testing |
+| [Localization](docs/localization.md) | English and French; how to add a language |
 | [Deployment](docs/deployment.md) | Deploying to Cloudflare |
 | [Roadmap](docs/roadmap.md) | Milestones from first prototype to first release |
 
@@ -71,6 +72,7 @@ Debug URL parameters (see [Architecture](docs/architecture.md#debug-flags)):
   3 difficulty levels).
 - Crates, item roulette and all five items; hull, spin-outs, sinking, respawn.
 - HUD: position, lap, time, minimap, item slot, pause menu.
+- English and French (auto-detected, switchable on the title screen).
 - Fullscreen button, landscape lock on Android, home-screen install (web app
   manifest and icons) for full screen on iPhone.
 

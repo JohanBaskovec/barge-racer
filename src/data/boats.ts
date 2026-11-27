@@ -12,8 +12,6 @@ export type BoatShape = 'barge' | 'tug' | 'narrow' | 'speedboat' | 'pontoon' | '
 
 export interface BoatDef {
   id: string;
-  name: string;
-  description: string;
   ratings: BoatRatings;
   /** Collision/visual size in world px. */
   size: { length: number; width: number };
@@ -54,45 +52,38 @@ export function deriveStats(def: BoatDef): BoatStats {
 
 export const BOATS: BoatDef[] = [
   {
-    id: 'coalBarge', name: 'Coal Barge', shape: 'barge', unlockedByDefault: true,
-    description: 'Slow to start and impossible to stop. Shrugs off hits and shoves everyone aside.',
+    id: 'coalBarge', shape: 'barge', unlockedByDefault: true,
     ratings: { speed: 5, accel: 3, handling: 3, weight: 10, hull: 9 },
     size: { length: 104, width: 34 },
   },
   {
-    id: 'tugboat', name: 'Tugboat', shape: 'tug', unlockedByDefault: true,
-    description: 'Short, round and stubborn. Great acceleration, heavy enough to win most shoves.',
+    id: 'tugboat', shape: 'tug', unlockedByDefault: true,
     ratings: { speed: 4, accel: 8, handling: 5, weight: 8, hull: 5 },
     size: { length: 66, width: 36 },
   },
   {
-    id: 'narrowboat', name: 'Narrowboat', shape: 'narrow', unlockedByDefault: true,
-    description: 'Colourful canal boat with flower pots. Turns on a coin; great for beginners.',
+    id: 'narrowboat', shape: 'narrow', unlockedByDefault: true,
     ratings: { speed: 5, accel: 6, handling: 9, weight: 4, hull: 6 },
     size: { length: 92, width: 24 },
   },
   {
-    id: 'cigaretteSpeedboat', name: 'Cigarette Speedboat', shape: 'speedboat', unlockedByDefault: true,
-    description: 'Highest top speed, wide drifting turns, sinks after a couple of hits.',
+    id: 'cigaretteSpeedboat', shape: 'speedboat', unlockedByDefault: true,
     ratings: { speed: 10, accel: 8, handling: 7, weight: 2, hull: 3 },
     size: { length: 88, width: 26 },
   },
   {
-    id: 'partyPontoon', name: 'Party Pontoon', shape: 'pontoon', unlockedByDefault: true,
-    description: 'Barbecue and a disco ball. The all-rounder: no weakness, no strength.',
+    id: 'partyPontoon', shape: 'pontoon', unlockedByDefault: true,
     ratings: { speed: 6, accel: 7, handling: 7, weight: 5, hull: 5 },
     size: { length: 72, width: 44 },
   },
   {
-    id: 'fireBoat', name: 'Fire Boat', shape: 'fireboat', unlockedByDefault: true,
-    description: 'Its water cannons wash away any glue it touches.',
+    id: 'fireBoat', shape: 'fireboat', unlockedByDefault: true,
     ratings: { speed: 6, accel: 5, handling: 5, weight: 7, hull: 7 },
     size: { length: 84, width: 34 },
     specials: { washesGlue: true },
   },
   {
-    id: 'hovercraft', name: 'Hovercraft', shape: 'hovercraft', unlockedByDefault: true,
-    description: 'Not technically a boat. Slides a lot, but is quick and ignores shallow water.',
+    id: 'hovercraft', shape: 'hovercraft', unlockedByDefault: true,
     ratings: { speed: 9, accel: 8, handling: 4, weight: 4, hull: 5 },
     size: { length: 64, width: 46 },
     specials: { hover: true },

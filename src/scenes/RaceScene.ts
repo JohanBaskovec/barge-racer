@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { DEBUG } from '../config';
 import { PointerController } from '../control/PointerController';
+import { t } from '../i18n';
 import { type Difficulty } from '../data/difficulty';
 import { loadTrack } from '../data/tracks';
 import { speedOf } from '../physics/BoatPhysics';
@@ -217,15 +218,15 @@ export class RaceScene extends Phaser.Scene {
     if (this.over) return;
     this.over = true;
     const rows = this.sim.results().map((r) => ({
-      name: r.racer.name,
-      boat: r.racer.boat.name,
+      name: r.racer.isPlayer ? t('you') : r.racer.name,
+      boatId: r.racer.boat.id,
       color: r.racer.color,
       time: r.time,
       finished: r.finished,
       isPlayer: r.racer.isPlayer,
     }));
     this.time.delayedCall(400, () => {
-      this.scene.start('Results', { rows, trackName: this.sim.track.def.name, selection: this.selection });
+      this.scene.start('Results', { rows, trackId: this.sim.track.def.id, selection: this.selection });
     });
   }
 

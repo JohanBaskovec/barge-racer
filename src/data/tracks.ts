@@ -5,8 +5,6 @@ const pts = (list: [number, number, number][]) => list.map(([x, y, width]) => ({
 export const TRACK_DEFS: TrackDef[] = [
   {
     id: 'lockAndLoad',
-    name: 'Lock & Load',
-    description: 'City canal with brick walls. Wide, gentle turns: a good place to learn.',
     laps: 3,
     theme: 'canal',
     centerLine: pts([
@@ -20,8 +18,6 @@ export const TRACK_DEFS: TrackDef[] = [
   },
   {
     id: 'industrialEstuary',
-    name: 'Industrial Estuary',
-    description: 'Factories and cranes. A long loop with a tight notch in the middle.',
     laps: 3,
     theme: 'industrial',
     centerLine: pts([
@@ -36,8 +32,6 @@ export const TRACK_DEFS: TrackDef[] = [
   },
   {
     id: 'bayouBends',
-    name: 'Bayou Bends',
-    description: 'Narrow swamp river full of S-bends. Handling beats speed.',
     laps: 3,
     theme: 'bayou',
     centerLine: pts([

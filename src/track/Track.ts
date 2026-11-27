@@ -8,8 +8,6 @@ export interface CrateRowDef {
 
 export interface TrackDef {
   id: string;
-  name: string;
-  description: string;
   laps: number;
   theme: 'canal' | 'industrial' | 'bayou';
   centerLine: ControlPoint[];

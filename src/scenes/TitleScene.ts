@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
+import { LANGUAGES, getLanguage, setLanguage, t } from '../i18n';
 import { addFullscreenButton, enterFullscreen } from '../view/fullscreen';
-import { background, text } from '../view/ui';
+import { background, button, fitText, text } from '../view/ui';
 
 export class TitleScene extends Phaser.Scene {
   constructor() {
@@ -21,17 +22,26 @@ export class TitleScene extends Phaser.Scene {
       this.tweens.add({ targets: b, x: 1500, duration: 9000 + i * 1500, repeat: -1, delay: i * 700 });
     });
     text(this, 640, 210, 'BARGE RACER', 108, '#ffffff').setStroke('#0b3a5b', 14).setShadow(0, 8, '#00000066', 0);
-    text(this, 640, 310, 'Race, shove, saw and glue your way to the finish', 30, '#d7efff', false);
-    const tap = text(this, 640, 430, 'Tap or click to start', 44, '#ffe08a').setStroke('#0b3a5b', 8);
+    fitText(text(this, 640, 310, t('title.subtitle'), 30, '#d7efff', false), 1180);
+    const tap = fitText(text(this, 640, 430, t('title.tap'), 44, '#ffe08a'), 1100).setStroke('#0b3a5b', 8);
     this.tweens.add({ targets: tap, alpha: 0.35, duration: 700, yoyo: true, repeat: -1 });
-    text(this, 640, 690, 'Hold to steer · tap the item button to fire', 22, '#bfe1f7', false);
-    const fsZone = addFullscreenButton(this, 1220, 60);
-    this.input.once('pointerdown', (p: Phaser.Input.Pointer) => {
-      const onFsButton = fsZone && (p.x - fsZone.x) ** 2 + (p.y - fsZone.y) ** 2 < fsZone.r ** 2;
-      if (onFsButton) {
-        this.input.once('pointerdown', () => this.scene.start('BoatSelect'));
-        return;
-      }
+    fitText(text(this, 640, 690, t('title.hint'), 22, '#bfe1f7', false), 1200);
+    addFullscreenButton(this, 1220, 60);
+
+    // Language picker: the current language is highlighted; picking one redraws this screen.
+    LANGUAGES.forEach((lang, i) => {
+      const b = button(this, 100 + i * 170, 60, 150, 48, lang.name, () => {
+        setLanguage(lang.code);
+        this.scene.restart();
+      }, { fill: lang.code === getLanguage().code ? 0x2d9d5a : 0x0b3a5b, textSize: 22 });
+      b.setAlpha(lang.code === getLanguage().code ? 1 : 0.8);
+    });
+
+    // Any tap that isn't on a button starts the game.
+    let started = false;
+    this.input.on('pointerdown', (_p: Phaser.Input.Pointer, over: Phaser.GameObjects.GameObject[]) => {
+      if (started || over.length > 0) return;
+      started = true;
       // On phones and tablets the first tap goes fullscreen (needs a user gesture).
       if (this.sys.game.device.input.touch) enterFullscreen(this);
       this.scene.start('BoatSelect');
