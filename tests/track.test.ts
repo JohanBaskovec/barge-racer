@@ -102,3 +102,50 @@ describe('Reims bridge labels', () => {
     expect(names).not.toMatch(/Flechambault|Nicephore|Niepce|Leonard/);
   });
 });
+
+describe('Reims street labels', () => {
+  const scenery = JSON.parse(readFileSync(new URL('../public/maps/reims-canal.json', import.meta.url), 'utf8')) as {
+    streets: [number, number, number, number, string, number][];
+  };
+  const t = loadTrack('reimsCanal');
+  const px = t.def.pxPerM ?? 10;
+
+  it('has a good number of named streets', () => {
+    expect(scenery.streets.length).toBeGreaterThan(40);
+    const names = scenery.streets.map((s) => s[4]);
+    for (const n of ['Boulevard Paul Doumer', 'Rue de Venise', 'Rue Clovis', 'Boulevard Docteur Henri Henrot']) expect(names).toContain(n);
+  });
+
+  it('writes each name along its street: upright, sized to fit, near the canal but not on the water', () => {
+    let wrong = 0;
+    for (const [x, y, angle, font, name, len] of scenery.streets) {
+      const n = t.nearest(x, y);
+      const ok =
+        name.length > 2 &&
+        angle > (-Math.PI / 2) * 1000 && angle <= (Math.PI / 2) * 1000 + 1 && // reads left to right, never upside down
+        font >= 13 && font <= 26 &&
+        len > 0 &&
+        Math.abs(n.lateral) > t.halfWidth(n.index) && // on land
+        Math.sqrt(n.distSq) < 150 * px + 400; // within the corridor of the canal
+      if (!ok) wrong++;
+    }
+    expect(wrong).toBe(0);
+  });
+
+  it('puts one name per street: repeats are 1.5 km apart or more', () => {
+    const byName = new Map<string, [number, number][]>();
+    for (const [x, y, , , name] of scenery.streets) byName.set(name, [...(byName.get(name) ?? []), [x, y]]);
+    for (const [name, spots] of byName) {
+      for (let i = 0; i < spots.length; i++) {
+        for (let j = i + 1; j < spots.length; j++) {
+          expect(Math.hypot(spots[i][0] - spots[j][0], spots[i][1] - spots[j][1]) / px, name).toBeGreaterThanOrEqual(1500 - 1);
+        }
+      }
+    }
+  });
+
+  it('expanded the abbreviations BAN uses', () => {
+    const names = scenery.streets.map((s) => s[4]).join('|');
+    expect(names).not.toMatch(/(^|\|)(R|Bd|Av) /);
+  });
+});

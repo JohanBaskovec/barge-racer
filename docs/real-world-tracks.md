@@ -15,6 +15,7 @@ shown on the track select screen.
 | Race time (AI, River) | about 4 min for the fastest boats, 4 min 50 s for the slowest |
 | Locks removed | n°10 Fléchambault, n°11 Château d'Eau, n°12 Huon (and n°13, where the race ends) |
 | Scenery | 1,423 buildings, 1,733 road segments, railways, vegetation, bridges, other water |
+| Street names | 64 labels for 63 streets, written along the streets (see below) |
 | Bridge names | 7 bridges over the canal are labelled (see below) |
 
 ## Importer
@@ -52,6 +53,31 @@ The game never calls IGN while you play. What the importer does:
    boats.
 
 Everything is in game pixels, rounded, with outlines simplified to about 0.5 m.
+
+## Street names
+
+Streets are named like on a printed map: the name is written **along the street**,
+upright (never upside down), in bold dark text with a white halo, sitting on the
+road. There is **one name per street** near the canal, not one per block: IGN cuts
+streets into a piece per block, so the importer first joins the pieces of a street
+into one line, then:
+
+1. takes the longest text that fits the road width (font 13 to 26 px, 1.3 to 2.6 m
+   tall letters at 10 px per metre);
+2. finds a stretch of that street straight enough to hold it (it must not stick out
+   of the road), on dry land and at least 8 m from the water;
+3. prefers the stretch nearest the canal, and only within 150 m of it, since nothing
+   further is ever on screen.
+
+A street that runs beside the canal for a long way repeats its name every 1.5 km at
+most (`streetRepeat` in the importer), because a name seen once in 3 km would never
+be read; change it to 100000 for strictly one label per street. The current data has
+64 labels for 63 streets. Footpaths, bridges and roads with no name in IGN's data
+get none. Names come from the BAN street names (with "R", "Bd" and "Av" expanded)
+and are French in every language.
+
+In the game the names are text objects, created only while a tile that shows them
+is on screen and destroyed after (so a 10 km race never holds more than a handful).
 
 ## Bridge names
 

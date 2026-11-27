@@ -36,6 +36,12 @@ const CONFIG = {
   pxPerM: 10,
   /** Scenery further than this from the canal is never visible, so it isn't exported. */
   corridor: 230,
+  /** Street names are only placed this near the canal (m), at least `streetClearance` m from the water. */
+  streetReach: 150,
+  streetClearance: 8,
+  /** The same street name is repeated no closer than this (m). */
+  streetRepeat: 1500,
+  streetFont: { min: 13, max: 26 },
   minWidth: 11,
   maxWidth: 60,
   /** Locks are removed within this distance of their outline. */
@@ -207,6 +213,52 @@ class Grid {
   }
 }
 
+// ---------------------------------------------------------------------------- street labels
+
+/**
+ * IGN cuts streets into one piece per block. Join the pieces of one street into long lines by
+ * walking from endpoint to endpoint, taking the straightest continuation at junctions.
+ */
+function chainSegments(segs) {
+  const key = (p) => `${Math.round(p[0] * 2)},${Math.round(p[1] * 2)}`;
+  const at = new Map();
+  segs.forEach((s, i) => {
+    for (const end of [0, 1]) {
+      const k = key(end ? s[s.length - 1] : s[0]);
+      (at.get(k) ?? at.set(k, []).get(k)).push([i, end]);
+    }
+  });
+  const used = new Set();
+  const heading = (a, b) => Math.atan2(b[1] - a[1], b[0] - a[0]);
+  const turn = (a, b) => Math.abs(Math.atan2(Math.sin(a - b), Math.cos(a - b)));
+  /** Extend `chain` (oriented so that we grow past its last point) as far as pieces connect. */
+  const grow = (chain) => {
+    for (;;) {
+      const n = chain.length;
+      const dir = heading(chain[Math.max(0, n - 4)], chain[n - 1]);
+      let best = null;
+      for (const [i, end] of at.get(key(chain[n - 1])) ?? []) {
+        if (used.has(i)) continue;
+        const pts = end ? [...segs[i]].reverse() : segs[i];
+        const d = turn(dir, heading(pts[0], pts[Math.min(3, pts.length - 1)]));
+        if (d < Math.PI / 3 && (!best || d < best.d)) best = { i, pts, d };
+      }
+      if (!best) return chain;
+      used.add(best.i);
+      chain = chain.concat(best.pts.slice(1));
+    }
+  };
+  const chains = [];
+  segs.forEach((s, i) => {
+    if (used.has(i)) return;
+    used.add(i);
+    const forward = grow([...s]);
+    const both = grow([...forward].reverse()); // grow the other end
+    chains.push(both);
+  });
+  return chains;
+}
+
 // ---------------------------------------------------------------------------- main
 
 async function main() {
@@ -374,7 +426,7 @@ async function main() {
 
   // Everything that could be a bridge over the canal, with the names IGN gives it (see "Bridge labels").
   const bridgeCandidates = [];
-  const ABBREVIATIONS = { AV: 'Avenue', BD: 'Boulevard', CHE: 'Chemin', RTE: 'Route', PL: 'Place', IMP: 'Impasse', ALL: 'Allée', QU: 'Quai', ST: 'Saint', STE: 'Sainte', PTE: 'Porte', FG: 'Faubourg', SQ: 'Square', VOIE: 'Voie' };
+  const ABBREVIATIONS = { R: 'Rue', AV: 'Avenue', BD: 'Boulevard', CHE: 'Chemin', RTE: 'Route', PL: 'Place', IMP: 'Impasse', ALL: 'Allée', QU: 'Quai', ST: 'Saint', STE: 'Sainte', PTE: 'Porte', FG: 'Faubourg', SQ: 'Square', VOIE: 'Voie' };
   const SMALL_WORDS = new Set(['DE', 'DU', 'DES', 'LA', 'LE', 'LES', 'ET', 'EN', 'AU', 'AUX', "L'", "D'"]);
   const capitalize = (w) => w.toLowerCase().replace(/(^|[-'])(\p{L})/gu, (m, sep, ch) => sep + ch.toUpperCase());
   /** "AV DE CHAMPAGNE" -> "Avenue de Champagne" (only used when the cleaner BAN name is missing). */
@@ -385,11 +437,13 @@ async function main() {
     return capitalize(w);
   }).join(' ');
   // IGN's "collaborative" names are upper case without accents; restore the ones we know are on the route.
-  const ACCENTS = { Flechambault: 'Fléchambault', Nicephore: 'Nicéphore', Niepce: 'Niépce', Leonard: 'Léonard', Venise: 'Venise' };
+  const ACCENTS = { Flechambault: 'Fléchambault', Nicephore: 'Nicéphore', Niepce: 'Niépce', Leonard: 'Léonard', Rivieres: 'Rivières', Riviere: 'Rivière', Prolonge: 'Prolongé' };
   const fixAccents = (name) => name.replace(/\p{L}+/gu, (w) => ACCENTS[w] ?? w);
+  /** BAN sometimes abbreviates the first word ("R des Bains", "Bd du Val"). */
+  const expandBan = (n) => n.replace(/^R /, 'Rue ').replace(/^Bd /, 'Boulevard ').replace(/^Av /, 'Avenue ').replace(/\p{Lu}{3,}/gu, (w) => capitalize(w));
   const streetName = (p) => {
     const ban = p.nom_voie_ban_droite || p.nom_voie_ban_gauche;
-    if (ban) return ban;
+    if (ban) return expandBan(ban);
     const collab = p.nom_collaboratif_droite || p.nom_collaboratif_gauche;
     if (collab && !/^pont\b/i.test(collab)) return prettify(collab);
     if (p.cpx_toponyme_route_nommee) return p.cpx_toponyme_route_nommee;
@@ -398,8 +452,10 @@ async function main() {
   };
 
   log('Downloading roads…');
+  const STREET_NATURES = new Set(['Route à 1 chaussée', 'Route à 2 chaussées', 'Type autoroutier', 'Chemin', 'Route empierrée']);
   const ROAD_WIDTH = { 'Type autoroutier': 9, 'Route à 2 chaussées': 7, 'Route à 1 chaussée': 6, Bretelle: 5, 'Rond-point': 7, 'Route empierrée': 3.5, Chemin: 3, 'Piste cyclable': 2, Sentier: 1.6, Escalier: 2 };
   const roads = [];
+  const streetSegs = [];
   for (const f of await corridorLayer('BDTOPO_V3:troncon_de_route')) {
     const p = f.properties;
     if (p.position_par_rapport_au_sol === '-1' || p.position_par_rapport_au_sol === -1) continue; // tunnels
@@ -409,6 +465,11 @@ async function main() {
       const cls = ['Type autoroutier', 'Bretelle'].includes(p.nature) ? 0 : ['Sentier', 'Chemin', 'Piste cyclable', 'Escalier', 'Route empierrée'].includes(p.nature) ? 2 : 1;
       const bridge = String(p.position_par_rapport_au_sol) === '1' || Number(p.position_par_rapport_au_sol) > 0 ? 1 : 0;
       roads.push([cls, px(w), bridge, ring(l, 0.5)]);
+      // Streets that get a name written along them: real roads with a name, not bridges or footpaths.
+      if (!bridge && STREET_NATURES.has(p.nature)) {
+        const name = fixAccents(streetName(p));
+        if (name) streetSegs.push({ name, width: w, pts: l });
+      }
       if (bridge && cls < 2) bridgeCandidates.push({ pts: l, street: streetName(p), official: '', roadOfficial: /^pont\b/i.test(p.nom_collaboratif_droite ?? '') ? prettify(p.nom_collaboratif_droite) : '', rail: false });
     }
   }
@@ -454,6 +515,61 @@ async function main() {
       bridges.push([f.properties.toponyme ?? '', ring(r, 0.3)]);
     }
   }
+
+  // ---- Street labels: the name written along the street, like on a printed map. One label per
+  // street where it runs near the canal; a very long street repeats its name every
+  // STREET_REPEAT metres (a name seen once in 3 km would never be read).
+  log('Street labels…');
+  const clearance = (p) => {
+    let best = Infinity;
+    for (const i of centreIdx.near(p[0], p[1], Math.ceil(C.streetReach / 50) + 1)) best = Math.min(best, dist(p, centre[i]) - W[i] / 2);
+    return best;
+  };
+  const byName = new Map();
+  for (const s of streetSegs) (byName.get(s.name) ?? byName.set(s.name, []).get(s.name)).push(s);
+  const streets = [];
+  for (const [name, segs] of byName) {
+    const width = Math.max(...segs.map((s) => s.width));
+    const candidates = [];
+    for (const chain of chainSegments(segs.map((s) => s.pts))) {
+      const line = resample(chain, 3);
+      if (line.length < 4) continue;
+      // Longest label that fits the road, then shrink until a straight stretch of dry land holds it.
+      for (let fontPx = Math.min(C.streetFont.max, width * C.pxPerM * 0.42); fontPx >= C.streetFont.min; fontPx -= 1.5) {
+        const lenM = (name.length * fontPx * 0.58) / C.pxPerM;
+        const n = Math.ceil(lenM / 3);
+        if (n >= line.length) continue;
+        for (let i = 0; i + n < line.length; i += 2) {
+          const a = line[i], b = line[i + n];
+          const mid = line[i + (n >> 1)];
+          const chord = dist(a, b) || 1;
+          // Straight enough to stay on the road, and nowhere near the water.
+          let off = 0, dry = true;
+          for (let k = 0; k <= n; k += 2) {
+            const q = line[i + k];
+            off = Math.max(off, Math.abs((b[0] - a[0]) * (a[1] - q[1]) - (a[0] - q[0]) * (b[1] - a[1])) / chord);
+            if (clearance(q) < C.streetClearance || inWater(q)) { dry = false; break; }
+          }
+          if (!dry || off > width * 0.28 || chord < lenM * 0.9) continue;
+          const d = distToCanal(mid);
+          if (d > C.streetReach) continue;
+          let angle = Math.atan2(b[1] - a[1], b[0] - a[0]);
+          if (angle > Math.PI / 2) angle -= Math.PI;
+          else if (angle <= -Math.PI / 2) angle += Math.PI;
+          candidates.push({ x: mid[0], y: mid[1], angle, fontPx, d, lenM });
+        }
+        if (candidates.length) break; // the biggest font that fits wins
+      }
+    }
+    // Nearest to the canal first; further labels of the same street only if far from the others.
+    candidates.sort((p, q) => p.d - q.d);
+    const picked = [];
+    for (const c of candidates) {
+      if (picked.every((o) => dist([o.x, o.y], [c.x, c.y]) >= C.streetRepeat)) picked.push(c);
+    }
+    for (const c of picked) streets.push([px(c.x), px(c.y), Math.round(c.angle * 1000), Math.round(c.fontPx), name, px(c.lenM)]);
+  }
+  log(`  ${streets.length} labels for ${new Set(streets.map((s) => s[4])).size} streets`);
 
   // ---- Bridge labels: one per bridge that really crosses the canal, named after the bridge itself
   // when IGN has its name ("Pont de Venise"), else after the street it carries, else "railway".
@@ -516,9 +632,9 @@ async function main() {
   mkdirSync(dirname(trackFile), { recursive: true });
   mkdirSync(dirname(sceneryFile), { recursive: true });
   writeFileSync(trackFile, JSON.stringify({ ...meta, startDist: px(C.leadIn), finishDist: px(C.leadIn + raceLength), centerLine: control }));
-  writeFileSync(sceneryFile, JSON.stringify({ ...meta, water: waterOut, vegetation, roads, rails, buildings, bridges, labels }));
+  writeFileSync(sceneryFile, JSON.stringify({ ...meta, water: waterOut, vegetation, roads, rails, buildings, bridges, labels, streets }));
   log(`\nWrote ${trackFile}\n  ${control.length / 3} control points`);
-  log(`Wrote ${sceneryFile}\n  ${buildings.length} buildings, ${roads.length} roads, ${rails.length} railways, ${vegetation.length} vegetation, ${bridges.length} bridges, ${labels.length} bridge labels, ${waterOut.length} water`);
+  log(`Wrote ${sceneryFile}\n  ${buildings.length} buildings, ${roads.length} roads, ${rails.length} railways, ${vegetation.length} vegetation, ${bridges.length} bridges, ${labels.length} bridge labels, ${streets.length} street labels, ${waterOut.length} water`);
   void routeBox;
 }
 

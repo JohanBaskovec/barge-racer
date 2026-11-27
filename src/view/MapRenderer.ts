@@ -15,6 +15,8 @@ export interface SceneryData {
   bridges: [string, number[]][];
   /** Bridges over the canal: x, y on the centre line, kind (0 own name, 1 street it carries, 2 railway), name. */
   labels?: [number, number, number, string][];
+  /** Street names written along the streets: x, y, angle (milliradians), font size, name, available length (px). */
+  streets?: [number, number, number, number, string, number][];
 }
 
 const CHUNK = 512;
@@ -46,6 +48,7 @@ interface ChunkIndex {
   buildings: number[];
   channel: number[];
   bridges: number[];
+  streets: number[];
 }
 
 type Layer = 'ground' | 'shadow' | 'deck';
@@ -67,6 +70,8 @@ export class MapRenderer {
   private eraser: Phaser.GameObjects.Graphics;
   private water: Phaser.GameObjects.TileSprite;
   private channel: { a: number; b: number }[] = [];
+  /** Street name texts currently on screen, shared by the tiles they overlap (reference counted). */
+  private streetTexts = new Map<number, { text: Phaser.GameObjects.Text; refs: number }>();
   private first = true;
 
   constructor(private scene: Phaser.Scene, private track: Track, private data: SceneryData) {
@@ -118,7 +123,7 @@ export class MapRenderer {
         const key = `${cx},${cy}`;
         let e = this.index.get(key);
         if (!e) {
-          e = { water: [], vegetation: [], roads: [], rails: [], buildings: [], channel: [], bridges: [] };
+          e = { water: [], vegetation: [], roads: [], rails: [], buildings: [], channel: [], bridges: [], streets: [] };
           this.index.set(key, e);
         }
         e[kind].push(i);
@@ -134,6 +139,8 @@ export class MapRenderer {
     d.rails.forEach(([w, , l], i) => this.add('rails', i, l, w / 2 + 6));
     d.buildings.forEach(([h, , r], i) => this.add('buildings', i, r, Math.min(40, h * 4)));
     d.bridges.forEach(([, r], i) => this.add('bridges', i, r, BRIDGE_SHADOW + 4));
+    // A street name covers a stretch of road: index it by the box around the text.
+    (d.streets ?? []).forEach(([x, y, , , , len], i) => this.add('streets', i, [x - len / 2, y - len / 2, x + len / 2, y + len / 2]));
     // Road segments on bridges are drawn on the bridge layers too.
     d.roads.forEach(([, w, bridge, l], i) => bridge && this.add('bridges', -1 - i, l, w / 2 + 15 + BRIDGE_SHADOW + 4));
     // The navigable channel, as quads between centre-line samples (drawn wider for the towpath).
@@ -169,6 +176,7 @@ export class MapRenderer {
           this.pools[rt.getData('layer') as Layer].push(rt);
         }
         this.active.delete(key);
+        for (const i of this.index.get(key)?.streets ?? []) this.releaseStreet(i);
       }
     }
     // Draw a couple of tiles per frame to avoid hitches; everything at once on the first frame.
@@ -200,6 +208,7 @@ export class MapRenderer {
     const ox = -(x - BLEED), oy = -(y - BLEED);
 
     const e = this.index.get(key);
+    for (const i of e?.streets ?? []) this.retainStreet(i);
     const g = this.g.clear();
     const d = this.data;
     const colors = this.track.def.colors;
@@ -258,6 +267,33 @@ export class MapRenderer {
       deck.draw(g, ox, oy);
       tiles.push(shadow, deck);
     }
+  }
+
+  /** Street names are text objects (crisp at any size), created while a tile that shows them is on screen. */
+  private retainStreet(i: number): void {
+    const have = this.streetTexts.get(i);
+    if (have) {
+      have.refs++;
+      return;
+    }
+    const [x, y, angle, font, name, len] = this.data.streets![i];
+    const text = this.scene.add
+      .text(x, y, name, {
+        fontFamily: FONT, fontSize: `${font}px`, fontStyle: 'bold', color: '#3b4048', stroke: '#ffffff', strokeThickness: Math.max(3, font * 0.26), resolution: 2,
+      })
+      .setOrigin(0.5)
+      .setRotation(angle / 1000)
+      .setDepth(1.5); // above the ground tiles, below boats and bridge decks
+    text.setLetterSpacing(1);
+    if (text.width > len) text.setScale(len / text.width); // never run past the stretch of road it was fitted to
+    this.streetTexts.set(i, { text, refs: 1 });
+  }
+
+  private releaseStreet(i: number): void {
+    const have = this.streetTexts.get(i);
+    if (!have || --have.refs > 0) return;
+    have.text.destroy();
+    this.streetTexts.delete(i);
   }
 
   private channelQuad(g: Phaser.GameObjects.Graphics, i: number, extra: number): void {
