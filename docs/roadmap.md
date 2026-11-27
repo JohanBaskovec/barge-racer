@@ -47,7 +47,7 @@ good way.
 
 ## M4: Content (partly done)
 
-Done: all 7 boats and Boat Select, 3 of 8 tracks, Track Select, difficulty
+Done: all 8 boats and Boat Select, 3 of 8 tracks, Track Select, difficulty
 levels and rubber-banding. Still to do: the other 5 tracks and their hazards,
 cup mode, save data (unlocks, best times, options).
 

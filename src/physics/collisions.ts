@@ -3,22 +3,72 @@ import type { Racer } from '../race/types';
 import type { Track } from '../track/Track';
 import { speedOf } from './BoatPhysics';
 
+/** The hull as a capsule: the two ends of its segment and the radius around it. */
+export function capsule(r: Racer, endScale = 1): { ax: number; ay: number; bx: number; by: number; radius: number } {
+  const h = r.stats.halfLen * endScale;
+  const hx = Math.cos(r.heading) * h;
+  const hy = Math.sin(r.heading) * h;
+  return { ax: r.x - hx, ay: r.y - hy, bx: r.x + hx, by: r.y + hy, radius: r.stats.capRadius };
+}
+
+/** Distance from a point to the segment a-b, and the nearest point on it. */
+function pointSegment(px: number, py: number, ax: number, ay: number, bx: number, by: number): { d: number; x: number; y: number } {
+  const dx = bx - ax, dy = by - ay;
+  const len2 = dx * dx + dy * dy;
+  const t = len2 > 0 ? Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / len2)) : 0;
+  const x = ax + dx * t, y = ay + dy * t;
+  return { d: Math.hypot(px - x, py - y), x, y };
+}
+
+/** Closest points between segments p1-q1 and p2-q2 (Ericson, Real-Time Collision Detection 5.1.9). */
+function segmentSegment(
+  p1x: number, p1y: number, q1x: number, q1y: number, p2x: number, p2y: number, q2x: number, q2y: number,
+): { ax: number; ay: number; bx: number; by: number } {
+  const d1x = q1x - p1x, d1y = q1y - p1y, d2x = q2x - p2x, d2y = q2y - p2y;
+  const rx = p1x - p2x, ry = p1y - p2y;
+  const a = d1x * d1x + d1y * d1y, e = d2x * d2x + d2y * d2y, f = d2x * rx + d2y * ry;
+  let s = 0, t = 0;
+  if (a <= 1e-9 && e <= 1e-9) return { ax: p1x, ay: p1y, bx: p2x, by: p2y };
+  if (a <= 1e-9) t = Math.max(0, Math.min(1, f / e));
+  else {
+    const c = d1x * rx + d1y * ry;
+    if (e <= 1e-9) s = Math.max(0, Math.min(1, -c / a));
+    else {
+      const b = d1x * d2x + d1y * d2y;
+      const denom = a * e - b * b;
+      s = denom > 1e-9 ? Math.max(0, Math.min(1, (b * f - c * e) / denom)) : 0;
+      t = (b * s + f) / e;
+      if (t < 0) { t = 0; s = Math.max(0, Math.min(1, -c / a)); }
+      else if (t > 1) { t = 1; s = Math.max(0, Math.min(1, (b - c) / a)); }
+    }
+  }
+  return { ax: p1x + d1x * s, ay: p1y + d1y * s, bx: p2x + d2x * t, by: p2y + d2y * t };
+}
+
 /**
  * Keep a boat inside the channel. Returns the speed with which it hit the bank (0 if it didn't).
- * Also updates r.nearestIndex.
+ * The middle and both ends of the hull are checked, so a long boat's bow can't cut into the bank;
+ * the ends are taken a little inside the hull so a long boat turning across a narrow canal isn't
+ * wedged between both banks. Also updates r.nearestIndex.
  */
 export function resolveBank(r: Racer, track: Track): number {
   const n = track.nearest(r.x, r.y, r.nearestIndex, 30);
   r.nearestIndex = n.index;
   if (!track.closed) resolveEnds(r, track, n.index, n.along);
-  const limit = track.halfWidth(n.index) - r.stats.radius * 0.85;
-  if (Math.abs(n.lateral) <= limit) return 0;
 
-  const s = track.samples[n.index];
-  const sign = Math.sign(n.lateral);
-  const excess = Math.abs(n.lateral) - limit;
-  r.x -= s.nx * sign * excess;
-  r.y -= s.ny * sign * excess;
+  const c = capsule(r, 0.7);
+  let worst: { index: number; lateral: number; excess: number } | null = null;
+  for (const [px, py] of [[r.x, r.y], [c.ax, c.ay], [c.bx, c.by]]) {
+    const m = px === r.x && py === r.y ? n : track.nearest(px, py, n.index, 12);
+    const excess = Math.abs(m.lateral) - (track.halfWidth(m.index) - c.radius);
+    if (excess > 0 && (!worst || excess > worst.excess)) worst = { index: m.index, lateral: m.lateral, excess };
+  }
+  if (!worst) return 0;
+
+  const s = track.samples[worst.index];
+  const sign = Math.sign(worst.lateral);
+  r.x -= s.nx * sign * worst.excess;
+  r.y -= s.ny * sign * worst.excess;
 
   const vn = (r.vx * s.nx + r.vy * s.ny) * sign; // outward speed
   if (vn <= 0) return 0;
@@ -47,20 +97,31 @@ function resolveEnds(r: Racer, track: Track, index: number, along: number): void
   }
 }
 
-/** Circle-circle boat collision with mass-weighted separation and impulse. Returns impact strength. */
+/** Capsule-capsule boat collision with mass-weighted separation and impulse. Returns impact strength. */
 export function resolveBoatPair(a: Racer, b: Racer): number {
-  const dx = b.x - a.x;
-  const dy = b.y - a.y;
-  const minD = a.stats.radius + b.stats.radius;
+  const A = capsule(a), B = capsule(b);
+  const minD = A.radius + B.radius;
+  // Quick reject on the bounding circles
+  const reach = a.stats.halfLen + b.stats.halfLen + minD;
+  if ((b.x - a.x) ** 2 + (b.y - a.y) ** 2 >= reach * reach) return 0;
+  const cp = segmentSegment(A.ax, A.ay, A.bx, A.by, B.ax, B.ay, B.bx, B.by);
+  let dx = cp.bx - cp.ax;
+  let dy = cp.by - cp.ay;
   const d2 = dx * dx + dy * dy;
   if (d2 >= minD * minD) return 0;
-  const d = Math.sqrt(d2) || 0.001;
+  let d = Math.sqrt(d2);
+  if (d < 1e-6) {
+    // Segments cross: push apart along the line between the centres (or sideways if they coincide).
+    dx = b.x - a.x || -Math.sin(a.heading);
+    dy = b.y - a.y || Math.cos(a.heading);
+    d = Math.hypot(dx, dy) || 1;
+  }
   const nx = dx / d;
   const ny = dy / d;
   const ma = a.stats.mass * computeMods(a).mass;
   const mb = b.stats.mass * computeMods(b).mass;
   const total = ma + mb;
-  const overlap = minD - d;
+  const overlap = minD - Math.min(d, minD);
   a.x -= nx * overlap * (mb / total);
   a.y -= ny * overlap * (mb / total);
   b.x += nx * overlap * (ma / total);
@@ -77,9 +138,10 @@ export function resolveBoatPair(a: Racer, b: Racer): number {
   return -rel;
 }
 
+/** True if a circle at (x, y) touches the boat's hull (its capsule). */
 export const isTouching = (r: Racer, x: number, y: number, radius: number): boolean => {
-  const rr = r.stats.radius + radius;
-  return (r.x - x) ** 2 + (r.y - y) ** 2 < rr * rr;
+  const c = capsule(r);
+  return pointSegment(x, y, c.ax, c.ay, c.bx, c.by).d < c.radius + radius;
 };
 
 export { speedOf };

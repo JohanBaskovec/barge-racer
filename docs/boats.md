@@ -22,6 +22,18 @@ track with no items.
 
 ## Roster
 
+### Garden Barge (default)
+*A real péniche moored on the canal, redrawn from an aerial photo: two long roofs over the holds with a lawn between them, a white wheelhouse and a wooden stern deck.*
+
+| Speed | Accel | Handling | Weight | Hull |
+| --- | --- | --- | --- | --- |
+| 4 | 4 | 5 | 8 | 9 |
+
+Play style: steady. First in the list and the default boat: heavy and tough, forgiving for
+beginners. At 150 x 25 px it is by far the longest boat (the real one is about 38 x 5 m), so
+it is hard to get round and its Jigsaw reaches far. It is drawn in its own colours; only its
+gunwale stripes and stern flag take the racer's colour (`accent: true`).
+
 ### Coal Barge
 *A long, black steel barge with a pile of coal. Slow to start and impossible to stop.*
 
@@ -93,7 +105,7 @@ can cut briefly over sandbanks (not solid banks).
 
 ### Unlock order
 
-At the start: Coal Barge, Tugboat, Narrowboat, Party Pontoon.
+At the start: Garden Barge, Coal Barge, Tugboat, Narrowboat, Party Pontoon.
 Winning the Canal Cup unlocks the Cigarette Speedboat, winning the Open Water Cup
 unlocks the Fire Boat, and winning both cups on Ocean difficulty unlocks the
 Hovercraft.
@@ -156,9 +168,14 @@ interface BoatDef {
 }
 ```
 
-Boats currently collide as **circles** with radius `(length + width) / 4`; capsules
-are a possible later improvement. A long barge is harder to get around than a
-short tug because of its bigger radius.
+Boats collide as **capsules**: a segment along the heading with round ends, as long and
+as wide as the hull (`halfLen` and `capRadius` in `BoatStats`). Boat-to-boat contacts use the
+closest points of the two segments; items (crates, volunteers, drills, glue balls, fake crates)
+touch a boat anywhere along its hull. Against the banks the middle and both ends of the hull are
+checked, the ends taken a little inside the hull so a long boat turning across a narrow canal
+isn't wedged between both banks. `radius = (length + width) / 4` is kept as a rough size for AI
+spacing and item ranges. Boats that have just been hit pass through each other (see
+[Game design](game-design.md#collisions)).
 
 **Current state:** all boats are unlocked from the start; the unlock rules above
 are not implemented yet.

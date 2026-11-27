@@ -2,12 +2,12 @@ import Phaser from 'phaser';
 import { hasEffect } from '../effects/effects';
 import { angleDiff } from '../physics/math';
 import { speedOf } from '../physics/BoatPhysics';
+import { createBoatSprite } from './boatSprite';
 import type { Racer } from '../race/types';
 
 /** Sprite, shadow, saw, boost and damage overlays for one racer. */
 export class BoatView {
   readonly container: Phaser.GameObjects.Container;
-  private hull: Phaser.GameObjects.Image;
   private shadow: Phaser.GameObjects.Image;
   private saw: Phaser.GameObjects.Image;
   private boost: Phaser.GameObjects.Graphics;
@@ -23,12 +23,12 @@ export class BoatView {
   constructor(scene: Phaser.Scene, private r: Racer, private wake: Phaser.GameObjects.Particles.ParticleEmitter) {
     const { length: L, width: W } = r.boat.size;
     this.shadow = scene.add.image(3, 5, 'shadow').setDisplaySize(L * 1.05, W * 1.1);
-    this.hull = scene.add.image(0, 0, `boat_${r.boat.id}`).setTint(r.color);
+    const hull = createBoatSprite(scene, r.boat, r.color);
     this.saw = scene.add.image(L / 2 + 6, 0, 'saw').setOrigin(0, 0.5).setVisible(false);
     this.boost = scene.add.graphics();
     this.smoke = scene.add.graphics();
     this.bar = scene.add.graphics();
-    this.container = scene.add.container(r.x, r.y, [this.shadow, this.boost, this.hull, this.saw, this.smoke]).setDepth(10);
+    this.container = scene.add.container(r.x, r.y, [this.shadow, this.boost, hull, this.saw, this.smoke]).setDepth(10);
     this.bar.setDepth(30);
     if (r.isPlayer) {
       this.label = scene.add.text(0, 0, '▼', { fontSize: '26px', color: '#ffffff', stroke: '#000', strokeThickness: 4, resolution: 2 }).setOrigin(0.5).setDepth(31);

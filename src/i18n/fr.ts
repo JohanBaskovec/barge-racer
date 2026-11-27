@@ -19,6 +19,8 @@ export const fr: Record<TranslationKey, string> = {
   'stat.weight': 'Poids',
   'stat.hull': 'Coque',
 
+  'boat.gardenBarge.name': 'Péniche jardin',
+  'boat.gardenBarge.desc': "Une vraie péniche du canal, avec une pelouse entre ses deux toits. Longue, lourde et stable : idéale pour débuter.",
   'boat.coalBarge.name': 'Péniche à charbon',
   'boat.coalBarge.desc': 'Lente au démarrage et impossible à arrêter. Encaisse les coups et pousse tout le monde sur son passage.',
   'boat.tugboat.name': 'Remorqueur',

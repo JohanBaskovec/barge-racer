@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { BOATS, deriveStats } from '../data/boats';
 import { boatDesc, boatName, t, type TranslationKey } from '../i18n';
 import { saveSession, session } from '../session';
+import { createBoatSprite } from '../view/boatSprite';
 import { background, button, fitText, text } from '../view/ui';
 
 const STATS: { key: 'speed' | 'accel' | 'handling' | 'weight' | 'hull'; label: TranslationKey }[] = [
@@ -59,14 +60,14 @@ export class BoatSelectScene extends Phaser.Scene {
       return o;
     };
     add(this.add.ellipse(430, 330, 380, 380, 0x000000, 0.18));
-    const img = add(this.add.image(430, 330, `boat_${b.id}`).setTint(0xff5a4d));
-    const sc = Math.min(3.4, 300 / b.size.length);
+    const img = add(createBoatSprite(this, b, 0xff5a4d).setPosition(430, 330));
+    const sc = Math.min(3.4, 340 / b.size.length);
     img.setScale(sc).setRotation(-0.3);
     this.tweens.add({ targets: img, rotation: 0.1, duration: 2200, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
     add(fitText(text(this, 430, 520, boatName(b.id), 46), 400)).setStroke('#0b3a5b', 6);
     add(text(this, 430, 580, `${this.index + 1} / ${BOATS.length}`, 22, '#bfe1f7', false));
 
-    add(this.add.rectangle(900, 330, 520, 420, 0x0b3a5b, 0.65).setStrokeStyle(3, 0xffffff, 0.6));
+    add(this.add.rectangle(900, 335, 520, 440, 0x0b3a5b, 0.65).setStrokeStyle(3, 0xffffff, 0.6));
     STATS.forEach((s, i) => {
       const y = 190 + i * 52;
       add(this.add.text(660, y, t(s.label), { fontSize: '26px', color: '#ffffff', fontFamily: 'Trebuchet MS, Verdana, sans-serif', resolution: 2 }).setOrigin(0, 0.5));
@@ -74,10 +75,10 @@ export class BoatSelectScene extends Phaser.Scene {
         add(this.add.rectangle(850 + k * 27, y, 22, 22, k < b.ratings[s.key] ? 0xffd23f : 0x2a4f6b).setOrigin(0, 0.5));
       }
     });
-    add(this.add.text(660, 452, boatDesc(b.id), {
-      fontSize: '22px', color: '#d7efff', wordWrap: { width: 480 }, fontFamily: 'Trebuchet MS, Verdana, sans-serif', resolution: 2,
+    add(this.add.text(660, 444, boatDesc(b.id), {
+      fontSize: '20px', color: '#d7efff', wordWrap: { width: 480 }, fontFamily: 'Trebuchet MS, Verdana, sans-serif', resolution: 2,
     }).setOrigin(0, 0));
-    add(this.add.text(660, 520, t('boatSelect.stats', { speed: Math.round(stats.topSpeed), hull: Math.round(stats.maxHull) }), {
+    add(this.add.text(660, 526, t('boatSelect.stats', { speed: Math.round(stats.topSpeed), hull: Math.round(stats.maxHull) }), {
       fontSize: '18px', color: '#9fc7e2', fontFamily: 'Trebuchet MS, Verdana, sans-serif', resolution: 2,
     }).setOrigin(0, 0));
   }

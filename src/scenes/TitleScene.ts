@@ -1,6 +1,8 @@
 import Phaser from 'phaser';
 import { LANGUAGES, getLanguage, setLanguage, t } from '../i18n';
 import { addFullscreenButton, enterFullscreen } from '../view/fullscreen';
+import { getBoat } from '../data/boats';
+import { createBoatSprite } from '../view/boatSprite';
 import { background, button, fitText, text } from '../view/ui';
 
 export class TitleScene extends Phaser.Scene {
@@ -17,8 +19,8 @@ export class TitleScene extends Phaser.Scene {
       waves.tilePositionY += 0.25;
     });
     // A little parade of boats
-    ['coalBarge', 'cigaretteSpeedboat', 'partyPontoon', 'tugboat'].forEach((id, i) => {
-      const b = this.add.image(-150 - i * 260, 560 + (i % 2) * 70, `boat_${id}`).setScale(2).setTint([0xff5a4d, 0x4da3ff, 0xffd23f, 0x62d26f][i]);
+    ['gardenBarge', 'cigaretteSpeedboat', 'partyPontoon', 'tugboat'].forEach((id, i) => {
+      const b = createBoatSprite(this, getBoat(id), [0xff5a4d, 0x4da3ff, 0xffd23f, 0x62d26f][i]).setPosition(-150 - i * 260, 560 + (i % 2) * 70).setScale(2);
       this.tweens.add({ targets: b, x: 1500, duration: 9000 + i * 1500, repeat: -1, delay: i * 700 });
     });
     text(this, 640, 210, 'BARGE RACER', 108, '#ffffff').setStroke('#0b3a5b', 14).setShadow(0, 8, '#00000066', 0);

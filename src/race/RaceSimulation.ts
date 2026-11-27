@@ -13,11 +13,12 @@ import type { Controller, ControlIntent, Racer, RaceEvent } from './types';
 export const STEP = 1 / 60;
 export const RACER_COLORS = [0xff5a4d, 0x4da3ff, 0xffd23f, 0x62d26f];
 const AI_NAMES = ['Captain Bob', 'Molly Moor', 'Dredge', 'Admiral Fizz', 'Bilge', 'Skipper Sue'];
+/** Starting slots behind the line; rows are far enough apart for the longest boat (150 px). */
 const GRID = [
-  { along: -80, across: -60 },
-  { along: -80, across: 60 },
-  { along: -200, across: -60 },
-  { along: -200, across: 60 },
+  { along: -90, across: -60 },
+  { along: -90, across: 60 },
+  { along: -255, across: -60 },
+  { along: -255, across: 60 },
 ];
 
 export interface RaceSetup {

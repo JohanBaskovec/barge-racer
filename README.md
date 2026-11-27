@@ -8,7 +8,7 @@ jigsaws, electric drills, glue and a mysterious white powder.
 The whole game is played with **one pointer**: a mouse or a single finger.
 
 > **Status:** playable prototype (milestones M0 to M3 of the [roadmap](docs/roadmap.md)).
-> You can pick one of 7 boats, race 3 AI opponents on 3 tracks at 3 difficulty
+> You can pick one of 8 boats, race 3 AI opponents on 3 tracks at 3 difficulty
 > levels, and use nine items (two at a time). Art is placeholder (drawn in code) and there
 > is no sound yet. See [what is implemented](#implemented-so-far).
 
@@ -66,7 +66,8 @@ Debug URL parameters (see [Architecture](docs/architecture.md#debug-flags)):
 
 - Pointer steering (hold and point), item button, right click / second finger /
   `Space` to fire, swipe down on the item button to fire backwards.
-- 7 boats with different stats; boat select with stat bars.
+- 8 boats with different stats, starting with the **Garden Barge**, a real péniche
+  from the canal drawn from an aerial photo; boat select with stat bars.
 - 3 tracks (Lock & Load, Industrial Estuary, Bayou Bends) and track select.
 - **Canal de Reims**: the real canal from boulevard Paul Doumer to the Sillery
   lock at true scale (9.9 km, point-to-point), built from IGN open data

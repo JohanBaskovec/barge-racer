@@ -21,6 +21,8 @@ export const en = {
   'stat.weight': 'Weight',
   'stat.hull': 'Hull',
 
+  'boat.gardenBarge.name': 'Garden Barge',
+  'boat.gardenBarge.desc': 'A real péniche from the canal, with a lawn between its two roofs. Long, heavy and steady: forgiving for beginners.',
   'boat.coalBarge.name': 'Coal Barge',
   'boat.coalBarge.desc': 'Slow to start and impossible to stop. Shrugs off hits and shoves everyone aside.',
   'boat.tugboat.name': 'Tugboat',

@@ -1,8 +1,12 @@
 import Phaser from 'phaser';
 import { BOATS, type BoatDef } from '../data/boats';
 import { generateItemIcons } from './itemIcons';
+import { drawPeniche, drawPenicheAccent } from './peniche';
 
 type G = Phaser.GameObjects.Graphics;
+
+/** Boat textures are drawn at this multiple of their game size, for sharper sprites. */
+const BOAT_TEX_SCALE = 2;
 
 /** Boats are drawn pointing right (+x), in near-white so the racer tint colours them. */
 function drawBoat(g: G, def: BoatDef): void {
@@ -15,6 +19,9 @@ function drawBoat(g: G, def: BoatDef): void {
   const BLACK = 0x222222;
   g.lineStyle(2, 0x000000, 0.35);
   switch (def.shape) {
+    case 'peniche':
+      drawPeniche(g, def);
+      break;
     case 'barge':
       g.fillStyle(WHITE).fillRoundedRect(0, 0, L, W, 8).strokeRoundedRect(0, 0, L, W, 8);
       g.fillStyle(BLACK).fillRoundedRect(L * 0.12, W * 0.16, L * 0.52, W * 0.68, 6);
@@ -74,7 +81,12 @@ function gen(scene: Phaser.Scene, key: string, w: number, h: number, draw: (g: G
 
 export function generateTextures(scene: Phaser.Scene): void {
   generateItemIcons(scene);
-  for (const b of BOATS) gen(scene, `boat_${b.id}`, b.size.length, b.size.width, (g) => drawBoat(g, b));
+  const S = BOAT_TEX_SCALE;
+  for (const b of BOATS) {
+    const w = b.size.length * S, h = b.size.width * S;
+    gen(scene, `boat_${b.id}`, w, h, (g) => (g.scaleCanvas(S, S), drawBoat(g, b)));
+    if (b.accent) gen(scene, `boat_${b.id}_accent`, w, h, (g) => (g.scaleCanvas(S, S), drawPenicheAccent(g, b)));
+  }
 
   gen(scene, 'crate', 44, 44, (g) => {
     g.fillStyle(0x9a6a3a).fillRoundedRect(2, 2, 40, 40, 5);
