@@ -1,9 +1,9 @@
 name: CI
 
-# Checks every branch and pull request. Deploying is a separate workflow (deploy.yml).
+# Type-check, tests and build on every push and pull request.
+# Deploying is done by Cloudflare's Git integration, not here.
 on:
   push:
-    branches-ignore: [main]
   pull_request:
 
 permissions:
