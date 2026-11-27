@@ -90,8 +90,8 @@ hazards, cup mode, save data (unlocks, best times, options).
 - Battle arena mode: last boat floating wins.
 - AI personalities.
 - Local split-screen.
-- Online multiplayer: **version 1 done** (rooms with codes, lobby, server-run races,
-  prediction and interpolation; see [Multiplayer](multiplayer.md)). Next: reconnecting,
-  smoother corrections, spectators.
+- Online multiplayer: **done** (rooms with codes, lobby, server-run races, prediction and
+  interpolation, reconnecting, smoothed corrections, watching a race in progress; see
+  [Multiplayer](multiplayer.md)). Next: keeping your seat across a page reload, matchmaking.
 - Track editor in the browser.
 - Boat customisation (colours, flags, horn sounds).
