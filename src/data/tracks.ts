@@ -30,7 +30,7 @@ export const TRACK_DEFS: TrackDef[] = [
     ]),
     checkpoints: [0.25, 0.5, 0.75],
     crateRows: [{ at: 0.1, count: 4 }, { at: 0.35, count: 3 }, { at: 0.6, count: 4 }, { at: 0.85, count: 3 }],
-    colors: { land: 0x6b5b4b, shore: 0xc9b48a, water: 0x2f7fb5, waterDeep: 0x1f5f94 },
+    colors: { land: 0xcfc4a2, shore: 0xddcfa6, water: 0x2f7fb5, waterDeep: 0x1f5f94 },
   },
   {
     id: 'industrialEstuary',
@@ -44,7 +44,7 @@ export const TRACK_DEFS: TrackDef[] = [
     ]),
     checkpoints: [0.2, 0.4, 0.6, 0.8],
     crateRows: [{ at: 0.08, count: 4 }, { at: 0.3, count: 3 }, { at: 0.5, count: 4 }, { at: 0.72, count: 3 }, { at: 0.9, count: 4 }],
-    colors: { land: 0x55595e, shore: 0x9a9a8f, water: 0x3b7a8c, waterDeep: 0x275e70 },
+    colors: { land: 0xa7a59c, shore: 0xbdb9ad, water: 0x3b7a8c, waterDeep: 0x275e70 },
   },
   {
     id: 'bayouBends',
@@ -58,7 +58,7 @@ export const TRACK_DEFS: TrackDef[] = [
     ]),
     checkpoints: [0.25, 0.5, 0.75],
     crateRows: [{ at: 0.1, count: 3 }, { at: 0.3, count: 3 }, { at: 0.55, count: 3 }, { at: 0.8, count: 3 }],
-    colors: { land: 0x2f4a2a, shore: 0x6e7a3a, water: 0x4d7a4a, waterDeep: 0x3a6140 },
+    colors: { land: 0x35542e, shore: 0x65703a, water: 0x4d7a4a, waterDeep: 0x3a6140 },
   },
   {
     // Canal de l'Aisne à la Marne, from Passage Marx Dormoy (la Neuvillette) to the Sillery lock, at

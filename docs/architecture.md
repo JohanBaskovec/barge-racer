@@ -60,7 +60,7 @@ barge-racer/
 │   │   ├── TrackLoader.ts    # JSON -> Track
 │   │   ├── Track.ts          # sampled centre line, queries
 │   │   ├── spline.ts         # Catmull-Rom sampling
-│   │   └── TrackRenderer.ts  # water, banks, decorations
+│   │   └── (drawing is in view/: MapRenderer, sceneryGen, mapArt)
 │   ├── control/
 │   │   ├── ControlIntent.ts
 │   │   ├── PointerController.ts
@@ -101,7 +101,7 @@ barge-racer/
 
 The rule: **game logic does not import Phaser**.
 
-- `physics/`, `track/` (except `TrackRenderer`), `race/`, `items/` logic,
+- `physics/`, `track/`, `race/`, `items/` logic,
   `effects/` and `control/AIController` are plain TypeScript working on plain
   data. They can be unit-tested in Node without a browser.
 - `scenes/` and `view/` read the game state and draw it with Phaser. They never

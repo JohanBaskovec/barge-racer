@@ -20,6 +20,24 @@ The ratings should add up to about **30** for every boat so that no boat is
 strictly better than another. Boats are balanced by testing lap times on each
 track with no items.
 
+## How the boats are drawn
+
+Every boat is drawn in code, seen from above, bow to the right. There are no image files.
+
+- **Cabourg** has its own drawing (`src/view/peniche.ts`), redrawn from an aerial photo.
+- **The other seven** are drawn in `src/view/boatArt.ts` with the browser's 2D canvas (curves,
+  gradients, soft shadows), at three times their game size so they stay sharp when zoomed. Each
+  is two layers:
+  - the **paint**, which takes the racer's colour: the hull for most boats, the cabin roof of the
+    Narrowboat, the canopy of the Party Pontoon. It is drawn in white and greys, and the game
+    tints it, so grey becomes a darker shade of the racer's colour;
+  - the **details** on top, in their own colours: the Coal Barge's coal and wheelhouse, the
+    Tugboat's funnel, fenders and winch, the Narrowboat's flower boxes, chimney and solar panel,
+    the speedboat's cockpit and outboards, the pontoon's sofas, drinks and fairy lights, the Fire
+    Boat's water cannons and hose reels, the Hovercraft's skirt and fans.
+- Shading is the same on both sides of a boat, never from one sun: boats turn in every
+  direction, and a painted-on sun would turn with them.
+
 ## Roster
 
 ### Cabourg (default)
@@ -32,7 +50,7 @@ track with no items.
 Play style: steady. First in the list and the default boat: heavy and tough, forgiving for
 beginners. At 150 x 25 px it is by far the longest boat (the real one is about 38 x 5 m), so
 it is hard to get round and its Jigsaw reaches far. It is drawn in its own colours; only its
-gunwale stripes and stern flag take the racer's colour (`accent: true`).
+gunwale stripes and stern flag take the racer's colour.
 
 ### Coal Barge
 *A long, black steel barge with a pile of coal. Slow to start and impossible to stop.*

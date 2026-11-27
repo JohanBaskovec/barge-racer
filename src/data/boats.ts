@@ -17,11 +17,6 @@ export interface BoatDef {
   size: { length: number; width: number };
   shape: BoatShape;
   specials?: { washesGlue?: boolean; hover?: boolean };
-  /**
-   * The boat is drawn in its own colours (a real boat): the racer's colour is only applied to a
-   * small accent layer (gunwale lines and the stern flag) instead of tinting the whole boat.
-   */
-  accent?: boolean;
   unlockedByDefault: boolean;
 }
 
@@ -68,7 +63,7 @@ export const BOATS: BoatDef[] = [
   {
     // A real péniche moored on the canal, drawn from an aerial photo: two long roofs with a lawn
     // between them. First in the list = the default boat.
-    id: 'cabourg', shape: 'peniche', accent: true, unlockedByDefault: true,
+    id: 'cabourg', shape: 'peniche', unlockedByDefault: true,
     ratings: { speed: 4, accel: 4, handling: 5, weight: 8, hull: 9 },
     size: { length: 150, width: 25 },
   },

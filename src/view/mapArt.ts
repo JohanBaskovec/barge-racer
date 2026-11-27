@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { BUILDING } from './scenery';
 
 /**
  * Drawing routines for the real-world map (trees, roofs, road markings, sports grounds...).
@@ -370,6 +371,9 @@ export function drawRail(g: G, w: number, line: number[]): void {
 
 // ---------------------------------------------------------------------------- buildings
 
+
+const CONTAINERS = [0xc0392b, 0x2f6fb5, 0x2d8f5a, 0xd98e2b, 0x8e9aa6, 0x1f8a8a, 0xb8443a, 0xe0b23a];
+const SHACKS = [0x8a6f55, 0x7f8a8c, 0x9a5a3c, 0x6f7a62];
 const SLATE = [0x5f6875, 0x6b7380, 0x77808c, 0x646c79];
 const TILES = [0xb0634b, 0xbd7457, 0xa85a44];
 
@@ -385,10 +389,49 @@ export function drawBuildingShadow(g: G, h: number, ring: number[]): void {
  * building) in Reims slate or terracotta; large or industrial buildings a flat roof with a parapet
  * and rooftop units.
  */
-export function drawBuilding(g: G, kind: number, ring: number[]): void {
+export function drawBuilding(g: G, kind: number, ring: number[], tiled = 0.32): void {
   const areaM2 = ringArea(ring) / 100;
   const pick = hash2(Math.round(ring[0]), Math.round(ring[1]), 3);
   const ob = orientedBox(ring);
+
+  if (kind === BUILDING.tank) {
+    // A storage tank: a pale round roof with rings, a lit side, a walkway to the middle.
+    const r = Math.min(ob.hu, ob.hv);
+    const base = pick < 0.5 ? 0xc9cdd2 : 0xd8d2c2;
+    fillRing(g, ring, base);
+    g.fillStyle(shade(base, 0.1), 1).slice(ob.cx, ob.cy, r * 0.96, Math.PI * 0.95, Math.PI * 1.55).fillPath();
+    g.fillStyle(shade(base, -0.1), 1).slice(ob.cx, ob.cy, r * 0.96, Math.PI * 1.95, Math.PI * 2.55).fillPath();
+    g.lineStyle(2, shade(base, -0.18), 1).strokeCircle(ob.cx, ob.cy, r * 0.66).strokeCircle(ob.cx, ob.cy, r * 0.33);
+    g.lineStyle(5, 0x7f848b, 1).lineBetween(ob.cx, ob.cy, ob.cx + r * 0.7, ob.cy + r * 0.7);
+    g.fillStyle(0x7f848b, 1).fillCircle(ob.cx, ob.cy, 7);
+    g.lineStyle(3, 0x000000, 0.35).strokePoints(pts(ring), true, true);
+    return;
+  }
+  if (kind === BUILDING.container) {
+    // A shipping container: one bright colour, ribbed, a paler strip along one edge.
+    const base = CONTAINERS[Math.floor(pick * 100) % CONTAINERS.length];
+    fillRing(g, ring, base);
+    g.lineStyle(1.5, shade(base, -0.16), 1);
+    for (let a = -ob.hu + 5; a < ob.hu; a += 6) {
+      g.lineBetween(ob.cx + ob.ux * a - ob.vx * ob.hv, ob.cy + ob.uy * a - ob.vy * ob.hv, ob.cx + ob.ux * a + ob.vx * ob.hv, ob.cy + ob.uy * a + ob.vy * ob.hv);
+    }
+    fillRing(g, quad(ob.cx - ob.vx * ob.hv * 0.62, ob.cy - ob.vy * ob.hv * 0.62, ob.ux, ob.uy, ob.hu, ob.hv * 0.14), shade(base, 0.16));
+    g.lineStyle(1.5, 0x000000, 0.45).strokePoints(pts(ring), true, true);
+    return;
+  }
+  if (kind === BUILDING.shack) {
+    // A swamp shack: a patched, rusty corrugated-iron roof.
+    const base = SHACKS[Math.floor(pick * 100) % SHACKS.length];
+    fillRing(g, ring, base);
+    fillRing(g, quad(ob.cx + ob.ux * ob.hu * 0.4, ob.cy + ob.uy * ob.hu * 0.4, ob.ux, ob.uy, ob.hu * 0.34, ob.hv * 0.6), shade(base, pick < 0.5 ? 0.14 : -0.14));
+    g.lineStyle(1.5, shade(base, -0.2), 0.9);
+    for (let a = -ob.hu + 4; a < ob.hu; a += 5) {
+      g.lineBetween(ob.cx + ob.ux * a - ob.vx * ob.hv, ob.cy + ob.uy * a - ob.vy * ob.hv, ob.cx + ob.ux * a + ob.vx * ob.hv, ob.cy + ob.uy * a + ob.vy * ob.hv);
+    }
+    g.lineStyle(2, shade(base, 0.2), 1).lineBetween(ob.cx - ob.ux * ob.hu, ob.cy - ob.uy * ob.hu, ob.cx + ob.ux * ob.hu, ob.cy + ob.uy * ob.hu);
+    g.lineStyle(2, 0x000000, 0.4).strokePoints(pts(ring), true, true);
+    return;
+  }
 
   if (kind === 2 || areaM2 > 1400) {
     const base = kind === 2 ? 0xa2a6ac : 0xb3b0a8;
@@ -409,7 +452,8 @@ export function drawBuilding(g: G, kind: number, ring: number[]): void {
     return;
   }
 
-  const base = kind === 1 ? 0x585e6b : pick < 0.68 ? SLATE[Math.floor(pick * 100) % SLATE.length] : TILES[Math.floor(pick * 100) % TILES.length];
+  // `tiled`: the share of terracotta roofs (Reims is mostly slate; the brick canal town mostly tiles).
+  const base = kind === 1 ? 0x585e6b : pick < 1 - tiled ? SLATE[Math.floor(pick * 100) % SLATE.length] : TILES[Math.floor(pick * 100) % TILES.length];
   // Split the roof along its ridge (the long axis through the middle): the side facing the sun
   // (top-left) is lighter.
   const c = ob.cx * ob.vx + ob.cy * ob.vy;
@@ -421,4 +465,20 @@ export function drawBuilding(g: G, kind: number, ring: number[]): void {
   const r = Math.max(0, ob.hu - ob.hv * 0.6); // hipped ends
   g.lineStyle(2, shade(base, -0.28), 1).lineBetween(ob.cx - ob.ux * r, ob.cy - ob.uy * r, ob.cx + ob.ux * r, ob.cy + ob.uy * r);
   g.lineStyle(2, 0x000000, 0.32).strokePoints(pts(ring), true, true);
+}
+
+/** A lily pad floating on the water: a green disc with a notch, some with a pink flower. */
+export function drawLilyPad(g: G, x: number, y: number, r: number): void {
+  const pick = hash2(Math.round(x), Math.round(y), 41);
+  const turn = pick * Math.PI * 2;
+  g.fillStyle(0x000000, 0.18).fillCircle(x + 1.5, y + 2, r);
+  g.fillStyle(pick < 0.5 ? 0x4f8f3a : 0x5fa046, 1).slice(x, y, r, turn + 0.35, turn + Math.PI * 2 - 0.05).fillPath();
+  g.lineStyle(1, 0x2f5f24, 0.8).lineBetween(x, y, x + Math.cos(turn + 2.4) * r * 0.8, y + Math.sin(turn + 2.4) * r * 0.8);
+  g.lineBetween(x, y, x + Math.cos(turn + 4.2) * r * 0.8, y + Math.sin(turn + 4.2) * r * 0.8);
+  if (pick > 0.72) {
+    g.fillStyle(0xf7b6d2, 1);
+    for (let k = 0; k < 5; k++) fastCircle(g, x + Math.cos(turn + k * 1.2566) * 2.6, y + Math.sin(turn + k * 1.2566) * 2.6, 2.2);
+    g.fillStyle(0xffe08a, 1);
+    fastCircle(g, x, y, 1.6);
+  }
 }

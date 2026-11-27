@@ -16,7 +16,8 @@ import type { ServerMsg } from '../net/protocol';
 import type { ResultRow } from './ResultsScene';
 import { BoatView } from '../view/BoatView';
 import { MapRenderer, type SceneryData } from '../view/MapRenderer';
-import { TrackRenderer } from '../view/TrackRenderer';
+import { generateScenery } from '../view/sceneryGen';
+import { WORLD_ART_SCALE } from '../view/textures';
 import { options } from '../options';
 import { Fx } from '../view/fx';
 import { RaceAudio } from '../view/raceAudio';
@@ -139,9 +140,8 @@ export class RaceScene extends Phaser.Scene {
       });
     }
 
-    this.trackView = track.def.scenery
-      ? new MapRenderer(this, track, this.cache.json.get(track.def.scenery) as SceneryData)
-      : new TrackRenderer(this, track);
+    // Real-world tracks bring their scenery in a file; the invented ones have theirs generated.
+    this.trackView = new MapRenderer(this, track, track.def.scenery ? (this.cache.json.get(track.def.scenery) as SceneryData) : generateScenery(track));
     const wake = this.add.particles(0, 0, 'wake', {
       lifespan: 900, speed: 0, scale: { start: 0.3, end: 1.3 }, alpha: { start: 0.4, end: 0 }, emitting: false,
     }).setDepth(5);
@@ -158,7 +158,6 @@ export class RaceScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.raceAudio.destroy());
 
     const cam = this.cameras.main;
-    if (!track.def.scenery) cam.setBackgroundColor(track.def.colors.land);
     const p = this.sim.player!;
     this.camX = p.x;
     this.camY = p.y;
@@ -177,8 +176,8 @@ export class RaceScene extends Phaser.Scene {
 
   /** Real item crates and fake ones use this same sprite on purpose: they must look identical. */
   private makeCrateSprite(x: number, y: number): Sprite {
-    const s = this.add.image(x, y, 'crate').setDepth(8);
-    this.tweens.add({ targets: s, scale: { from: 0.9, to: 1.1 }, duration: 650, yoyo: true, repeat: -1, delay: Math.random() * 600 });
+    const s = this.add.image(x, y, 'crate').setDepth(8).setScale(WORLD_ART_SCALE);
+    this.tweens.add({ targets: s, scale: { from: 0.92 * WORLD_ART_SCALE, to: 1.08 * WORLD_ART_SCALE }, duration: 650, yoyo: true, repeat: -1, delay: Math.random() * 600 });
     return s;
   }
 
@@ -279,7 +278,7 @@ export class RaceScene extends Phaser.Scene {
       const s = this.crateSprites.get(c.id)!;
       s.setVisible(c.respawn <= 0).setRotation(Math.sin(time / 500 + c.id) * 0.12);
     }
-    this.syncGroup(this.volSprites, items.volunteers, (v) => this.add.image(v.x, v.y, 'volunteer').setDepth(14), (s, v) => {
+    this.syncGroup(this.volSprites, items.volunteers, (v) => this.add.image(v.x, v.y, 'volunteer').setDepth(14).setScale(WORLD_ART_SCALE * 1.15), (s, v) => {
       s.setPosition(v.x, v.y).setRotation(v.heading + Math.sin(v.age * 24) * 0.35);
     }, (s) => {
       // A volunteer lands in the water (after a hit or a miss).
@@ -287,7 +286,7 @@ export class RaceScene extends Phaser.Scene {
       this.raceAudio.at('splash', s.x, s.y, 0.6);
       this.retire(s, 'wave');
     });
-    this.syncGroup(this.drillSprites, items.drills, (d) => this.add.image(d.x, d.y, 'drill').setDepth(14), (s, d) => {
+    this.syncGroup(this.drillSprites, items.drills, (d) => this.add.image(d.x, d.y, 'drill').setDepth(14).setScale(WORLD_ART_SCALE), (s, d) => {
       s.setPosition(d.x, d.y).setRotation(d.heading);
     }, (s) => this.retire(s, 'fade'));
     // Fake crates are drawn exactly like real ones (same sprite, same bobbing).
@@ -298,7 +297,7 @@ export class RaceScene extends Phaser.Scene {
       this.retire(s, 'fade');
     });
     this.syncGroup(this.blobSprites, items.blobs, (b) => this.add.image(b.x, b.y, 'blob').setDepth(14), (s, b) => {
-      s.setPosition(b.x, b.y).setRotation(b.heading).setScale(1 + Math.sin(b.age * 30) * 0.08);
+      s.setPosition(b.x, b.y).setRotation(b.heading).setScale((1 + Math.sin(b.age * 30) * 0.08) * WORLD_ART_SCALE);
     }, (s) => this.retire(s, 'fade'));
     this.syncGroup(this.puddleSprites, items.puddles, (p) => {
       // Glue lands: from the glue item or a silicone gun shot.

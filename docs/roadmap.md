@@ -69,8 +69,9 @@ hazards, cup mode, save data (unlocks, best times, options).
 - Options scene: volumes, left-handed layout, auto-fire, reduced shake (done).
   Steering assist dropped on purpose.
 - UI: rounded buttons with shadows and a pressed state (done).
-- Final art: still code-drawn placeholders, apart from Cabourg; real art needs an
-  artist.
+- Art: everything is drawn in code, with no image files. Boats, items and the
+  surroundings of every track have had a proper pass (done); an artist could still
+  take it further.
 - Performance on phones and balancing: done by the owner through playtests.
 
 **Done when:** it feels like a finished small game.

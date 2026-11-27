@@ -3,6 +3,7 @@ import { hasEffect } from '../effects/effects';
 import { angleDiff } from '../physics/math';
 import { speedOf } from '../physics/BoatPhysics';
 import { createBoatSprite } from './boatSprite';
+import { WORLD_ART_SCALE } from './textures';
 import type { Racer } from '../race/types';
 
 /** Sprite, shadow, saw, boost and damage overlays for one racer. */
@@ -24,7 +25,7 @@ export class BoatView {
     const { length: L, width: W } = r.boat.size;
     this.shadow = scene.add.image(3, 5, 'shadow').setDisplaySize(L * 1.05, W * 1.1);
     const hull = createBoatSprite(scene, r.boat, r.color);
-    this.saw = scene.add.image(L / 2 + 6, 0, 'saw').setOrigin(0, 0.5).setVisible(false);
+    this.saw = scene.add.image(L / 2 + 6, 0, 'saw').setOrigin(0, 0.5).setScale(WORLD_ART_SCALE).setVisible(false);
     this.boost = scene.add.graphics();
     this.smoke = scene.add.graphics();
     this.bar = scene.add.graphics();
@@ -95,7 +96,7 @@ export class BoatView {
     // Jigsaw
     const sawOn = hasEffect(r, 'jigsaw');
     this.saw.setVisible(sawOn);
-    if (sawOn) this.saw.setScale(1 + Math.sin(time / 25) * 0.04, 1 + Math.cos(time / 30) * 0.08);
+    if (sawOn) this.saw.setScale((1 + Math.sin(time / 25) * 0.04) * WORLD_ART_SCALE, (1 + Math.cos(time / 30) * 0.08) * WORLD_ART_SCALE);
 
     // Boost flames
     this.boost.clear();

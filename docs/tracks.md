@@ -143,11 +143,30 @@ Islands and piers inside the channel are separate static obstacles
 
 ## Visual design
 
-- Tile-based water with a scrolling shader-free animation (two offset water
-  tile layers), banks drawn from the derived edge polygons with a shore tile
-  set, and decorations placed on top.
-- Wakes: each boat leaves a fading wake trail (particles or a ribbon).
-- Each theme has its own palette, decorations and ambient sound.
+Every track is drawn by the same renderer (`MapRenderer`, see
+[Real-world tracks](real-world-tracks.md#in-the-game)): streets with pavements and
+markings, roofs with shadows, single trees, a towpath and quay along the banks,
+animated water with a pale band of shallows along each bank. Only what the camera
+sees is drawn, in tiles.
+
+- The Reims canal's surroundings come from IGN's map.
+- The **invented tracks have theirs generated** by rules (`src/view/sceneryGen.ts`),
+  with a fixed random seed per track so a track always looks the same:
+
+| Theme | Track | What is laid out round the channel |
+| --- | --- | --- |
+| `canal` | Lock & Load | A brick town: a quay street on each bank with plane trees, cross streets and a back street forming blocks, terraces of houses (mostly tiled roofs, a few slate, the odd church) with gardens, more houses and trees further out, a football pitch where there is room |
+| `industrial` | Industrial Estuary | A dock road on one bank and a two-track railway on the other, then warehouses with rooftop units, groups of round storage tanks and yards of stacked shipping containers, scrub on the waste ground |
+| `bayou` | Bayou Bends | Swamp forest down to the water: bushes crowding both banks, a canopy of big crowns everywhere else, a dirt trail along one bank, a few tin-roofed shacks in clearings, lily pads in the slack water |
+
+  Rules that keep it tidy: nothing is built on the towpath or in the water; a line
+  along a bank (a street, a row of houses) is left out where the land is too narrow
+  or where it would bunch up inside a tight bend; cross streets stop at the first
+  street they meet; nothing overlaps anything already placed. Laying out a track
+  takes about a tenth of a second, once, when it is first raced.
+- Wakes: each boat leaves a fading wake trail of particles.
+- Things on the water (crates, volunteers, the drill, glue, the saw) are drawn in
+  `src/view/worldArt.ts`, also with the 2D canvas.
 
 ## Making a new track
 

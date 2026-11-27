@@ -3,34 +3,19 @@ import { FONT } from '../config';
 import { t } from '../i18n';
 import type { Track } from '../track/Track';
 import { drawLine } from './lines';
+import { type SceneryData, TOWPATH } from './scenery';
 import {
-  type Box, drawBuilding, drawBuildingShadow, drawCemetery, drawRail, drawRoadBase, drawRoadMarkings, drawSport,
+  type Box, drawBuilding, drawBuildingShadow, drawCemetery, drawLilyPad, drawRail, drawRoadBase, drawRoadMarkings, drawSport,
   fastCircle, fillRing, type Plant, plants, thickLine, vegetationGround,
 } from './mapArt';
 
-/** Scenery of a real-world track, as written by scripts/import-reims.mjs (game pixels). */
-export interface SceneryData {
-  source: string;
-  water: number[][];
-  vegetation: [number, number[]][];
-  roads: [number, number, number, number[]][]; // class (0 motorway, 1 road, 2 path), width, bridge, line
-  rails: [number, number, number[]][]; // width, bridge, line
-  buildings: [number, number, number[]][]; // height (m), kind (0 house, 1 church, 2 industrial), ring
-  bridges: [string, number[]][];
-  /** Bridges over the canal: x, y on the centre line, kind (0 own name, 1 street it carries, 2 railway), name. */
-  labels?: [number, number, number, string][];
-  /** Street names written along the streets: x, y, angle (milliradians), font size, name, available length (px). */
-  streets?: [number, number, number, number, string, number][];
-  /** Sports grounds: kind (0 pitch, 1 tennis, 2 court, 3 track, 4 pool), ring. */
-  sports?: [number, number[]][];
-  cemeteries?: number[][];
-}
+export type { SceneryData } from './scenery';
 
 const CHUNK = 512;
 /** Tiles overlap by this much so no seam shows between them when the camera zoom isn't 1. */
 const BLEED = 2;
 const MARGIN = 160;
-const TOWPATH = 45; // px of quay/towpath drawn along both banks
+
 
 
 type Pt = { x: number; y: number };
@@ -51,6 +36,8 @@ interface ChunkIndex {
   streets: number[];
   sports: number[];
   cemeteries: number[];
+  trees: number[];
+  pads: number[];
 }
 
 type Layer = 'ground' | 'shadow' | 'deck';
@@ -83,7 +70,7 @@ export class MapRenderer {
   constructor(private scene: Phaser.Scene, private track: Track, private data: SceneryData) {
     const c = track.def.colors;
     scene.cameras.main.setBackgroundColor(c.water);
-    this.water = scene.add.tileSprite(0, 0, 64, 64, 'water').setOrigin(0).setDepth(0).setTint(c.waterDeep);
+    this.water = scene.add.tileSprite(0, 0, 64, 64, 'water').setOrigin(0).setDepth(0);
     this.g = scene.make.graphics({}, false);
     this.eraser = scene.make.graphics({}, false);
     this.buildIndex();
@@ -129,7 +116,7 @@ export class MapRenderer {
         const key = `${cx},${cy}`;
         let e = this.index.get(key);
         if (!e) {
-          e = { water: [], vegetation: [], roads: [], rails: [], buildings: [], channel: [], bridges: [], streets: [], sports: [], cemeteries: [] };
+          e = { water: [], vegetation: [], roads: [], rails: [], buildings: [], channel: [], bridges: [], streets: [], sports: [], cemeteries: [], trees: [], pads: [] };
           this.index.set(key, e);
         }
         e[kind].push(i);
@@ -160,9 +147,12 @@ export class MapRenderer {
       }
     });
     // The navigable channel, as quads between centre-line samples (drawn wider for the towpath).
+    (d.trees ?? []).forEach(([x, y, r], i) => this.add('trees', i, [x, y], r * 1.5));
+    (d.pads ?? []).forEach(([x, y, r], i) => this.add('pads', i, [x, y], r + 2));
     const s = this.track.samples;
-    for (let a = 0; a < s.length - 1; a += 2) {
-      const b = Math.min(s.length - 1, a + 2);
+    // (A closed track's last quad joins the last sample back to the first.)
+    for (let a = 0; a < (this.track.closed ? s.length : s.length - 1); a += 2) {
+      const b = this.track.closed ? (a + 2) % s.length : Math.min(s.length - 1, a + 2);
       this.channel.push({ a, b });
       const hw = Math.max(s[a].width, s[b].width) / 2 + TOWPATH;
       this.add('channel', this.channel.length - 1, [s[a].x, s[a].y, s[b].x, s[b].y], hw);
@@ -238,7 +228,7 @@ export class MapRenderer {
       for (const i of e.sports) drawSport(g, d.sports![i][0], d.sports![i][1]);
       g.fillStyle(colors.shore, 1);
       for (const i of e.channel) this.channelQuad(g, i, TOWPATH);
-      g.fillStyle(0x8d8a83, 1);
+      g.fillStyle(d.style?.quay ?? 0x8d8a83, 1);
       for (const i of e.channel) this.channelQuad(g, i, 6); // what's left of this after the water is cut out: a quay edge
       for (const i of e.water) thickLine(g, [...d.water[i], d.water[i][0], d.water[i][1]], 10, 0x8d8a83);
 
@@ -259,10 +249,14 @@ export class MapRenderer {
 
       // Buildings: shadows, then roofs
       for (const i of e.buildings) drawBuildingShadow(g, d.buildings[i][0], d.buildings[i][2]);
-      for (const i of e.buildings) drawBuilding(g, d.buildings[i][1], d.buildings[i][2]);
+      for (const i of e.buildings) drawBuilding(g, d.buildings[i][1], d.buildings[i][2], d.style?.tiled);
 
       // Trees last (stamped below): their crowns overhang paths and road edges, as they do.
       for (const i of e.vegetation) trees.push(...plants(g, d.vegetation[i][0], d.vegetation[i][1], tileBox));
+      for (const i of e.trees) {
+        const [tx, ty, r, color] = d.trees![i];
+        trees.push({ x: tx, y: ty, r, color });
+      }
     }
     rt.draw(g, ox, oy);
     // Tree crowns are textures stamped in one batch: far cheaper than drawing thousands of circles.
@@ -279,6 +273,13 @@ export class MapRenderer {
       for (const i of e.water) er.fillPoints(toPts(d.water[i]), true);
       for (const i of e.channel) this.channelQuad(er, i, 0);
       rt.erase(er, ox, oy);
+      // On the water just cut out: a pale band along each bank (shallows and the wash against the
+      // quay), a thin bright line at the very edge, and any lily pads.
+      const w = g.clear();
+      for (const i of e.channel) this.bankBand(w, i, 16, 0xffffff, 0.09);
+      for (const i of e.channel) this.bankBand(w, i, 3.5, 0xffffff, 0.3);
+      for (const i of e.pads) drawLilyPad(w, d.pads![i][0], d.pads![i][1], d.pads![i][2]);
+      rt.draw(w, ox, oy);
     }
 
     // Bridges: a shadow tile below the boats and a deck tile above them, only where there are bridges.
@@ -359,6 +360,22 @@ export class MapRenderer {
       }
     }
     return out;
+  }
+
+  /** A strip of water along both banks of a channel quad, `width` px wide, inside the channel. */
+  private bankBand(g: Phaser.GameObjects.Graphics, i: number, width: number, color: number, alpha: number): void {
+    const s = this.track.samples;
+    const A = s[this.channel[i].a], B = s[this.channel[i].b];
+    g.fillStyle(color, alpha);
+    for (const side of [1, -1]) {
+      const ha = (A.width / 2) * side, hb = (B.width / 2) * side, wa = ha - width * side, wb = hb - width * side;
+      g.fillPoints([
+        { x: A.x + A.nx * ha, y: A.y + A.ny * ha },
+        { x: B.x + B.nx * hb, y: B.y + B.ny * hb },
+        { x: B.x + B.nx * wb, y: B.y + B.ny * wb },
+        { x: A.x + A.nx * wa, y: A.y + A.ny * wa },
+      ] as Phaser.Math.Vector2[], true);
+    }
   }
 
   /** Thick polyline with round joins (Phaser's own thick strokes leave gaps at corners). */

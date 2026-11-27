@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { BOATS, deriveStats } from '../src/data/boats';
+import { hasBoatArt } from '../src/view/boatArt';
 import { loadTrack } from '../src/data/tracks';
 import { capsule, isTouching, resolveBank, resolveBoatPair } from '../src/physics/collisions';
 import { RaceSimulation } from '../src/race/RaceSimulation';
@@ -19,13 +20,14 @@ describe('boat roster', () => {
     }
   });
 
-  it('Cabourg is the longest and thinnest boat, drawn in its own colours', () => {
+  it('Cabourg is the longest and thinnest boat, with its own drawing; every other boat is drawn by boatArt', () => {
     const barge = BOATS[0];
     for (const b of BOATS.slice(1)) {
       expect(barge.size.length).toBeGreaterThan(b.size.length);
       expect(barge.size.length / barge.size.width).toBeGreaterThan(b.size.length / b.size.width);
     }
-    expect(barge.accent).toBe(true);
+    expect(hasBoatArt(barge)).toBe(false);
+    for (const b of BOATS.slice(1)) expect(hasBoatArt(b), b.id).toBe(true);
   });
 
   it('every boat id is unique', () => {
