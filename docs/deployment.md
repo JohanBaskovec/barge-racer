@@ -10,7 +10,8 @@ Files involved:
 | --- | --- |
 | `wrangler.jsonc` | Worker name (`barge-racer`) and the assets directory (`./dist`) |
 | `public/_headers` | Cache rules: `/assets/*` is immutable, `index.html` is always revalidated |
-| `.github/workflows/ci.yml` | Tests on every push; deploys when `main` passes (optional) |
+| `.github/workflows/ci.yml` | Type-check, tests and build on every branch and pull request |
+| `.github/workflows/deploy.yml` | Tests, then deploys on every update of `main` |
 
 The game will be live at `https://barge-racer.<your-subdomain>.workers.dev`
 unless you attach a custom domain.
@@ -35,14 +36,22 @@ npm run deploy          # builds, then uploads dist/
 
 Cloudflare then rebuilds on every push.
 
-## Option 3: GitHub Actions
+## Option 3: GitHub Actions (deploys on every update of `main`)
 
-The `deploy` job in `ci.yml` runs `wrangler deploy` after the tests pass on
-`main`. Add two repository secrets (Settings, Secrets and variables, Actions):
+`.github/workflows/deploy.yml` runs on every push to `main`, which includes a
+merged pull request. It runs the type-check and tests, builds, then runs
+`wrangler deploy`. If a test fails nothing is deployed. Deploys never overlap,
+and you can also start one by hand from the Actions tab (**Run workflow**).
+Other branches and pull requests only run the checks in `ci.yml`.
 
-- `CLOUDFLARE_ACCOUNT_ID`: shown on the Workers & Pages overview page.
-- `CLOUDFLARE_API_TOKEN`: create one from the **Edit Cloudflare Workers**
-  template under My Profile, API Tokens.
+One-time setup:
+
+1. Add two repository secrets (Settings, Secrets and variables, Actions):
+   - `CLOUDFLARE_ACCOUNT_ID`: shown on the Workers & Pages overview page.
+   - `CLOUDFLARE_API_TOKEN`: create one from the **Edit Cloudflare Workers**
+     template under My Profile, API Tokens.
+2. Get the code onto `main` (merge a pull request or push to it). The first run
+   creates the `barge-racer` Worker if it doesn't exist yet.
 
 Use either option 2 or option 3, not both, or every push deploys twice.
 

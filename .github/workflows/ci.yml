@@ -1,7 +1,14 @@
 name: CI
+
+# Checks every branch and pull request. Deploying is a separate workflow (deploy.yml).
 on:
   push:
+    branches-ignore: [main]
   pull_request:
+
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -15,22 +22,3 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
-
-  # Deploys to Cloudflare when main passes. Needs the repository secrets
-  # CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID (see docs/deployment.md).
-  deploy:
-    needs: build
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      - run: npm run build
-      - run: npx wrangler deploy
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
