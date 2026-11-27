@@ -50,12 +50,26 @@ Off by default.
 
 ## Using items
 
+**Two hands on a phone**: steer with one finger (right hand), fire with the other thumb. The item
+buttons are bottom left for the left thumb; the option "Item buttons on the right" swaps them for
+people who steer with the left hand. Rules that keep the buttons out of the way:
+
+- **A button never blocks steering.** A finger that lands on a button while no other finger is
+  steering also steers. If it's a quick tap (under 0.3 s, moving less than 30 px) the item fires
+  as well; if it stays down or drags, it was only steering. A quick downward flick fires backwards.
+- **With a finger already steering**, a press on a button is just a press on the button: it fires
+  when the thumb lifts (backwards after a downward flick), however long it was held.
+- **Only a press that started on a button counts.** A steering finger that slides onto an item
+  button, the pause button or the fullscreen button and lifts there does nothing.
+- The buttons answer a little beyond their drawn ring (25 % wider), since a thumb doesn't aim.
+
+
 | Input | Action |
 | --- | --- |
 | **Right mouse button**, anywhere | Fire the **first** item (works while the left button is held for steering) |
 | **Middle mouse button**, anywhere | Fire the **second** item |
-| Tap the item buttons (bottom right, numbered 1 and 2) | Fire that item forwards |
-| Second finger tap, anywhere (multi-touch) | Fire the first item |
+| Tap the item buttons (bottom left, numbered 1 and 2; bottom right with the option) | Fire that item forwards |
+| Second finger tap, anywhere else (multi-touch) | Fire the first item |
 | Swipe down on an item button | Fire that item **backwards** (Volunteers, Drill, Silicone Gun, see below) |
 | `Space` / `E` | Fire the first / second item; hold `Shift` to fire backwards |
 

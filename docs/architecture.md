@@ -220,7 +220,7 @@ interface SaveData {
     musicVolume: number;
     sfxVolume: number;
     steeringMode: 'hold' | 'tapTarget';
-    leftHanded: boolean;
+    itemsRight: boolean;
     reducedShake: boolean;
     steeringAssist: boolean;
     autoFire: boolean;

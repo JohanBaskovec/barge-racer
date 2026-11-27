@@ -36,7 +36,14 @@ export function addFullscreenButton(scene: Phaser.Scene, x: number, y: number, r
     }
   };
   draw();
-  g.setInteractive({ useHandCursor: true }).on('pointerup', () => toggleFullscreen(scene));
+  // Only a press that started on the button counts (not a steering finger lifted over it).
+  let pressed = -1;
+  g.setInteractive({ useHandCursor: true })
+    .on('pointerdown', (p: Phaser.Input.Pointer) => (pressed = p.id))
+    .on('pointerup', (p: Phaser.Input.Pointer) => {
+      if (p.id === pressed) toggleFullscreen(scene);
+      pressed = -1;
+    });
   scene.scale.on(Phaser.Scale.Events.ENTER_FULLSCREEN, draw);
   scene.scale.on(Phaser.Scale.Events.LEAVE_FULLSCREEN, draw);
   scene.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {

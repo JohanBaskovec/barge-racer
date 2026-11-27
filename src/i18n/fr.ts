@@ -62,7 +62,7 @@ export const fr: Record<TranslationKey, string> = {
   'options.title': 'Options',
   'options.music': 'Musique',
   'options.sfx': 'Effets sonores',
-  'options.leftHanded': "Gaucher (boutons d'objets à gauche)",
+  'options.itemsRight': "Boutons d'objets à droite (diriger de la main gauche)",
   'options.autoFire': 'Tir automatique des objets',
   'options.reducedShake': "Réduire les secousses de l'écran",
   'options.on': 'Oui',

@@ -36,10 +36,10 @@ describe('music notation', () => {
 describe('options', () => {
   it('fall back to defaults for missing or broken values', () => {
     expect(parseOptions(null)).toEqual(DEFAULT_OPTIONS);
-    expect(parseOptions({ musicVolume: 7, sfxVolume: 'loud', leftHanded: true, autoFire: 1 })).toEqual({
+    expect(parseOptions({ musicVolume: 7, sfxVolume: 'loud', itemsRight: true, autoFire: 1 })).toEqual({
       ...DEFAULT_OPTIONS,
       musicVolume: 1,
-      leftHanded: true,
+      itemsRight: true,
     });
   });
 });

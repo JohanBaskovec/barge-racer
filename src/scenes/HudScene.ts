@@ -10,11 +10,19 @@ import { addFullscreenButton } from '../view/fullscreen';
 import { button, fitText, fmtTime, text } from '../view/ui';
 import type { RaceScene } from './RaceScene';
 
-/** Two item buttons: the first is fired with right click, the second with middle click. */
+/**
+ * Two item buttons: the first is fired with right click, the second with middle click. Bottom left
+ * by default (for the left thumb while the right hand steers); bottom right with the option.
+ */
 const SLOT_BTNS = [
   { x: 1170, y: 578, r: 58 },
   { x: 985, y: 593, r: 58 },
 ];
+/** The buttons answer a little beyond their drawn ring: a thumb doesn't aim. */
+const HIT_SCALE = 1.25;
+/** A press on a button that also started steering fires only if it was this short (ms) and stayed put. */
+const TAP_MS = 300;
+const TAP_MOVE = 30;
 const PAUSE_BTN = { x: 640, y: 46, r: 30 };
 const MAP = { x: 1060, y: 24, w: 200, h: 140 };
 
@@ -55,9 +63,10 @@ export class HudScene extends Phaser.Scene {
 
     this.netText = text(this, 640, 250, t('online.reconnecting'), 34, '#ffd0c4').setStroke(stroke, 7).setVisible(false);
     if (race.spectating) {
-      // Left of the item buttons, which show the watched boat's items.
-      this.watchText = text(this, 470, 640, '', 30).setStroke(stroke, 6);
-      fitText(text(this, 470, 680, t('watch.hint'), 20, '#bfe1f7').setStroke(stroke, 4), 760);
+      // Beside the item buttons (which show the watched boat's items), on the other side.
+      const wx = options.itemsRight ? 470 : 810;
+      this.watchText = text(this, wx, 640, '', 30).setStroke(stroke, 6);
+      fitText(text(this, wx, 680, t('watch.hint'), 20, '#bfe1f7').setStroke(stroke, 4), 760);
     }
 
     // Minimap
@@ -91,8 +100,8 @@ export class HudScene extends Phaser.Scene {
     }
     this.children.bringToTop(this.map);
 
-    // Item buttons (tap = fire forward, swipe down = fire backward); mirrored for left-handed players.
-    const slotBtns = options.leftHanded ? SLOT_BTNS.map((b) => ({ ...b, x: 1280 - b.x })) : SLOT_BTNS;
+    // Item buttons (tap = fire forward, swipe down = fire backward).
+    const slotBtns = options.itemsRight ? SLOT_BTNS : SLOT_BTNS.map((b) => ({ ...b, x: 1280 - b.x }));
     this.slotUi = slotBtns.map((b, k) => {
       const ring = this.add.circle(b.x, b.y, b.r, 0x0b3a5b, 0.7).setStrokeStyle(6, 0xffffff, 0.9);
       const icon = this.add.image(b.x, b.y, 'icon_glue').setDisplaySize(76, 76).setVisible(false);
@@ -104,19 +113,33 @@ export class HudScene extends Phaser.Scene {
       // Small number badge so the two buttons are told apart.
       this.add.circle(b.x - 44, b.y - 44, 14, 0xffe08a).setStrokeStyle(3, 0x0b3a5b);
       text(this, b.x - 44, b.y - 44, String(k + 1), 18, '#0b3a5b');
-      let downY = 0;
-      ring.setInteractive({ useHandCursor: true });
+      // Presses that started on this button, by pointer: only those can fire it (a steering finger
+      // that slides onto the button and lifts there doesn't).
+      const presses = new Map<number, { x: number; y: number; t: number; steering: boolean }>();
+      ring.setInteractive({ hitArea: new Phaser.Geom.Circle(b.r, b.r, b.r * HIT_SCALE), hitAreaCallback: Phaser.Geom.Circle.Contains, useHandCursor: true });
       ring.on('pointerdown', (p: Phaser.Input.Pointer) => {
-        downY = p.y;
+        if (this.paused) return;
         // Phaser delivers a click only to the top scene, so right/middle clicks that land on a
         // button never reach the race scene: forward them (right = first item, middle = second).
-        if (!p.wasTouch && !this.paused && (p.button === 2 || p.button === 1)) race.events.emit('fire', p.button === 2 ? 0 : 1, 'forward');
+        if (!p.wasTouch && (p.button === 2 || p.button === 1)) {
+          race.events.emit('fire', p.button === 2 ? 0 : 1, 'forward');
+          return;
+        }
+        // With no finger steering yet, this one steers too: the button never blocks steering.
+        // With another finger steering (the other hand), it's just a press on the button.
+        presses.set(p.id, { x: p.x, y: p.y, t: p.downTime, steering: race.pointer.claim(p) });
       });
       ring.on('pointerup', (p: Phaser.Input.Pointer) => {
-        if (this.paused) return;
-        // Right/middle click on a button is handled by the race scene's shortcuts, not here.
-        if (!p.wasTouch && p.button !== 0) return;
-        race.events.emit('fire', k, p.y - downY > 45 ? 'backward' : 'forward');
+        const press = presses.get(p.id);
+        presses.delete(p.id);
+        if (!press || this.paused) return;
+        if (!p.wasTouch && p.button !== 0) return; // right/middle: handled on press
+        const dy = p.y - press.y;
+        const flick = dy > 45; // swipe down: fire backwards
+        // A press that also steered and turned into a hold or a drag was steering, not a tap.
+        // (Timed with the touch events' own timestamps: the scene clock only moves once a frame.)
+        if (press.steering && !flick && (p.upTime - press.t > TAP_MS || Math.hypot(p.x - press.x, dy) > TAP_MOVE)) return;
+        race.events.emit('fire', k, flick ? 'backward' : 'forward');
       });
       return { ring, icon, name, count };
     });
@@ -127,11 +150,19 @@ export class HudScene extends Phaser.Scene {
     const pb = this.add.circle(PAUSE_BTN.x, PAUSE_BTN.y, PAUSE_BTN.r, 0x0b3a5b, 0.7).setStrokeStyle(4, 0xffffff, 0.9);
     this.add.rectangle(PAUSE_BTN.x - 7, PAUSE_BTN.y, 8, 24, 0xffffff);
     this.add.rectangle(PAUSE_BTN.x + 7, PAUSE_BTN.y, 8, 24, 0xffffff);
-    pb.setInteractive({ useHandCursor: true }).on('pointerup', () => this.togglePause());
+    // Only a press that started on the button pauses (not a steering finger lifted over it).
+    let pausePress = -1;
+    pb.setInteractive({ useHandCursor: true })
+      .on('pointerdown', (p: Phaser.Input.Pointer) => (pausePress = p.id))
+      .on('pointerup', (p: Phaser.Input.Pointer) => {
+        if (p.id === pausePress) this.togglePause();
+        pausePress = -1;
+      });
     this.input.keyboard?.on('keydown-ESC', () => this.togglePause());
 
     const fs = addFullscreenButton(this, PAUSE_BTN.x + 80, PAUSE_BTN.y);
-    race.pointer.hudZones = fs ? [...slotBtns, PAUSE_BTN, fs] : [...slotBtns, PAUSE_BTN];
+    const zones = slotBtns.map((b) => ({ ...b, r: b.r * HIT_SCALE }));
+    race.pointer.hudZones = fs ? [...zones, PAUSE_BTN, fs] : [...zones, PAUSE_BTN];
 
     this.big = text(this, 640, 300, '', 160).setStroke(stroke, 16);
     this.endsText = text(this, 640, 104, '', 30, '#ffe08a').setStroke(stroke, 6);

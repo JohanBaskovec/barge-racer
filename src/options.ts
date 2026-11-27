@@ -5,8 +5,12 @@ export interface Options {
   musicVolume: number;
   /** 0..1 */
   sfxVolume: number;
-  /** Item buttons on the bottom left instead of the bottom right. */
-  leftHanded: boolean;
+  /**
+   * Item buttons on the bottom right instead of the bottom left. By default they are on the left,
+   * for the left thumb, while the right hand steers (replaces the old `leftHanded`, which put them
+   * on the left when set).
+   */
+  itemsRight: boolean;
   /** Fire held items automatically when a good target is in range. */
   autoFire: boolean;
   /** No screen shake and no hit pauses. */
@@ -19,7 +23,7 @@ export const DEFAULT_OPTIONS: Options = {
   version: 1,
   musicVolume: 0.6,
   sfxVolume: 0.8,
-  leftHanded: false,
+  itemsRight: false,
   autoFire: false,
   reducedShake: false,
 };
@@ -37,7 +41,7 @@ export function parseOptions(raw: unknown): Options {
   const bool = (v: unknown, d: boolean): boolean => (typeof v === 'boolean' ? v : d);
   out.musicVolume = vol(r.musicVolume, out.musicVolume);
   out.sfxVolume = vol(r.sfxVolume, out.sfxVolume);
-  out.leftHanded = bool(r.leftHanded, out.leftHanded);
+  out.itemsRight = bool(r.itemsRight, out.itemsRight);
   out.autoFire = bool(r.autoFire, out.autoFire);
   out.reducedShake = bool(r.reducedShake, out.reducedShake);
   return out;

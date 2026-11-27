@@ -105,6 +105,17 @@ export class PointerController implements Controller {
     return intent;
   }
 
+  /**
+   * A finger (or the left button) pressed on an item button, which the race scene never sees:
+   * if no other finger is steering, it steers, so a button never stands in the way of steering.
+   * Returns whether it did.
+   */
+  claim(p: Phaser.Input.Pointer): boolean {
+    if (this.steerId !== null || !(p.wasTouch || p.leftButtonDown())) return false;
+    this.steerId = p.id;
+    return true;
+  }
+
   get steering(): boolean {
     return this.steerId !== null;
   }

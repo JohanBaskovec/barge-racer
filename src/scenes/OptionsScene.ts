@@ -4,7 +4,7 @@ import { t, type TranslationKey } from '../i18n';
 import { type Options, options, setOption } from '../options';
 import { background, button, fitText, setSelected, text } from '../view/ui';
 
-type BoolKey = 'leftHanded' | 'autoFire' | 'reducedShake';
+type BoolKey = 'itemsRight' | 'autoFire' | 'reducedShake';
 
 /**
  * Volumes and gameplay options. Opened from the title screen (full screen) or from the pause
@@ -28,7 +28,7 @@ export class OptionsScene extends Phaser.Scene {
 
     this.volumeRow(170, 'options.music', 'musicVolume');
     this.volumeRow(255, 'options.sfx', 'sfxVolume');
-    this.toggleRow(360, 'options.leftHanded', 'leftHanded');
+    this.toggleRow(360, 'options.itemsRight', 'itemsRight');
     this.toggleRow(440, 'options.autoFire', 'autoFire');
     this.toggleRow(520, 'options.reducedShake', 'reducedShake');
 
