@@ -334,14 +334,18 @@ export function drawSport(g: G, kind: number, ring: number[]): void {
 export const ROAD_COLORS = { asphalt: 0x62666d, motorway: 0x585c63, pavement: 0xc5c2ba, verge: 0x9fa39c, path: 0xd6c9a6, marking: 0xf4f4ef };
 
 /** The road surface (asphalt with pavements, motorway with verges, gravel path). */
-export function drawRoadBase(g: G, cls: number, w: number, line: number[]): void {
-  if (cls === 0) {
-    thickLine(g, line, w + 16, ROAD_COLORS.verge);
-    thickLine(g, line, w, ROAD_COLORS.motorway);
-  } else if (cls === 1) {
-    thickLine(g, line, w + 28, ROAD_COLORS.pavement);
-    thickLine(g, line, w, ROAD_COLORS.asphalt);
-  } else thickLine(g, line, Math.max(w, 14), ROAD_COLORS.path);
+/**
+ * One layer of a road. Draw layer 0 (paths, pavements, verges) for every road before layer 1
+ * (asphalt) for any: then streets that meet join into one surface, instead of each new piece's
+ * pavement cutting across the street it joins.
+ */
+export function drawRoadBase(g: G, cls: number, w: number, line: number[], layer: 0 | 1): void {
+  if (layer === 0) {
+    if (cls === 0) thickLine(g, line, w + 16, ROAD_COLORS.verge);
+    else if (cls === 1) thickLine(g, line, w + 28, ROAD_COLORS.pavement);
+    else thickLine(g, line, Math.max(w, 14), ROAD_COLORS.path);
+  } else if (cls === 0) thickLine(g, line, w, ROAD_COLORS.motorway);
+  else if (cls === 1) thickLine(g, line, w, ROAD_COLORS.asphalt);
 }
 
 /** Road markings: motorway edge lines and lanes, a dashed centre line on two-way streets. */

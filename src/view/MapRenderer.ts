@@ -56,6 +56,8 @@ interface ChunkIndex {
 type Layer = 'ground' | 'shadow' | 'deck';
 const DEPTH: Record<Layer, number> = { ground: 1, shadow: 9.5, deck: 20 };
 const BRIDGE_SHADOW = 25;
+/** How much of a street on land is laid over the end of a bridge deck that leads to it (px). */
+const DECK_JOIN = 120;
 
 /**
  * Draws a real-world map around the race. Only what the camera can see is drawn: the world is
@@ -75,6 +77,8 @@ export class MapRenderer {
   /** Street name texts currently on screen, shared by the tiles they overlap (reference counted). */
   private streetTexts = new Map<number, { text: Phaser.GameObjects.Text; refs: number }>();
   private first = true;
+  /** Ground (not bridge) road pieces by vertex ("x,y"), to join bridge decks to the streets they lead to. */
+  private groundAt = new Map<string, number[]>();
 
   constructor(private scene: Phaser.Scene, private track: Track, private data: SceneryData) {
     const c = track.def.colors;
@@ -146,7 +150,15 @@ export class MapRenderer {
     // A street name covers a stretch of road: index it by the box around the text.
     (d.streets ?? []).forEach(([x, y, , , , len], i) => this.add('streets', i, [x - len / 2, y - len / 2, x + len / 2, y + len / 2]));
     // Road segments on bridges are drawn on the bridge layers too.
-    d.roads.forEach(([, w, bridge, l], i) => bridge && this.add('bridges', -1 - i, l, w / 2 + 15 + BRIDGE_SHADOW + 4));
+    // (with room for the bits of street joined to the ends of a deck, see joinDeck).
+    d.roads.forEach(([, w, bridge, l], i) => bridge && this.add('bridges', -1 - i, l, w / 2 + 15 + BRIDGE_SHADOW + 4 + DECK_JOIN));
+    d.roads.forEach(([, , bridge, l], i) => {
+      if (bridge) return;
+      for (let k = 0; k + 1 < l.length; k += 2) {
+        const key = `${l[k]},${l[k + 1]}`;
+        (this.groundAt.get(key) ?? this.groundAt.set(key, []).get(key)!).push(i);
+      }
+    });
     // The navigable channel, as quads between centre-line samples (drawn wider for the towpath).
     const s = this.track.samples;
     for (let a = 0; a < s.length - 1; a += 2) {
@@ -230,19 +242,20 @@ export class MapRenderer {
       for (const i of e.channel) this.channelQuad(g, i, 6); // what's left of this after the water is cut out: a quay edge
       for (const i of e.water) thickLine(g, [...d.water[i], d.water[i][0], d.water[i][1]], 10, 0x8d8a83);
 
-      // Roads (surfaces first, so markings are never covered by a crossing street) and railways
-      for (const i of e.roads) {
-        const [cls, w, bridge, line] = d.roads[i];
-        if (!bridge) drawRoadBase(g, cls, w, line);
+      // Roads in layers, so streets that meet join up: footpaths, pavements and verges of all of
+      // them, then all the asphalt, then (after the railways) all the markings, which a crossing
+      // street never covers.
+      const groundRoads = e.roads.filter((i) => !d.roads[i][2]);
+      // Paths first: a footpath meeting a street passes under its pavement.
+      groundRoads.sort((a, b) => (d.roads[a][0] === 2 ? 0 : 1) - (d.roads[b][0] === 2 ? 0 : 1));
+      for (const layer of [0, 1] as const) {
+        for (const i of groundRoads) drawRoadBase(g, d.roads[i][0], d.roads[i][1], d.roads[i][3], layer);
       }
       for (const i of e.rails) {
         const [w, bridge, line] = d.rails[i];
         if (!bridge) drawRail(g, w, line);
       }
-      for (const i of e.roads) {
-        const [cls, w, bridge, line] = d.roads[i];
-        if (!bridge) drawRoadMarkings(g, cls, w, line);
-      }
+      for (const i of groundRoads) drawRoadMarkings(g, d.roads[i][0], d.roads[i][1], d.roads[i][3]);
 
       // Buildings: shadows, then roofs
       for (const i of e.buildings) drawBuildingShadow(g, d.buildings[i][0], d.buildings[i][2]);
@@ -294,7 +307,7 @@ export class MapRenderer {
       })
       .setOrigin(0.5)
       .setRotation(angle / 1000)
-      .setDepth(1.5); // above the ground tiles, below boats and bridge decks
+      .setDepth(20.5); // above bridge decks, so a street running onto a bridge keeps its name (labels stay 8 m from the water, away from boats)
     text.setLetterSpacing(1);
     if (text.width > len) text.setScale(len / text.width); // never run past the stretch of road it was fitted to
     this.streetTexts.set(i, { text, refs: 1 });
@@ -322,6 +335,32 @@ export class MapRenderer {
     g.fillCircle(B.x, B.y, hb);
   }
 
+  /** The first `length` pixels of each street on land that starts or passes at (x, y), as [class, width, line]. */
+  private joinDeck(x: number, y: number, length: number): [number, number, number[]][] {
+    const out: [number, number, number[]][] = [];
+    for (const i of this.groundAt.get(`${x},${y}`) ?? []) {
+      const [cls, w, , l] = this.data.roads[i];
+      if (cls === 2) continue; // footpaths have no pavement to hide
+      const max = Math.min(DECK_JOIN, length);
+      for (let k = 0; k + 1 < l.length; k += 2) {
+        if (l[k] !== x || l[k + 1] !== y) continue;
+        for (const dir of [-2, 2]) {
+          const piece = [x, y];
+          let left = max;
+          for (let j = k + dir; j >= 0 && j + 1 < l.length && left > 0; j += dir) {
+            const px = piece[piece.length - 2], py = piece[piece.length - 1];
+            const len = Math.hypot(l[j] - px, l[j + 1] - py);
+            const f = Math.min(1, left / (len || 1));
+            piece.push(px + (l[j] - px) * f, py + (l[j + 1] - py) * f);
+            left -= len;
+          }
+          if (piece.length >= 4) out.push([cls, w, piece]);
+        }
+      }
+    }
+    return out;
+  }
+
   /** Thick polyline with round joins (Phaser's own thick strokes leave gaps at corners). */
   private polyline(g: Phaser.GameObjects.Graphics, flat: number[], width: number, color: number): void {
     const pts = toPts(flat);
@@ -346,16 +385,23 @@ export class MapRenderer {
       g.fillStyle(asShadow ? 0x000000 : 0xb9b1a3, 1).fillPoints(pts, true);
       if (!asShadow) g.lineStyle(5, 0x7d756a, 1).strokePoints(pts, true, true);
     }
-    for (const i of items) {
-      if (i >= 0) continue;
-      const [cls, w, , line] = d.roads[-1 - i];
-      if (asShadow) {
-        this.polyline(g, shift(line), w + 30, 0x000000);
-        continue;
-      }
-      thickLine(g, line, w + 34, 0x8f877c); // parapets
-      drawRoadBase(g, cls, w, line);
-      drawRoadMarkings(g, cls, w, line);
+    // Roads on bridges, in layers like the roads on the ground so the pieces of a deck join up.
+    const decks = items.filter((i) => i < 0).map((i) => d.roads[-1 - i]);
+    if (asShadow) {
+      for (const [, w, , line] of decks) this.polyline(g, shift(line), w + 30, 0x000000);
+      return;
     }
+    for (const [, w, , line] of decks) thickLine(g, line, w + 34, 0x8f877c); // parapets
+    for (const [cls, w, , line] of decks) drawRoadBase(g, cls, w, line, 0);
+    // Where a deck meets a street on land, the deck (drawn above everything) would end in a rounded
+    // pavement across that street: lay the street's asphalt over that rounded end (only as far as
+    // it reaches), under the deck's own asphalt.
+    const joins = decks.flatMap(([, w, , line]) => [
+      ...this.joinDeck(line[0], line[1], w / 2 + 19),
+      ...this.joinDeck(line[line.length - 2], line[line.length - 1], w / 2 + 19),
+    ]);
+    for (const [cls, w, line] of joins) drawRoadBase(g, cls, w, line, 1);
+    for (const [cls, w, , line] of decks) drawRoadBase(g, cls, w, line, 1);
+    for (const [cls, w, , line] of decks) drawRoadMarkings(g, cls, w, line);
   }
 }
