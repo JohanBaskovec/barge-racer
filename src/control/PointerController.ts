@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { clamp } from '../physics/math';
 import { speedOf } from '../physics/BoatPhysics';
-import type { Controller, ControlIntent, Racer } from '../race/types';
+import type { Controller, ControlIntent, FireCommand, Racer } from '../race/types';
 
 export const STEER = { deadZone: 40, fullThrottle: 180 };
 
@@ -18,7 +18,7 @@ export interface HudZone {
  */
 export class PointerController implements Controller {
   private steerId: number | null = null;
-  private pendingFire: 'none' | 'forward' | 'backward' = 'none';
+  private pendingFire: FireCommand | null = null;
   hudZones: HudZone[] = [];
 
   constructor(
@@ -32,10 +32,13 @@ export class PointerController implements Controller {
     input.on('pointerdown', this.onDown, this);
     input.on('pointerup', this.onUp, this);
     input.on('pointerupoutside', this.onUp, this);
-    scene.events.on('fire', (dir: 'forward' | 'backward') => (this.pendingFire = dir));
+    // From the on-screen item buttons.
+    scene.events.on('fire', (slot: 0 | 1, dir: 'forward' | 'backward') => (this.pendingFire = { slot, dir }));
+    // Desktop shortcuts: Space fires the first item, E the second; hold Shift to fire backwards.
     const kb = input.keyboard;
     if (kb) {
-      kb.on('keydown-SPACE', (e: KeyboardEvent) => (this.pendingFire = e.shiftKey ? 'backward' : 'forward'));
+      kb.on('keydown-SPACE', (e: KeyboardEvent) => (this.pendingFire = { slot: 0, dir: e.shiftKey ? 'backward' : 'forward' }));
+      kb.on('keydown-E', (e: KeyboardEvent) => (this.pendingFire = { slot: 1, dir: e.shiftKey ? 'backward' : 'forward' }));
     }
     scene.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       input.off('pointerdown', this.onDown, this);
@@ -49,17 +52,18 @@ export class PointerController implements Controller {
   }
 
   private onDown(p: Phaser.Input.Pointer): void {
-    if (this.inHud(p)) return;
-    // `p.button` is the button that changed. (Not rightButtonDown(): that stays true while
-    // the right button is held, which would also swallow a later left press.)
-    if (p.button === 2) {
-      this.pendingFire = 'forward';
+    // Right click fires the first item, middle click the second: anywhere, even over a HUD button.
+    // (`p.button` is the button that changed. Not rightButtonDown(): that stays true while the
+    // right button is held, which would also swallow a later left press.)
+    if (!p.wasTouch && (p.button === 2 || p.button === 1)) {
+      this.pendingFire = { slot: p.button === 2 ? 0 : 1, dir: 'forward' };
       return;
     }
+    if (this.inHud(p)) return;
     if (this.steerId === null) {
       if (p.wasTouch || p.leftButtonDown()) this.steerId = p.id;
     } else if (p.id !== this.steerId && p.wasTouch) {
-      this.pendingFire = 'forward'; // second finger tap
+      this.pendingFire = { slot: 0, dir: 'forward' }; // second finger tap: first item
     }
   }
 
@@ -72,7 +76,7 @@ export class PointerController implements Controller {
 
   update(r: Racer): ControlIntent {
     const intent: ControlIntent = { desiredHeading: null, throttle: 0, fire: this.pendingFire };
-    this.pendingFire = 'none';
+    this.pendingFire = null;
     if (this.steerId === null) return intent;
     const p = this.scene.input.manager.pointers.find((q) => q.id === this.steerId);
     if (!p || !p.isDown) {

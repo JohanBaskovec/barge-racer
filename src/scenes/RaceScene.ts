@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { DEBUG } from '../config';
 import { PointerController } from '../control/PointerController';
+import { TUNING } from '../data/items';
 import { t } from '../i18n';
 import { type Difficulty } from '../data/difficulty';
 import { getTrackDef, loadTrack } from '../data/tracks';
@@ -26,6 +27,12 @@ export class RaceScene extends Phaser.Scene {
   private volSprites = new Map<number, Sprite>();
   private drillSprites = new Map<number, Sprite>();
   private puddleSprites = new Map<number, Sprite>();
+  private fakeSprites = new Map<number, Sprite>();
+  private blobSprites = new Map<number, Sprite>();
+  /** 0..1: how psychedelic the screen is (mushrooms). The HUD reads this for its colour wash. */
+  trip = 0;
+  private tripT = 0;
+  private tripFx: { colors: Phaser.FX.ColorMatrix; barrel: Phaser.FX.Barrel } | null = null;
   private sparks!: Phaser.GameObjects.Particles.ParticleEmitter;
   private camX = 0;
   private camY = 0;
@@ -46,6 +53,11 @@ export class RaceScene extends Phaser.Scene {
     this.volSprites.clear();
     this.drillSprites.clear();
     this.puddleSprites.clear();
+    this.fakeSprites.clear();
+    this.blobSprites.clear();
+    this.trip = 0;
+    this.tripT = 0;
+    this.tripFx = null;
   }
 
   /** Real-world tracks keep their scenery in a separate file, loaded only when that track is raced. */
@@ -79,11 +91,7 @@ export class RaceScene extends Phaser.Scene {
       lifespan: 500, speed: { min: 80, max: 260 }, scale: { start: 1.2, end: 0 }, emitting: false,
     }).setDepth(40);
 
-    for (const c of this.sim.items.crates) {
-      const s = this.add.image(c.x, c.y, 'crate').setDepth(8);
-      this.tweens.add({ targets: s, scale: { from: 0.9, to: 1.1 }, duration: 650, yoyo: true, repeat: -1, delay: Math.random() * 600 });
-      this.crateSprites.set(c.id, s);
-    }
+    for (const c of this.sim.items.crates) this.crateSprites.set(c.id, this.makeCrateSprite(c.x, c.y));
     for (const r of this.sim.racers) this.views.push(new BoatView(this, r, wake));
 
     const cam = this.cameras.main;
@@ -102,6 +110,13 @@ export class RaceScene extends Phaser.Scene {
       this.fpsText = this.add.text(10, 10, '', { color: '#fff', backgroundColor: '#000a', fontSize: '16px' }).setScrollFactor(0).setDepth(100);
       this.drawDebug();
     }
+  }
+
+  /** Real item crates and fake ones use this same sprite on purpose: they must look identical. */
+  private makeCrateSprite(x: number, y: number): Sprite {
+    const s = this.add.image(x, y, 'crate').setDepth(8);
+    this.tweens.add({ targets: s, scale: { from: 0.9, to: 1.1 }, duration: 650, yoyo: true, repeat: -1, delay: Math.random() * 600 });
+    return s;
   }
 
   /** Where the player's boat is on screen, in game pixels. */
@@ -124,12 +139,13 @@ export class RaceScene extends Phaser.Scene {
     for (let i = 0; i < this.views.length; i++) this.views[i].render(alpha, time, dt);
     this.syncEntities(time);
     this.trackView.update(time);
-    this.updateCamera(dt);
+    this.updateTrip(time, dt);
+    this.updateCamera(dt, time);
     for (const e of this.sim.takeEvents()) this.handleEvent(e);
     if (this.fpsText) this.fpsText.setText(`${this.game.loop.actualFps.toFixed(0)} fps`);
   }
 
-  private updateCamera(dt: number): void {
+  private updateCamera(dt: number, time: number): void {
     const cam = this.cameras.main;
     const p = this.sim.player!;
     const v = this.views[p.id];
@@ -138,7 +154,8 @@ export class RaceScene extends Phaser.Scene {
     const k = 1 - Math.exp(-dt * 5);
     this.camX = lerp(this.camX, tx, k);
     this.camY = lerp(this.camY, ty, k);
-    const zoom = lerp(0.95, 0.72, Math.min(1, speedOf(p) / 440));
+    // While tripping the zoom breathes a little. (No rotation: steering maps the pointer to the boat.)
+    const zoom = lerp(0.95, 0.72, Math.min(1, speedOf(p) / 440)) * (1 + Math.sin(time / 450) * 0.035 * this.trip);
     cam.setZoom(lerp(cam.zoom, zoom, 1 - Math.exp(-dt * 2)));
     cam.centerOn(this.camX, this.camY);
   }
@@ -154,6 +171,13 @@ export class RaceScene extends Phaser.Scene {
     }, (s) => this.retire(s, 'wave'));
     this.syncGroup(this.drillSprites, items.drills, (d) => this.add.image(d.x, d.y, 'drill').setDepth(14), (s, d) => {
       s.setPosition(d.x, d.y).setRotation(d.heading);
+    }, (s) => this.retire(s, 'fade'));
+    // Fake crates are drawn exactly like real ones (same sprite, same bobbing).
+    this.syncGroup(this.fakeSprites, items.fakeCrates, (f) => this.makeCrateSprite(f.x, f.y), (s, f) => {
+      s.setPosition(f.x, f.y).setRotation(Math.sin(time / 500 + f.id) * 0.12);
+    }, (s) => this.retire(s, 'fade'));
+    this.syncGroup(this.blobSprites, items.blobs, (b) => this.add.image(b.x, b.y, 'blob').setDepth(14), (s, b) => {
+      s.setPosition(b.x, b.y).setRotation(b.heading).setScale(1 + Math.sin(b.age * 30) * 0.08);
     }, (s) => this.retire(s, 'fade'));
     this.syncGroup(this.puddleSprites, items.puddles, (p) => this.add.image(p.x, p.y, 'glue').setDepth(4), (s, p) => {
       const grow = Math.min(1, p.age / 0.3);
@@ -205,6 +229,15 @@ export class RaceScene extends Phaser.Scene {
         this.sparks.emitParticleAt(r.x, r.y, 24);
         break;
       }
+      case 'heal': {
+        const r = this.sim.racers[e.racer];
+        this.sparks.setParticleTint(0x7dff8a);
+        this.sparks.emitParticleAt(r.x, r.y, 18);
+        break;
+      }
+      case 'itemUsed':
+        if (e.racer === player.id && e.item === 'mushroom') this.tripT = TUNING.mushroom.duration;
+        break;
       case 'bump': {
         const a = this.sim.racers[e.a];
         this.sparks.setParticleTint(0xffffff);
@@ -216,6 +249,35 @@ export class RaceScene extends Phaser.Scene {
         break;
       default:
         break;
+    }
+  }
+
+  /**
+   * Mushrooms: for a while the screen cycles through colours and bulges. Needs WebGL for the
+   * colour/lens effects; elsewhere only the HUD's colour wash and the zoom breathing show.
+   */
+  private updateTrip(time: number, dt: number): void {
+    this.tripT = Math.max(0, this.tripT - dt);
+    const target = this.tripT > 0 ? 1 : 0;
+    this.trip += (target - this.trip) * (1 - Math.exp(-dt * (target ? 2.5 : 1.2)));
+    if (this.trip < 0.01) this.trip = 0;
+
+    const cam = this.cameras.main;
+    const webgl = this.renderer.type === Phaser.WEBGL;
+    if (this.trip > 0 && webgl && !this.tripFx) {
+      this.tripFx = { colors: cam.postFX.addColorMatrix(), barrel: cam.postFX.addBarrel(1) };
+    }
+    if (this.trip === 0 && this.tripFx) {
+      cam.postFX.clear();
+      this.tripFx = null;
+    }
+    if (this.tripFx) {
+      const fx = this.tripFx;
+      fx.colors.reset();
+      fx.colors.hue((time * 0.06) % 360, true); // a full colour cycle about every 6 s
+      fx.colors.saturate(this.trip * 0.8, true);
+      fx.colors.alpha = this.trip; // fades in and out
+      fx.barrel.amount = 1 + Math.sin(time / 600) * 0.14 * this.trip;
     }
   }
 

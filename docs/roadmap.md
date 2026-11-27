@@ -37,7 +37,8 @@ This is the most important milestone: steering feel decides the game.
 
 - Crates, roulette, item slot button, firing forward and backward.
 - Hull, damage, spin-out, invulnerability, sinking and respawn.
-- All five items: Volunteers, Jigsaw, White Powder, Electric Drill, Glue.
+- The items: Volunteers, Jigsaw, White Powder, Electric Drill, Glue, then Silicone
+  Gun, Fake Crate, Beer Crate and Magic Mushrooms, held two at a time.
 - Position-based odds.
 - AI item use.
 

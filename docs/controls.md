@@ -52,20 +52,26 @@ Off by default.
 
 | Input | Action |
 | --- | --- |
-| Tap / click the **item slot** button (bottom right) | Fire the held item forwards |
-| Right mouse button, anywhere | Fire the held item (desktop shortcut); works while the left button is held for steering |
-| Second finger tap, anywhere (multi-touch) | Fire the held item |
-| Swipe down on the item slot | Fire **backwards** (Volunteers, Drill and Glue, see below) |
+| **Right mouse button**, anywhere | Fire the **first** item (works while the left button is held for steering) |
+| **Middle mouse button**, anywhere | Fire the **second** item |
+| Tap the item buttons (bottom right, numbered 1 and 2) | Fire that item forwards |
+| Second finger tap, anywhere (multi-touch) | Fire the first item |
+| Swipe down on an item button | Fire that item **backwards** (Volunteers, Drill, Silicone Gun, see below) |
+| `Space` / `E` | Fire the first / second item; hold `Shift` to fire backwards |
 
-- The item slot button is at least 88 x 88 CSS px, out of the area where the
-  steering finger usually is, and is placed bottom left in left-handed mode.
+- You hold **two items**. A new item goes into the first free slot. Each button
+  shows its item's picture and its **name underneath** (and `x2`/`x3` for
+  multi-use items).
+- Right and middle click work even when the pointer is over an item button.
+- The item buttons are large (about 116 px across in the 1280 x 720 game), out
+  of the area where the steering finger usually is, and are meant to be placed
+  bottom left in left-handed mode.
 - A pointer down that starts on the item slot or on a HUD button is **never**
   treated as steering.
 - Backwards fire: Volunteers are thrown backwards in a straight line (no homing),
-  the Drill is fired backwards, and Glue is always dropped behind; swiping makes
-  no difference for Jigsaw and White Powder.
-- On desktop, `Space` fires and `Shift + Space` fires backwards, as optional
-  shortcuts.
+  and the Drill and the Silicone Gun are fired backwards. Glue and Fake Crates are
+  always dropped behind; swiping makes no difference for them, nor for Jigsaw,
+  White Powder and Mushrooms.
 
 ## Fullscreen on phones and tablets
 

@@ -104,7 +104,7 @@ export class RaceSimulation {
       id, name, isPlayer, boat, stats, color: RACER_COLORS[id % RACER_COLORS.length],
       x, y, vx: 0, vy: 0, heading, spin: 0,
       hull: stats.maxHull, effects: [], inGlue: false, sinceHit: 99, sinkTimer: 0,
-      item: null, itemUses: 0, rouletteT: 0, rouletteItem: null, recentItems: [], jigsawHit: new Set(),
+      slots: [null, null], rouletteT: 0, rouletteItem: null, recentItems: [], jigsawHit: new Set(),
       progress, nearestIndex: near.index, lapsDone: 0, nextCheckpoint: 0, position: id, finished: false,
       finishTime: 0, lapTimes: [], lapStart: 0, pace: 1, autopilot: false, firstFullThrottleT: null,
       bankHitCooldown: 0, stuckTimer: 0,
@@ -167,7 +167,7 @@ export class RaceSimulation {
       if (r.sinkTimer > 0) continue;
       const intent = intents.get(r.id)!;
       stepBoat(r, intent, dt, canDrive);
-      if (canDrive && intent.fire !== 'none' && r.item && !hasEffect(r, 'spinOut')) this.items.use(r, intent.fire);
+      if (canDrive && intent.fire && !hasEffect(r, 'spinOut')) this.items.use(r, intent.fire.slot, intent.fire.dir);
     }
 
     // 4. Collisions
@@ -186,7 +186,7 @@ export class RaceSimulation {
       for (let j = i + 1; j < this.racers.length; j++) {
         const a = this.racers[i];
         const b = this.racers[j];
-        if (a.sinkTimer > 0 || b.sinkTimer > 0 || this.isGhost(a) || this.isGhost(b)) continue;
+        if (this.isIntangible(a) || this.isIntangible(b)) continue;
         const s = resolveBoatPair(a, b);
         if (s > 40) this.emit({ type: 'bump', a: a.id, b: b.id, strength: s });
       }
@@ -267,6 +267,14 @@ export class RaceSimulation {
     removeEffect(r, 'spinOut');
     addEffect(r, 'invulnerable', TUNING.respawnInvulnerable);
     this.emit({ type: 'respawn', racer: r.id });
+  }
+
+  /**
+   * Boats pass straight through each other while either one is blinking after being hit (or just
+   * respawned), so a boat that has just been shot is never bounced around or boxed in.
+   */
+  isIntangible(r: Racer): boolean {
+    return r.sinkTimer > 0 || this.isGhost(r) || hasEffect(r, 'invulnerable');
   }
 
   /** On point-to-point tracks, boats that have finished stop interacting so they never block the line. */

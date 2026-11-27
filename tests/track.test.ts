@@ -15,16 +15,19 @@ describe('tracks', () => {
         expect(d).toBeGreaterThan(t.spacing * 0.5);
         expect(d).toBeLessThan(t.spacing * 1.6);
       }
-      // Sections far apart along the lap must be farther apart than their combined half widths
+      // Sections far apart along the lap must be farther apart than their combined half widths.
+      // (Collect violations and assert once: 350,000 expect() calls make this test take seconds.)
+      let violations = 0;
       for (let i = 0; i < n; i += 3) {
         for (let j = i + 1; j < n; j += 3) {
           const gap = Math.abs(t.samples[j].dist - t.samples[i].dist);
           const along = t.closed ? Math.min(gap, t.length - gap) : gap;
           if (along < 900) continue;
           const d = Math.hypot(t.samples[i].x - t.samples[j].x, t.samples[i].y - t.samples[j].y);
-          expect(d).toBeGreaterThan((t.samples[i].width + t.samples[j].width) / 2 + 40);
+          if (d <= (t.samples[i].width + t.samples[j].width) / 2 + 40) violations++;
         }
       }
+      expect(violations).toBe(0);
     });
   }
 

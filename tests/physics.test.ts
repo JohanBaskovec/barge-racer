@@ -19,7 +19,7 @@ describe('boat physics', () => {
     for (const b of BOATS) {
       const r = fresh(b.id);
       r.pace = 1;
-      for (let i = 0; i < 60 * 30; i++) stepBoat(r, { desiredHeading: r.heading, throttle: 1, fire: 'none' }, 1 / 60, true);
+      for (let i = 0; i < 60 * 30; i++) stepBoat(r, { desiredHeading: r.heading, throttle: 1, fire: null }, 1 / 60, true);
       expect(speedOf(r)).toBeGreaterThan(deriveStats(b).topSpeed * 0.97);
       expect(speedOf(r)).toBeLessThan(deriveStats(b).topSpeed * 1.03);
     }
@@ -27,22 +27,22 @@ describe('boat physics', () => {
 
   it('coasts to a stop', () => {
     const r = fresh('tugboat');
-    for (let i = 0; i < 60 * 5; i++) stepBoat(r, { desiredHeading: r.heading, throttle: 1, fire: 'none' }, 1 / 60, true);
-    for (let i = 0; i < 60 * 15; i++) stepBoat(r, { desiredHeading: null, throttle: 0, fire: 'none' }, 1 / 60, true);
+    for (let i = 0; i < 60 * 5; i++) stepBoat(r, { desiredHeading: r.heading, throttle: 1, fire: null }, 1 / 60, true);
+    for (let i = 0; i < 60 * 15; i++) stepBoat(r, { desiredHeading: null, throttle: 0, fire: null }, 1 / 60, true);
     expect(speedOf(r)).toBeLessThan(10);
   });
 
   it('ignores throttle before GO', () => {
     const r = fresh('tugboat');
-    for (let i = 0; i < 120; i++) stepBoat(r, { desiredHeading: r.heading, throttle: 1, fire: 'none' }, 1 / 60, false);
+    for (let i = 0; i < 120; i++) stepBoat(r, { desiredHeading: r.heading, throttle: 1, fire: null }, 1 / 60, false);
     expect(speedOf(r)).toBe(0);
   });
 
   it('limits the turn rate', () => {
     const r = fresh('narrowboat');
-    for (let i = 0; i < 60 * 3; i++) stepBoat(r, { desiredHeading: r.heading, throttle: 1, fire: 'none' }, 1 / 60, true);
+    for (let i = 0; i < 60 * 3; i++) stepBoat(r, { desiredHeading: r.heading, throttle: 1, fire: null }, 1 / 60, true);
     const h0 = r.heading;
-    stepBoat(r, { desiredHeading: h0 + Math.PI, throttle: 1, fire: 'none' }, 1 / 60, true);
+    stepBoat(r, { desiredHeading: h0 + Math.PI, throttle: 1, fire: null }, 1 / 60, true);
     expect(Math.abs(angleDiff(r.heading, h0))).toBeLessThanOrEqual(r.stats.turnRate / 60 + 1e-9);
   });
 

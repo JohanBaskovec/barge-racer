@@ -8,7 +8,7 @@ export const en = {
 
   'title.subtitle': 'Race, shove, saw and glue your way to the finish',
   'title.tap': 'Tap or click to start',
-  'title.hint': 'Hold to steer · tap the item button to fire',
+  'title.hint': 'Hold to steer · tap an item button to fire (mouse: right and middle click)',
 
   'common.back': 'Back',
 
@@ -61,6 +61,10 @@ export const en = {
   'item.bigBag': 'Big Bag',
   'item.drill': 'Electric Drill',
   'item.glue': 'Glue',
+  'item.siliconeGun': 'Silicone Gun',
+  'item.fakeCrate': 'Fake Crate',
+  'item.beer': 'Beer Crate',
+  'item.mushroom': 'Magic Mushrooms',
   'item.rolling': '...',
 
   'hud.lap': 'Lap {n}/{total}',
@@ -69,6 +73,8 @@ export const en = {
   'hud.finalLap': 'Final lap!',
   'hud.go': 'GO!',
   'hud.crunch': 'Crunch!',
+  'hud.heal': 'Cheers!',
+  'hud.trap': 'Fake crate!',
   'hud.hit': 'Hit!',
   'hud.gotHim': 'Got him!',
   'hud.sunk': 'Sunk!',

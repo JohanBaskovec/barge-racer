@@ -66,6 +66,62 @@ const ICONS: Record<string, (g: G) => void> = {
     g.fillStyle(0xffffff, 0.35).fillRoundedRect(14, 25, 38, 6, 3);
   },
 
+  // A wooden crate of beer: bottles with gold caps poking out, foam on one of them.
+  icon_beer: (g) => {
+    g.fillStyle(0x7a4a1c).fillRoundedRect(6, 44, 84, 44, 6); // crate
+    g.fillStyle(0x9a6a3a).fillRect(10, 48, 76, 14).fillRect(10, 68, 76, 16);
+    g.lineStyle(3, OUTLINE).strokeRoundedRect(6, 44, 84, 44, 6);
+    g.lineStyle(2, 0x5b3b1c).lineBetween(10, 66, 86, 66);
+    for (let i = 0; i < 4; i++) {
+      const x = 18 + i * 20;
+      g.fillStyle(0xd68a1a).fillRoundedRect(x - 7, 12, 14, 38, 5); // bottle
+      g.fillStyle(0xf2b24a).fillRect(x - 3, 16, 3, 28); // shine
+      g.fillStyle(0x8c5a10).fillRect(x - 4, 4, 8, 12); // neck
+      g.fillStyle(0xf5d76e).fillRoundedRect(x - 6, 0, 12, 7, 2); // cap
+      g.lineStyle(2, OUTLINE).strokeRoundedRect(x - 7, 12, 14, 38, 5);
+    }
+    g.fillStyle(0xffffff).fillCircle(58, 4, 6).fillCircle(66, 6, 5).fillCircle(52, 8, 4); // foam
+  },
+
+  // The fake crate: the very same crate as in the world, with a sly red badge so the owner knows.
+  icon_fakeCrate: (g) => {
+    g.fillStyle(0x9a6a3a).fillRoundedRect(10, 10, 76, 76, 8);
+    g.lineStyle(5, 0x5b3b1c).strokeRoundedRect(10, 10, 76, 76, 8);
+    g.lineStyle(5, 0x5b3b1c).lineBetween(10, 10, 86, 86).lineBetween(86, 10, 10, 86);
+    g.fillStyle(0xffe08a).fillCircle(48, 48, 18);
+    g.fillStyle(0x5b3b1c).fillCircle(48, 48, 5);
+    g.fillStyle(0xd62f2f).fillCircle(76, 76, 17).lineStyle(3, OUTLINE).strokeCircle(76, 76, 17);
+    g.fillStyle(0xffffff).fillRect(74, 66, 5, 13).fillCircle(76.5, 84, 3);
+  },
+
+  // A silicone (caulking) gun: grey frame, orange cartridge, nozzle dripping glue.
+  icon_silicone: (g) => {
+    g.fillStyle(0xe87a1f).fillRoundedRect(22, 14, 54, 22, 8); // cartridge
+    g.lineStyle(3, OUTLINE).strokeRoundedRect(22, 14, 54, 22, 8);
+    g.fillStyle(0xffffff, 0.45).fillRoundedRect(28, 18, 36, 5, 2);
+    g.fillStyle(0xe8e0c8).fillTriangle(76, 18, 76, 32, 92, 25); // nozzle
+    g.lineStyle(3, OUTLINE).strokeTriangle(76, 18, 76, 32, 92, 25);
+    g.fillStyle(0x6f7880).fillRoundedRect(8, 30, 66, 10, 3); // frame
+    g.lineStyle(3, OUTLINE).strokeRoundedRect(8, 30, 66, 10, 3);
+    g.fillStyle(0x3a3f44).fillRoundedRect(14, 38, 20, 40, 7); // grip
+    g.lineStyle(3, OUTLINE).strokeRoundedRect(14, 38, 20, 40, 7);
+    g.fillStyle(0xc9ced3).fillRoundedRect(36, 40, 10, 24, 4); // trigger
+    g.lineStyle(2, OUTLINE).strokeRoundedRect(36, 40, 10, 24, 4);
+    g.fillStyle(0xf2e27a).fillCircle(84, 38, 4.5).fillRoundedRect(80.5, 38, 7, 34, 3.5).fillEllipse(84, 82, 22, 8); // glue drip
+  },
+
+  // A magic mushroom: bright, wobbly cap with rainbow spots.
+  icon_mushroom: (g) => {
+    g.fillStyle(0xf5ecd5).fillRoundedRect(36, 46, 24, 40, 10); // stem
+    g.lineStyle(3, OUTLINE).strokeRoundedRect(36, 46, 24, 40, 10);
+    g.fillStyle(0xe7dcc0).fillRect(36, 60, 24, 4);
+    g.fillStyle(0xb02ec7).fillPoints([V(6, 52), V(10, 30), V(24, 14), V(48, 8), V(72, 14), V(86, 30), V(90, 52)], true); // cap
+    g.lineStyle(3, OUTLINE).strokePoints([V(6, 52), V(10, 30), V(24, 14), V(48, 8), V(72, 14), V(86, 30), V(90, 52)], false);
+    g.fillStyle(0x7a1d8f).fillRect(6, 48, 84, 8);
+    const spots: [number, number, number, number][] = [[28, 30, 7, 0xffe066], [52, 22, 6, 0x66e0ff], [70, 36, 8, 0x7dff8a], [44, 40, 5, 0xff7ab8], [18, 44, 4, 0x66e0ff]];
+    for (const [x, y, r, c] of spots) g.fillStyle(c).fillCircle(x, y, r).lineStyle(2, OUTLINE).strokeCircle(x, y, r);
+  },
+
   // A tipped glue bottle with a long drip and a puddle.
   icon_glue: (g) => {
     g.fillStyle(0xf2e27a).fillEllipse(48, 84, 70, 18); // puddle

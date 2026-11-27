@@ -73,7 +73,10 @@ Every boat has a **hull** value (hit points), set by the boat's `hull` stat
 
 - **Boat against boat**: the boats bounce off each other. The heavier boat is
   pushed less (impulse split by mass). Collisions alone do no hull damage,
-  except with the Jigsaw (see [Items](items.md)).
+  except with the Jigsaw (see [Items](items.md)). **A boat that has just been hit
+  (blinking, spinning) or has just respawned passes through other boats**, so it
+  can't be bounced around or boxed in while it recovers, and boats that have
+  finished a point-to-point race do the same.
 - **Boat against bank**: the boat slides along the bank and loses speed
   depending on the impact angle. A head-on impact does a little damage (5).
 - **Boat against floating obstacles** (logs, buoys, ice floes): like a bank, but
@@ -82,9 +85,9 @@ Every boat has a **hull** value (hit points), set by the boat's `hull` stat
 ## Items
 
 Crates sit in rows across the track. Driving through one gives a random item
-if you don't already hold one. A used crate respawns after 4 s. Each racer
-holds **one item at a time**. The full item list and the luck rules are in
-[Items](items.md):
+if you have a free slot. A used crate respawns after 4 s. Each racer holds
+**two items at once**. Leaders draw the weakest items and the back of the field
+the strongest. The full item list and the luck rules are in [Items](items.md):
 
 | Item | In one line |
 | --- | --- |
@@ -93,6 +96,10 @@ holds **one item at a time**. The full item list and the luck rules are in
 | White Powder | A short, strong speed boost |
 | Electric Drill | A drill bit fired straight ahead |
 | Glue | A puddle dropped behind you that slows anyone driving through it |
+| Silicone Gun | Shoots glue ahead of you: it lands on the boat it hits |
+| Fake Crate | A trap that looks like a real crate and hurts whoever hits it |
+| Beer Crate | Heals half your hull on the spot (never takes a slot) |
+| Magic Mushrooms | Does nothing but make your screen psychedelic; the rarest item |
 
 ## Race modes
 

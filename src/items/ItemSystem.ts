@@ -3,7 +3,7 @@ import { addEffect, hasEffect } from '../effects/effects';
 import { isTouching } from '../physics/collisions';
 import { turnTowards } from '../physics/math';
 import type { RaceSimulation } from '../race/RaceSimulation';
-import type { Crate, Drill, GluePuddle, Racer, Volunteer } from '../race/types';
+import type { Crate, Drill, FakeCrate, GlueBlob, GluePuddle, Racer, Volunteer } from '../race/types';
 import { drawItem } from './itemOdds';
 
 /** Crates, item roulette, item activation and the entities items spawn. */
@@ -12,6 +12,8 @@ export class ItemSystem {
   volunteers: Volunteer[] = [];
   drills: Drill[] = [];
   puddles: GluePuddle[] = [];
+  fakeCrates: FakeCrate[] = [];
+  blobs: GlueBlob[] = [];
   private nextId = 1;
 
   constructor(private sim: RaceSimulation) {
@@ -38,9 +40,34 @@ export class ItemSystem {
 
   // ---- Activation -------------------------------------------------------
 
-  use(r: Racer, dir: 'forward' | 'backward'): void {
-    if (!r.item || r.itemUses <= 0) return;
-    const item = r.item;
+  /** Index of the first empty item slot, or -1 when both are full. */
+  freeSlot(r: Racer): number {
+    return r.slots.findIndex((s) => s === null);
+  }
+
+  /** Put an item into the first free slot (instant items like beer are applied instead). */
+  give(r: Racer, id: ItemId): void {
+    const info = ITEM_INFO[id];
+    if (info.instant) {
+      this.applyInstant(r, id);
+      return;
+    }
+    const k = this.freeSlot(r);
+    if (k >= 0) r.slots[k] = { id, uses: info.uses };
+  }
+
+  private applyInstant(r: Racer, id: ItemId): void {
+    if (id === 'beer') {
+      const before = r.hull;
+      r.hull = Math.min(r.stats.maxHull, r.hull + r.stats.maxHull * TUNING.beer.healFraction);
+      this.sim.emit({ type: 'heal', racer: r.id, amount: r.hull - before });
+    }
+  }
+
+  use(r: Racer, slot: number, dir: 'forward' | 'backward'): void {
+    const held = r.slots[slot];
+    if (!held || held.uses <= 0) return;
+    const item = held.id;
     const heading = dir === 'forward' ? r.heading : r.heading + Math.PI;
     const bow = r.boat.size.length / 2 + 12;
     const bx = r.x + Math.cos(heading) * bow;
@@ -70,15 +97,30 @@ export class ItemSystem {
       case 'glue': {
         const back = r.heading + Math.PI;
         const dist = r.boat.size.length / 2 + TUNING.glue.radius * 0.6;
-        this.puddles.push({ id: this.nextId++, owner: r.id, x: r.x + Math.cos(back) * dist, y: r.y + Math.sin(back) * dist, age: 0, boatsStuck: new Set(), dead: false });
+        this.spawnPuddle(r.x + Math.cos(back) * dist, r.y + Math.sin(back) * dist, r.id);
         break;
       }
+      case 'siliconeGun':
+        this.blobs.push({ id: this.nextId++, owner: r.id, x: bx, y: by, heading, travelled: 0, age: 0, near: r.nearestIndex, dead: false });
+        break;
+      case 'fakeCrate': {
+        // Dropped behind the stern, exactly like glue.
+        const back = r.heading + Math.PI;
+        const dist = r.boat.size.length / 2 + TUNING.fakeCrate.radius + 10;
+        this.fakeCrates.push({ id: this.nextId++, owner: r.id, x: r.x + Math.cos(back) * dist, y: r.y + Math.sin(back) * dist, age: 0, dead: false });
+        break;
+      }
+      case 'mushroom': // The effect is purely visual, shown by the view of the player who used it.
+      case 'beer': // Instant item: never held, nothing to do.
+        break;
     }
     this.sim.emit({ type: 'itemUsed', racer: r.id, item });
-    r.itemUses--;
-    if (r.itemUses <= 0) {
-      r.item = null;
-    }
+    held.uses--;
+    if (held.uses <= 0) r.slots[slot] = null;
+  }
+
+  private spawnPuddle(x: number, y: number, owner: number): void {
+    this.puddles.push({ id: this.nextId++, owner, x, y, age: 0, boatsStuck: new Set(), dead: false });
   }
 
   private targetAhead(r: Racer): number | null {
@@ -94,10 +136,14 @@ export class ItemSystem {
     this.updateJigsaw();
     this.updateVolunteers(dt);
     this.updateDrills(dt);
+    this.updateBlobs(dt);
+    this.updateFakeCrates(dt);
     this.updatePuddles(dt);
     this.volunteers = this.volunteers.filter((v) => !v.dead);
     this.drills = this.drills.filter((d) => !d.dead);
     this.puddles = this.puddles.filter((p) => !p.dead);
+    this.blobs = this.blobs.filter((b) => !b.dead);
+    this.fakeCrates = this.fakeCrates.filter((f) => !f.dead);
   }
 
   private updateCrates(dt: number): void {
@@ -112,13 +158,15 @@ export class ItemSystem {
         if (!isTouching(r, c.x, c.y, TUNING.crateRadius - r.stats.radius * 0.4)) continue;
         c.respawn = TUNING.crateRespawn;
         this.sim.emit({ type: 'crate', id: c.id, taken: true });
-        if (!r.item && !r.rouletteItem) {
+        // A crate only gives something if a slot is free and the roulette isn't already spinning.
+        if (this.freeSlot(r) >= 0 && !r.rouletteItem) {
           const leader = this.sim.racers.reduce((m, o) => Math.max(m, o.progress), -Infinity);
           const item = drawItem(this.sim.rng, {
             position: r.position,
             farBehind: leader - r.progress > this.sim.track.lapLength,
             volunteersInFlight: this.volunteersInFlight,
             recentItems: r.recentItems,
+            hullFraction: r.hull / r.stats.maxHull,
           });
           if (this.sim.forcedItem) r.rouletteItem = this.sim.forcedItem;
           else r.rouletteItem = item;
@@ -135,11 +183,11 @@ export class ItemSystem {
       if (!r.rouletteItem) continue;
       r.rouletteT -= dt;
       if (r.rouletteT <= 0) {
-        r.item = r.rouletteItem;
-        r.itemUses = ITEM_INFO[r.item].uses;
-        r.recentItems.push(r.item);
-        if (r.recentItems.length > 4) r.recentItems.shift();
+        const id = r.rouletteItem;
         r.rouletteItem = null;
+        r.recentItems.push(id);
+        if (r.recentItems.length > 4) r.recentItems.shift();
+        this.give(r, id);
       }
     }
   }
@@ -167,6 +215,8 @@ export class ItemSystem {
       }
       for (const v of this.volunteers) if (v.owner !== r.id && inCone(v.x, v.y, 12)) v.dead = true;
       for (const d of this.drills) if (d.owner !== r.id && inCone(d.x, d.y, 12)) d.dead = true;
+      for (const b of this.blobs) if (b.owner !== r.id && inCone(b.x, b.y, 12)) b.dead = true;
+      for (const f of this.fakeCrates) if (f.owner !== r.id && inCone(f.x, f.y, TUNING.fakeCrate.radius)) f.dead = true;
     }
   }
 
@@ -239,7 +289,62 @@ export class ItemSystem {
           d.dead = true;
         }
       }
+      // A drill smashes a fake crate (and is stopped by it).
+      for (const f of this.fakeCrates) {
+        if (!f.dead && !d.dead && (f.x - d.x) ** 2 + (f.y - d.y) ** 2 < (TUNING.fakeCrate.radius + 14) ** 2) {
+          f.dead = true;
+          d.dead = true;
+        }
+      }
       if (!d.dead && this.outOfWater(d, 0)) d.stuckT = 0.001;
+    }
+  }
+
+  private updateBlobs(dt: number): void {
+    const speed = FASTEST_TOP_SPEED * TUNING.silicone.speedMult;
+    for (const b of this.blobs) {
+      if (b.dead) continue;
+      b.age += dt;
+      const px = b.x, py = b.y;
+      b.x += Math.cos(b.heading) * speed * dt;
+      b.y += Math.sin(b.heading) * speed * dt;
+      b.travelled += speed * dt;
+      // It lands on the first boat it touches...
+      for (const r of this.sim.racers) {
+        if (r.sinkTimer > 0 || this.sim.isGhost(r) || (r.id === b.owner && b.age < TUNING.silicone.ownerImmunity)) continue;
+        if (isTouching(r, b.x, b.y, 10)) {
+          this.spawnPuddle(r.x, r.y, b.owner);
+          b.dead = true;
+          break;
+        }
+      }
+      if (b.dead) continue;
+      // ...or on the water where it runs out of range, or just before the bank.
+      if (this.outOfWater(b, 0)) {
+        this.spawnPuddle(px, py, b.owner);
+        b.dead = true;
+      } else if (b.travelled >= TUNING.silicone.range) {
+        this.spawnPuddle(b.x, b.y, b.owner);
+        b.dead = true;
+      }
+    }
+  }
+
+  private updateFakeCrates(dt: number): void {
+    const radius = TUNING.fakeCrate.radius;
+    for (const f of this.fakeCrates) {
+      f.age += dt;
+      if (f.age > TUNING.fakeCrate.life) f.dead = true;
+      if (f.dead) continue;
+      for (const r of this.sim.racers) {
+        if (r.sinkTimer > 0 || this.sim.isGhost(r) || (r.id === f.owner && f.age < TUNING.fakeCrate.ownerImmunity)) continue;
+        if (!isTouching(r, f.x, f.y, radius - r.stats.radius * 0.4)) continue;
+        // A boat that is blinking (just hit) passes straight through; the trap stays armed.
+        if (this.sim.hit(r, TUNING.fakeCrate.damage, f.owner, 'fakeCrate')) {
+          f.dead = true;
+          break;
+        }
+      }
     }
   }
 

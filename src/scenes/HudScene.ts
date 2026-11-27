@@ -1,12 +1,17 @@
 import Phaser from 'phaser';
 import { ITEM_INFO, type ItemId } from '../data/items';
+import { FONT } from '../config';
 import { formatNumber, itemName, ordinal, t } from '../i18n';
 import type { RaceEvent } from '../race/types';
 import { addFullscreenButton } from '../view/fullscreen';
-import { button, fitText, fmtTime, text } from '../view/ui';
+import { button, fmtTime, text } from '../view/ui';
 import type { RaceScene } from './RaceScene';
 
-const ITEM_BTN = { x: 1160, y: 590, r: 62 };
+/** Two item buttons: the first is fired with right click, the second with middle click. */
+const SLOT_BTNS = [
+  { x: 1170, y: 578, r: 58 },
+  { x: 985, y: 593, r: 58 },
+];
 const PAUSE_BTN = { x: 640, y: 46, r: 30 };
 const MAP = { x: 1060, y: 24, w: 200, h: 140 };
 
@@ -15,10 +20,8 @@ export class HudScene extends Phaser.Scene {
   private posText!: Phaser.GameObjects.Text;
   private lapText!: Phaser.GameObjects.Text;
   private timeText!: Phaser.GameObjects.Text;
-  private itemIcon!: Phaser.GameObjects.Image;
-  private itemName!: Phaser.GameObjects.Text;
-  private itemCount!: Phaser.GameObjects.Text;
-  private itemRing!: Phaser.GameObjects.Arc;
+  private slotUi: { ring: Phaser.GameObjects.Arc; icon: Phaser.GameObjects.Image; name: Phaser.GameObjects.Text; count: Phaser.GameObjects.Text }[] = [];
+  private tripGfx!: Phaser.GameObjects.Graphics;
   private big!: Phaser.GameObjects.Text;
   private map!: Phaser.GameObjects.Graphics;
   private mapScale = 1;
@@ -26,7 +29,6 @@ export class HudScene extends Phaser.Scene {
   private mapOy = 0;
   private paused = false;
   private overlay?: Phaser.GameObjects.Container;
-  private downY = 0;
   private lastPopup = 0;
 
   constructor() {
@@ -70,17 +72,36 @@ export class HudScene extends Phaser.Scene {
     }
     this.children.bringToTop(this.map);
 
-    // Item button
-    this.itemRing = this.add.circle(ITEM_BTN.x, ITEM_BTN.y, ITEM_BTN.r, 0x0b3a5b, 0.7).setStrokeStyle(6, 0xffffff, 0.9);
-    this.itemIcon = this.add.image(ITEM_BTN.x, ITEM_BTN.y, 'icon_glue').setDisplaySize(80, 80).setVisible(false);
-    this.itemCount = text(this, ITEM_BTN.x + 40, ITEM_BTN.y + 40, '', 28, '#ffe08a').setStroke(stroke, 5);
-    this.itemName = text(this, ITEM_BTN.x, ITEM_BTN.y + ITEM_BTN.r + 26, '', 24, '#ffffff').setStroke(stroke, 5);
-    this.itemRing.setInteractive({ useHandCursor: true });
-    this.itemRing.on('pointerdown', (p: Phaser.Input.Pointer) => (this.downY = p.y));
-    this.itemRing.on('pointerup', (p: Phaser.Input.Pointer) => {
-      if (this.paused) return;
-      race.events.emit('fire', p.y - this.downY > 45 ? 'backward' : 'forward');
+    // Item buttons (tap = fire forward, swipe down = fire backward)
+    this.slotUi = SLOT_BTNS.map((b, k) => {
+      const ring = this.add.circle(b.x, b.y, b.r, 0x0b3a5b, 0.7).setStrokeStyle(6, 0xffffff, 0.9);
+      const icon = this.add.image(b.x, b.y, 'icon_glue').setDisplaySize(76, 76).setVisible(false);
+      const count = text(this, b.x + 38, b.y + 38, '', 26, '#ffe08a').setStroke(stroke, 5);
+      // The name sits under the button, wrapped to two lines so long names stay on screen.
+      const name = this.add
+        .text(b.x, b.y + b.r + 8, '', { fontFamily: FONT, fontSize: '20px', fontStyle: 'bold', color: '#ffffff', align: 'center', stroke, strokeThickness: 4, wordWrap: { width: 172 }, resolution: 2 })
+        .setOrigin(0.5, 0);
+      // Small number badge so the two buttons are told apart.
+      this.add.circle(b.x - 44, b.y - 44, 14, 0xffe08a).setStrokeStyle(3, 0x0b3a5b);
+      text(this, b.x - 44, b.y - 44, String(k + 1), 18, '#0b3a5b');
+      let downY = 0;
+      ring.setInteractive({ useHandCursor: true });
+      ring.on('pointerdown', (p: Phaser.Input.Pointer) => {
+        downY = p.y;
+        // Phaser delivers a click only to the top scene, so right/middle clicks that land on a
+        // button never reach the race scene: forward them (right = first item, middle = second).
+        if (!p.wasTouch && !this.paused && (p.button === 2 || p.button === 1)) race.events.emit('fire', p.button === 2 ? 0 : 1, 'forward');
+      });
+      ring.on('pointerup', (p: Phaser.Input.Pointer) => {
+        if (this.paused) return;
+        // Right/middle click on a button is handled by the race scene's shortcuts, not here.
+        if (!p.wasTouch && p.button !== 0) return;
+        race.events.emit('fire', k, p.y - downY > 45 ? 'backward' : 'forward');
+      });
+      return { ring, icon, name, count };
     });
+    // Full-screen colour wash used by the mushroom effect (the camera effect is in the race scene).
+    this.tripGfx = this.add.graphics().setDepth(50).setBlendMode(Phaser.BlendModes.SCREEN).setAlpha(0);
 
     // Pause
     const pb = this.add.circle(PAUSE_BTN.x, PAUSE_BTN.y, PAUSE_BTN.r, 0x0b3a5b, 0.7).setStrokeStyle(4, 0xffffff, 0.9);
@@ -90,7 +111,7 @@ export class HudScene extends Phaser.Scene {
     this.input.keyboard?.on('keydown-ESC', () => this.togglePause());
 
     const fs = addFullscreenButton(this, PAUSE_BTN.x + 80, PAUSE_BTN.y);
-    race.pointer.hudZones = fs ? [ITEM_BTN, PAUSE_BTN, fs] : [ITEM_BTN, PAUSE_BTN];
+    race.pointer.hudZones = fs ? [...SLOT_BTNS, PAUSE_BTN, fs] : [...SLOT_BTNS, PAUSE_BTN];
 
     this.big = text(this, 640, 300, '', 160).setStroke(stroke, 16);
 
@@ -112,28 +133,44 @@ export class HudScene extends Phaser.Scene {
     }
     this.timeText.setText(sim.phase === 'countdown' ? '' : fmtTime(sim.time));
 
-    // Item slot: roulette flicker, then the held item
-    let icon = '';
-    let count = '';
-    let name = '';
-    if (p.rouletteItem) {
-      const all = Object.keys(ITEM_INFO) as ItemId[];
-      icon = ITEM_INFO[all[Math.floor(time / 80) % all.length]].icon;
-      name = t('item.rolling');
-    } else if (p.item) {
-      icon = ITEM_INFO[p.item].icon;
-      name = itemName(p.item);
-      if (p.itemUses > 1) count = `×${p.itemUses}`;
-    }
-    this.itemIcon.setVisible(icon !== '');
-    if (icon) this.itemIcon.setTexture(icon).setDisplaySize(80, 80);
-    this.itemName.setText(name);
-    fitText(this.itemName, 205); // long names (e.g. in French) must stay on screen
-    this.itemCount.setText(count);
-    this.itemRing.setStrokeStyle(6, p.item ? 0xffe08a : 0xffffff, p.item ? 1 : 0.6);
-    this.itemRing.setScale(p.item ? 1 + Math.sin(time / 180) * 0.03 : 1);
+    // Item slots: the roulette spins in the first free slot, then the item stays there.
+    const rolling = p.rouletteItem ? p.slots.findIndex((s) => s === null) : -1;
+    this.slotUi.forEach((ui, k) => {
+      const held = p.slots[k];
+      let icon = '';
+      let count = '';
+      let name = '';
+      if (k === rolling) {
+        const all = Object.keys(ITEM_INFO) as ItemId[];
+        icon = ITEM_INFO[all[Math.floor(time / 80) % all.length]].icon;
+        name = t('item.rolling');
+      } else if (held) {
+        icon = ITEM_INFO[held.id].icon;
+        name = itemName(held.id);
+        if (held.uses > 1) count = `×${held.uses}`;
+      }
+      ui.icon.setVisible(icon !== '');
+      if (icon) ui.icon.setTexture(icon).setDisplaySize(76, 76);
+      ui.name.setText(name);
+      ui.count.setText(count);
+      ui.ring.setStrokeStyle(6, held ? 0xffe08a : 0xffffff, held ? 1 : 0.6);
+      ui.ring.setScale(held ? 1 + Math.sin(time / 180 + k) * 0.03 : 1);
+    });
+    this.drawTrip(time);
 
     this.drawMap();
+  }
+
+  /** A slowly cycling rainbow wash over the whole screen while the player is tripping. */
+  private drawTrip(time: number): void {
+    const level = this.race.trip;
+    this.tripGfx.setAlpha(level * 0.42).setVisible(level > 0.01);
+    if (level <= 0.01) return;
+    const hue = (offset: number): number => {
+      const c = Phaser.Display.Color.HSVToRGB((time / 4000 + offset) % 1, 0.9, 1) as Phaser.Types.Display.ColorObject;
+      return Phaser.Display.Color.GetColor(c.r, c.g, c.b);
+    };
+    this.tripGfx.clear().fillGradientStyle(hue(0), hue(0.25), hue(0.5), hue(0.75), 1).fillRect(0, 0, 1280, 720);
   }
 
   private drawMap(): void {
@@ -157,8 +194,11 @@ export class HudScene extends Phaser.Scene {
         break;
       case 'itemUsed':
         break;
+      case 'heal':
+        if (e.racer === me) this.popup(t('hud.heal'), '#9dff9d');
+        break;
       case 'hit':
-        if (e.racer === me) this.popup(e.source === 'bank' ? t('hud.crunch') : t('hud.hit'), '#ff8a7a');
+        if (e.racer === me) this.popup(e.source === 'bank' ? t('hud.crunch') : e.source === 'fakeCrate' ? t('hud.trap') : t('hud.hit'), '#ff8a7a');
         else if (e.by === me) this.popup(t('hud.gotHim'), '#ffe08a');
         break;
       case 'sunk':

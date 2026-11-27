@@ -4,11 +4,15 @@
 
 - Crates float in **rows of 3 to 5** across the track, placed in the track data
   (see [Tracks](tracks.md)). They bob gently and spin.
-- Driving through a crate breaks it. If the racer holds no item, an **item
-  roulette** runs in the item slot for 1 s, then lands on one item. If the
-  racer already holds an item, the crate just breaks and gives nothing.
+- Driving through a crate breaks it. If the racer has a free **item slot**, an
+  **item roulette** runs in that slot for 1 s, then lands on one item. If both
+  slots are full, the crate just breaks and gives nothing.
 - A broken crate respawns after **4 s**.
-- One item at a time. Items can't be stored, swapped or thrown away.
+- A racer holds **two items at once**: slot 1 (fired with right click or the first
+  button) and slot 2 (middle click or the second button). A new item goes into
+  the first free slot. Items can't be swapped or thrown away.
+- **Instant items** (beer) are used the moment the roulette lands and never take
+  a slot.
 
 ## Item list
 
@@ -107,6 +111,64 @@ The racer drops a puddle of glue behind them.
 - **Visuals**: a yellow-white sticky puddle with bubbles; stuck boats leave
   stretchy strings behind for a moment.
 
+### 6. Silicone Gun
+
+*"Seals gaps. And opponents."*
+
+A caulking gun that **shoots glue** instead of leaving it behind.
+
+- **Uses**: 2 shots.
+- **Shot**: a ball of glue flying straight ahead (or backwards with a swipe) at
+  1.3 x the fastest boat's top speed, up to 900 px.
+- **It lands** on the first boat it touches, with a glue puddle appearing right
+  on that boat, or on the water where it runs out of range or just before a bank.
+- **Glue**: exactly the same puddle as the Glue item (radius 60 px, 15 s, slows
+  boats, vanishes after 3 boats). It does no damage itself.
+- **Stopped by**: another boat's active Jigsaw in front of it.
+- Like a drill, it is fired from the bow; hitting a bank leaves the puddle on the
+  water just before it.
+
+### 7. Fake Crate
+
+*"Looks just like the real thing."*
+
+A trap dropped **behind** the boat, like Glue. It looks **exactly** like a real
+item crate (same picture, same bobbing), so rivals reaching for a crate may drive
+straight into it.
+
+- **Damage**: 25 hull and a spin-out to the first boat that touches it, then it
+  is gone.
+- **Safe for its owner** for the first second, so it can't be hit on the way out.
+- **Lifetime**: 40 s.
+- **A blinking boat** (just hit) drives through it without setting it off.
+- **Destroyed by**: a Drill bit (both stop), or a Jigsaw in front of the boat.
+  Volunteers fly over it.
+- The AI steers around fake crates: it spots about 35 % of them at Pond, 60 % at
+  River and 90 % at Ocean.
+- The owner's item icon has a small red badge so they know which is which.
+
+### 8. Beer Crate
+
+*"Medicinal."*
+
+An **instant** item: when the roulette lands the boat is healed by **50 % of its
+maximum hull** (never above full), with a green burst and a "Cheers!" message.
+It never occupies a slot, and is never drawn for a boat with more than 90 % hull
+(redrawn instead), so it can't be wasted at full health.
+
+### 9. Magic Mushrooms
+
+*"Nothing happens. Nothing at all. Look at the colours."*
+
+An item that **does nothing** except make the user's screen psychedelic for 14 s:
+the colours cycle, the picture bulges and the view breathes. It doesn't affect
+steering, speed or anyone else. It still takes a slot until used, which is its
+price. It is the **rarest** item in every position. The AI uses it straight away
+to free its slot.
+
+The colour and lens effects need WebGL; without it only the HUD's rainbow wash
+and the breathing zoom show.
+
 ## Summary table
 
 | Item | Type | Damage | Duration / lifetime | Counters |
@@ -116,23 +178,39 @@ The racer drops a puddle of glue behind them.
 | White Powder | Self boost | 0 | 2.5 s | - |
 | Electric Drill | Straight projectile | 35 | 1400 px | Dodge sideways, Jigsaw |
 | Glue | Area trap | 0, slows | 15 s / 3 boats | Drive around it, White Powder |
+| Silicone Gun | Straight projectile, makes glue | 0, slows | 900 px, 2 shots | Dodge sideways, Jigsaw |
+| Fake Crate | Hidden trap | 25 | 40 s | Spot it, Drill, Jigsaw |
+| Beer Crate | Instant heal | heals 50 % hull | instant | - |
+| Magic Mushrooms | Screen effect | 0 | 14 s | - |
 
 ## Who gets what: position-based odds
 
 The item from a crate depends on the racer's **position** at the moment the
-crate is broken. Leaders get defensive or weak items; racers at the back get
-items that help them catch up. The weights are per position (1st to 4th); the
-item is drawn at random using these weights.
+crate is broken. **The leader gets the weakest items, the back gets the strongest**:
+leaders mostly draw defensive items (Fake Crate, Glue, Beer) and almost never
+the big boosts, while the last boats get Volunteer Squads and Big Bags.
+The weights are per position (1st to 4th); the item is drawn at random using them.
 
 | Item | 1st | 2nd | 3rd | 4th |
 | --- | --- | --- | --- | --- |
-| Volunteers | 10 | 30 | 30 | 20 |
-| Volunteer Squad | 0 | 0 | 0 | 10 |
-| Jigsaw | 15 | 20 | 15 | 10 |
-| White Powder | 5 | 15 | 20 | 20 |
-| Big Bag | 0 | 0 | 5 | 15 |
-| Electric Drill | 30 | 25 | 20 | 15 |
-| Glue | 40 | 10 | 10 | 10 |
+| Volunteers | 4 | 20 | 24 | 20 |
+| Volunteer Squad | 0 | 0 | 3 | 10 |
+| Jigsaw | 10 | 16 | 16 | 12 |
+| White Powder | 4 | 12 | 18 | 20 |
+| Big Bag | 0 | 0 | 5 | 14 |
+| Electric Drill | 18 | 20 | 16 | 10 |
+| Glue | 24 | 10 | 6 | 4 |
+| Silicone Gun | 6 | 12 | 14 | 12 |
+| Fake Crate | 26 | 12 | 6 | 4 |
+| Beer Crate | 14 | 12 | 10 | 8 |
+| Magic Mushrooms | 2 | 2 | 2 | 2 |
+
+Every item has a **power** rating (`ITEM_POWER` in `src/data/items.ts`: Squad 10,
+Big Bag 9, Volunteers and Silicone Gun 7, Jigsaw, Powder and Drill 6, Glue 5,
+Fake Crate and Beer 4, Mushrooms 0). The average power of a draw is about
+**5.0 for 1st, 5.7 for 2nd, 6.1 for 3rd and 6.6 for 4th**, and a test checks that it
+rises from the front to the back, that the mushroom stays the rarest item in
+every column, and that 1st place never gets squads or big bags.
 
 Rules on top of the table:
 
@@ -142,6 +220,7 @@ Rules on top of the table:
   the draw would exceed this, it is redrawn.
 - The roulette never gives the same item **three times in a row** to the same
   racer.
+- Beer is redrawn when the racer's hull is above 90 %.
 
 ## Item data shape
 
@@ -151,20 +230,26 @@ type ItemId =
   | 'jigsaw'
   | 'whitePowder' | 'bigBag'
   | 'drill'
-  | 'glue';
+  | 'glue' | 'siliconeGun'
+  | 'fakeCrate'
+  | 'beer'
+  | 'mushroom';
 
-interface ItemDef {
+interface ItemInfo {
   id: ItemId;
-  name: string;
-  uses: number;            // 1 for most, 3 for squad / big bag
+  uses: number;            // 1 for most, 2 for the silicone gun, 3 for squad / big bag
   icon: string;            // texture key
-  activate(ctx: ItemContext, direction: 'forward' | 'backward'): void;
+  instant?: boolean;       // applied when the crate opens, never stored (beer)
 }
+
+type Slot = { id: ItemId; uses: number } | null;  // Racer.slots: [Slot, Slot]
 ```
 
-Each item is implemented as a small class in `src/items/` that spawns
-**entities** (projectiles, puddles) or applies **effects** (timed modifiers on a
-boat). See [Architecture](architecture.md#items-and-effects).
+Items are used through `ItemSystem.use(racer, slot, direction)`. It either adds a
+timed **effect** to the boat or spawns an **entity** (volunteer, drill, glue
+blob, glue puddle, fake crate) that the system updates every step. The display
+names come from the translation files (`item.<id>`), not from the item data. See
+[Architecture](architecture.md#items-and-effects).
 
 ## Ideas for later
 
@@ -173,4 +258,3 @@ Not part of the first version, collected here so they are not lost:
 - **Anchor**: dropped from the leader's side, a big hazard.
 - **Foghorn**: blast that pushes nearby boats away.
 - **Seagulls**: a flock that blocks the screen of the leader.
-- **Duct tape**: instantly repairs the hull.

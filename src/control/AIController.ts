@@ -4,7 +4,8 @@ import { hasEffect } from '../effects/effects';
 import { speedOf } from '../physics/BoatPhysics';
 import { angleDiff, clamp, type Rng } from '../physics/math';
 import type { RaceSimulation } from '../race/RaceSimulation';
-import type { Controller, ControlIntent, Racer } from '../race/types';
+import type { ItemId } from '../data/items';
+import type { Controller, ControlIntent, FireCommand, Racer } from '../race/types';
 
 /**
  * Drives a boat by producing the same ControlIntent as the player's pointer:
@@ -12,9 +13,10 @@ import type { Controller, ControlIntent, Racer } from '../race/types';
  */
 export class AIController implements Controller {
   private startAt: number;
-  private heldItem: string | null = null;
-  private itemWait = 0;
-  private heldFor = 0;
+  /** Per item slot: what is held, how long until the AI may use it, and for how long it has been held. */
+  private heldItem: (string | null)[] = [null, null];
+  private itemWait = [0, 0];
+  private heldFor = [0, 0];
   private reverseT = 0;
   private dodge = new Map<number, boolean>();
   private noisePhase: number;
@@ -32,14 +34,14 @@ export class AIController implements Controller {
 
   update(r: Racer, sim: RaceSimulation, dt: number): ControlIntent {
     const track = sim.track;
-    const intent: ControlIntent = { desiredHeading: null, throttle: 0, fire: 'none' };
+    const intent: ControlIntent = { desiredHeading: null, throttle: 0, fire: null };
     if (r.sinkTimer > 0) return intent;
     const speed = speedOf(r);
 
     // After the finish of a point-to-point race there is little water left: just coast to a stop.
     if (this.autopilot && !track.closed) {
       const s = track.samples[r.nearestIndex];
-      return { desiredHeading: Math.atan2(s.ty, s.tx), throttle: 0, fire: 'none' };
+      return { desiredHeading: Math.atan2(s.ty, s.tx), throttle: 0, fire: null };
     }
 
     this.updatePace(r, sim);
@@ -77,6 +79,19 @@ export class AIController implements Controller {
         const p = -dx * hy + dy * hx;
         const gap = TUNING.glue.radius + r.stats.radius;
         if (f > 0 && f < 280 && Math.abs(p) < gap) lateralPx += (p >= 0 ? -1 : 1) * (gap - Math.abs(p) + 10);
+      }
+    }
+    // Steer around fake crates (they look like real ones; better AIs spot them more often).
+    for (const f of sim.items.fakeCrates) {
+      if (f.owner === r.id) continue;
+      const dx = f.x - r.x;
+      const dy = f.y - r.y;
+      const fwd = dx * hx + dy * hy;
+      const side = -dx * hy + dy * hx;
+      const gap = TUNING.fakeCrate.radius + r.stats.radius + 25;
+      if (fwd > 0 && fwd < 320 && Math.abs(side) < gap) {
+        if (!this.dodge.has(f.id)) this.dodge.set(f.id, this.rng.chance(Math.min(0.95, this.diff.drillDodge + 0.25)));
+        if (this.dodge.get(f.id)) lateralPx += (side >= 0 ? -1 : 1) * (gap - Math.abs(side) + 15);
       }
     }
     // Dodge incoming drill bits (sometimes).
@@ -138,20 +153,29 @@ export class AIController implements Controller {
     r.pace = pace;
   }
 
-  private decideFire(r: Racer, sim: RaceSimulation, dt: number, speed: number): 'none' | 'forward' | 'backward' {
-    if (!r.item || r.rouletteItem) {
-      this.heldItem = null;
-      return 'none';
+  /** Checks both slots in turn and returns the first item the AI wants to fire now. */
+  private decideFire(r: Racer, sim: RaceSimulation, dt: number, speed: number): FireCommand | null {
+    for (const slot of [0, 1] as const) {
+      const held = r.slots[slot];
+      if (!held || r.rouletteItem) {
+        this.heldItem[slot] = null;
+        continue;
+      }
+      if (this.heldItem[slot] !== held.id) {
+        this.heldItem[slot] = held.id;
+        this.itemWait[slot] = this.rng.range(this.diff.reaction[0], this.diff.reaction[1]);
+        this.heldFor[slot] = 0;
+      }
+      this.heldFor[slot] += dt;
+      this.itemWait[slot] -= dt;
+      if (this.itemWait[slot] > 0) continue;
+      const dir = this.wantsToFire(held.id, r, sim, speed, this.heldFor[slot]);
+      if (dir !== 'none') return { slot, dir };
     }
-    if (this.heldItem !== r.item) {
-      this.heldItem = r.item;
-      this.itemWait = this.rng.range(this.diff.reaction[0], this.diff.reaction[1]);
-      this.heldFor = 0;
-    }
-    this.heldFor += dt;
-    this.itemWait -= dt;
-    if (this.itemWait > 0) return 'none';
+    return null;
+  }
 
+  private wantsToFire(item: ItemId, r: Racer, sim: RaceSimulation, speed: number, heldFor: number): 'none' | 'forward' | 'backward' {
     const hx = Math.cos(r.heading);
     const hy = Math.sin(r.heading);
     const rel = (o: Racer): { f: number; p: number; d: number } => {
@@ -159,10 +183,16 @@ export class AIController implements Controller {
       const dy = o.y - r.y;
       return { f: dx * hx + dy * hy, p: -dx * hy + dy * hx, d: Math.hypot(dx, dy) };
     };
-    const others = sim.racers.filter((o) => o !== r && o.sinkTimer <= 0);
+    const others = sim.racers.filter((o) => o !== r && o.sinkTimer <= 0 && !sim.isGhost(o));
     const L = sim.track.lapLength;
+    /** A boat straight ahead (or behind) within `range`, narrow enough for a straight shot to hit. */
+    const inLine = (range: number, behind: boolean): boolean =>
+      others.some((o) => {
+        const q = rel(o);
+        return (behind ? q.f < 0 && q.f > -range : q.f > 0 && q.f < range) && Math.abs(q.p) < o.stats.radius + 8;
+      });
 
-    switch (r.item) {
+    switch (item) {
       case 'volunteer':
       case 'volunteerSquad': {
         const ahead = sim.racers.find((o) => o.position === r.position - 1);
@@ -187,24 +217,27 @@ export class AIController implements Controller {
         if ((kmax < 0.0012 && speed > 120) || (r.sinceHit < 2.5 && r.sinkTimer <= 0)) return 'forward';
         break;
       }
-      case 'drill': {
-        if (others.some((o) => {
-          const q = rel(o);
-          return q.f > 0 && q.f < 800 && Math.abs(q.p) < o.stats.radius + 8;
-        })) return 'forward';
-        if (others.some((o) => {
-          const q = rel(o);
-          return q.f < 0 && q.f > -600 && Math.abs(q.p) < o.stats.radius + 8;
-        })) return 'backward';
+      case 'drill':
+        if (inLine(800, false)) return 'forward';
+        if (inLine(600, true)) return 'backward';
         break;
-      }
+      case 'siliconeGun':
+        if (inLine(700, false)) return 'forward';
+        if (inLine(500, true)) return 'backward';
+        break;
       case 'glue':
-        if (r.position <= 1 && others.some((o) => {
+      case 'fakeCrate':
+        // Traps are dropped behind: worth it when someone is chasing closely.
+        if (others.some((o) => {
           const gap = r.progress - o.progress;
-          return gap > 40 && gap < 400 && gap < L / 2;
+          return gap > 40 && gap < (item === 'glue' ? 400 : 500) && gap < L / 2;
         })) return 'forward';
         break;
+      case 'mushroom':
+        return 'forward'; // Does nothing for an AI; just clear the slot.
+      case 'beer':
+        break; // Instant: never held.
     }
-    return this.heldFor > 25 ? 'forward' : 'none';
+    return heldFor > 25 ? 'forward' : 'none';
   }
 }

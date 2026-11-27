@@ -53,16 +53,15 @@ describe('headless races', () => {
     const sim = new RaceSimulation({ track: loadTrack('lockAndLoad'), playerBoat: null, difficulty: 'river', seed: 11, forcedItem: 'volunteer' });
     run(sim, 8);
     const [first, second] = [...sim.racers].sort((a, b) => a.position - b.position);
-    for (const r of sim.racers) r.item = null;
+    for (const r of sim.racers) r.slots = [null, null];
     sim.items.volunteers.length = 0;
-    second.item = 'volunteer';
-    second.itemUses = 1;
+    second.slots[0] = { id: 'volunteer', uses: 1 };
     first.hull = first.stats.maxHull;
     const hullBefore = first.hull;
-    sim.items.use(second, 'forward');
+    sim.items.use(second, 0, 'forward');
     expect(sim.items.volunteers.length).toBe(1);
     for (let i = 0; i < 60 * 6 && sim.items.volunteers.length; i++) {
-      for (const r of sim.racers) r.item = null;
+      for (const r of sim.racers) r.slots = [null, null];
       sim.step(STEP);
     }
     expect(first.hull).toBeLessThan(hullBefore);

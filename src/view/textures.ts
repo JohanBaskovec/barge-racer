@@ -103,6 +103,12 @@ export function generateTextures(scene: Phaser.Scene): void {
     g.lineStyle(3, 0xc9b44a, 0.9).strokeCircle(64, 64, 60);
     g.fillStyle(0xffffff, 0.7).fillCircle(40, 40, 6).fillCircle(86, 50, 4).fillCircle(70, 88, 5);
   });
+  gen(scene, 'blob', 30, 30, (g) => {
+    g.fillStyle(0xf2e27a).fillCircle(15, 15, 13);
+    g.lineStyle(3, 0xc9b44a).strokeCircle(15, 15, 13);
+    g.fillStyle(0xfff6b8).fillCircle(11, 11, 5);
+    g.fillStyle(0xffffff, 0.8).fillCircle(9, 9, 2);
+  });
   gen(scene, 'wake', 24, 24, (g) => {
     g.fillStyle(0xffffff, 1).fillCircle(12, 12, 10);
   });

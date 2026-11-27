@@ -6,7 +6,7 @@ export const fr: Record<TranslationKey, string> = {
 
   'title.subtitle': "Faites la course, bousculez, sciez et collez jusqu'à l'arrivée",
   'title.tap': 'Touchez ou cliquez pour commencer',
-  'title.hint': 'Maintenez pour diriger · touchez le bouton d\'objet pour tirer',
+  'title.hint': "Maintenez pour diriger · touchez un bouton d'objet pour tirer (souris : clic droit et clic molette)",
 
   'common.back': 'Retour',
 
@@ -59,6 +59,10 @@ export const fr: Record<TranslationKey, string> = {
   'item.bigBag': 'Gros sac',
   'item.drill': 'Perceuse électrique',
   'item.glue': 'Colle',
+  'item.siliconeGun': 'Pistolet à silicone',
+  'item.fakeCrate': 'Fausse caisse',
+  'item.beer': 'Caisse de bière',
+  'item.mushroom': 'Champignons magiques',
   'item.rolling': '...',
 
   'hud.lap': 'Tour {n}/{total}',
@@ -67,6 +71,8 @@ export const fr: Record<TranslationKey, string> = {
   'hud.finalLap': 'Dernier tour !',
   'hud.go': 'PARTEZ !',
   'hud.crunch': 'Crac !',
+  'hud.heal': 'Santé !',
+  'hud.trap': 'Fausse caisse !',
   'hud.hit': 'Touché !',
   'hud.gotHim': 'Dans le mille !',
   'hud.sunk': 'Coulé !',
