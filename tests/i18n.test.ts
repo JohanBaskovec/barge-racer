@@ -55,6 +55,13 @@ describe('t()', () => {
     expect(trackName('lockAndLoad')).toBe('Écluse Express');
   });
 
+  it('calls volunteers "bénévoles" in French', () => {
+    setLanguage('fr');
+    expect(t('item.volunteer')).toBe('Bénévoles');
+    expect(t('item.volunteerSquad')).toBe('Escouade de bénévoles');
+    expect(Object.values(LANGUAGES.find((l) => l.code === 'fr')!.strings).join(' ')).not.toMatch(/volontaire/i);
+  });
+
   it('ignores unknown language codes', () => {
     setLanguage('xx');
     expect(t('pause.title')).toBe('Paused');

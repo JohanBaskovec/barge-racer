@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { TRACK_DEFS, loadTrack } from '../src/data/tracks';
 
@@ -70,5 +71,34 @@ describe('point-to-point track (Reims)', () => {
 
   it('is wide enough for a boat everywhere', () => {
     expect(Math.min(...t.samples.map((s) => s.width))).toBeGreaterThan(100);
+  });
+});
+
+describe('Reims bridge labels', () => {
+  const scenery = JSON.parse(readFileSync(new URL('../public/maps/reims-canal.json', import.meta.url), 'utf8')) as {
+    labels: [number, number, number, string][];
+  };
+  const t = loadTrack('reimsCanal');
+
+  it('names the bridges that cross the canal, in order along it', () => {
+    const names = scenery.labels.map((l) => l[3]);
+    expect(names.length).toBeGreaterThanOrEqual(6);
+    for (const n of ['Pont de Venise', 'Pont de Fléchambault', 'Pont Huon', 'Pont de Vrilly', 'Pont Saint-Léonard']) expect(names).toContain(n);
+    const along = scenery.labels.map(([x, y]) => t.nearest(x, y).along);
+    expect([...along].sort((a, b) => a - b)).toEqual(along);
+  });
+
+  it('puts every label on the canal, with a valid kind and a name where one is needed', () => {
+    for (const [x, y, kind, name] of scenery.labels) {
+      const n = t.nearest(x, y);
+      expect(Math.abs(n.lateral), name).toBeLessThan(t.halfWidth(n.index));
+      expect([0, 1, 2]).toContain(kind);
+      if (kind !== 2) expect(name.length).toBeGreaterThan(3);
+    }
+  });
+
+  it('has accents restored on names IGN stores in plain capitals', () => {
+    const names = scenery.labels.map((l) => l[3]).join('|');
+    expect(names).not.toMatch(/Flechambault|Nicephore|Niepce|Leonard/);
   });
 });

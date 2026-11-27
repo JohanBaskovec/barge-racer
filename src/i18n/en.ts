@@ -49,6 +49,8 @@ export const en = {
   'track.reimsCanal.name': 'Reims Canal',
   'track.reimsCanal.desc': "The real canal, from boulevard Paul Doumer to the Sillery lock. One long run, no laps.",
   'trackSelect.distance': '{km} km',
+  'map.bridge': 'Bridge',
+  'map.railBridge': 'Railway bridge',
   'credits.map': 'Map: {source}',
   'difficulty.pond': 'Pond',
   'difficulty.river': 'River',

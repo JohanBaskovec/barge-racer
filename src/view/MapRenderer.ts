@@ -1,4 +1,6 @@
 import Phaser from 'phaser';
+import { FONT } from '../config';
+import { t } from '../i18n';
 import type { Track } from '../track/Track';
 import { drawLine } from './lines';
 
@@ -11,6 +13,8 @@ export interface SceneryData {
   rails: [number, number, number[]][]; // width, bridge, line
   buildings: [number, number, number[]][]; // height (m), kind (0 house, 1 church, 2 industrial), ring
   bridges: [string, number[]][];
+  /** Bridges over the canal: x, y on the centre line, kind (0 own name, 1 street it carries, 2 railway), name. */
+  labels?: [number, number, number, string][];
 }
 
 const CHUNK = 512;
@@ -74,6 +78,26 @@ export class MapRenderer {
     this.buildIndex();
     drawLine(scene, track, track.startDist);
     drawLine(scene, track, track.startDist + track.lapLength);
+    this.addBridgeLabels();
+  }
+
+  /**
+   * Names of the bridges over the canal ("Pont de Venise", "Pont · Avenue de Champagne"),
+   * set on the bank beside each bridge so the boats pass under the deck, not under the text.
+   */
+  private addBridgeLabels(): void {
+    for (const [x, y, kind, name] of this.data.labels ?? []) {
+      const s = this.track.samples[this.track.nearest(x, y).index];
+      const side = s.width / 2 + 95; // beside the water, on the left bank
+      const text = kind === 0 ? name : kind === 1 ? `${t('map.bridge')} · ${name}` : t('map.railBridge');
+      const label = this.scene.add
+        .text(x + s.nx * side, y + s.ny * side, text, {
+          fontFamily: FONT, fontSize: '30px', fontStyle: 'bold', color: '#ffffff', stroke: '#2b3a4a', strokeThickness: 7, align: 'center', resolution: 2,
+        })
+        .setOrigin(0.5)
+        .setDepth(21);
+      if (label.width > 460) label.setScale(460 / label.width);
+    }
   }
 
   // ---- Spatial index ----------------------------------------------------------

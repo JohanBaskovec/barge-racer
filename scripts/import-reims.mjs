@@ -372,6 +372,31 @@ async function main() {
     }
   }
 
+  // Everything that could be a bridge over the canal, with the names IGN gives it (see "Bridge labels").
+  const bridgeCandidates = [];
+  const ABBREVIATIONS = { AV: 'Avenue', BD: 'Boulevard', CHE: 'Chemin', RTE: 'Route', PL: 'Place', IMP: 'Impasse', ALL: 'Allée', QU: 'Quai', ST: 'Saint', STE: 'Sainte', PTE: 'Porte', FG: 'Faubourg', SQ: 'Square', VOIE: 'Voie' };
+  const SMALL_WORDS = new Set(['DE', 'DU', 'DES', 'LA', 'LE', 'LES', 'ET', 'EN', 'AU', 'AUX', "L'", "D'"]);
+  const capitalize = (w) => w.toLowerCase().replace(/(^|[-'])(\p{L})/gu, (m, sep, ch) => sep + ch.toUpperCase());
+  /** "AV DE CHAMPAGNE" -> "Avenue de Champagne" (only used when the cleaner BAN name is missing). */
+  const prettify = (name) => name.trim().split(/\s+/).map((w, i) => {
+    const up = w.toUpperCase();
+    if (ABBREVIATIONS[up]) return ABBREVIATIONS[up];
+    if (i > 0 && SMALL_WORDS.has(up)) return w.toLowerCase();
+    return capitalize(w);
+  }).join(' ');
+  // IGN's "collaborative" names are upper case without accents; restore the ones we know are on the route.
+  const ACCENTS = { Flechambault: 'Fléchambault', Nicephore: 'Nicéphore', Niepce: 'Niépce', Leonard: 'Léonard', Venise: 'Venise' };
+  const fixAccents = (name) => name.replace(/\p{L}+/gu, (w) => ACCENTS[w] ?? w);
+  const streetName = (p) => {
+    const ban = p.nom_voie_ban_droite || p.nom_voie_ban_gauche;
+    if (ban) return ban;
+    const collab = p.nom_collaboratif_droite || p.nom_collaboratif_gauche;
+    if (collab && !/^pont\b/i.test(collab)) return prettify(collab);
+    if (p.cpx_toponyme_route_nommee) return p.cpx_toponyme_route_nommee;
+    if (p.cpx_numero) return p.cpx_numero;
+    return '';
+  };
+
   log('Downloading roads…');
   const ROAD_WIDTH = { 'Type autoroutier': 9, 'Route à 2 chaussées': 7, 'Route à 1 chaussée': 6, Bretelle: 5, 'Rond-point': 7, 'Route empierrée': 3.5, Chemin: 3, 'Piste cyclable': 2, Sentier: 1.6, Escalier: 2 };
   const roads = [];
@@ -384,6 +409,7 @@ async function main() {
       const cls = ['Type autoroutier', 'Bretelle'].includes(p.nature) ? 0 : ['Sentier', 'Chemin', 'Piste cyclable', 'Escalier', 'Route empierrée'].includes(p.nature) ? 2 : 1;
       const bridge = String(p.position_par_rapport_au_sol) === '1' || Number(p.position_par_rapport_au_sol) > 0 ? 1 : 0;
       roads.push([cls, px(w), bridge, ring(l, 0.5)]);
+      if (bridge && cls < 2) bridgeCandidates.push({ pts: l, street: streetName(p), official: '', roadOfficial: /^pont\b/i.test(p.nom_collaboratif_droite ?? '') ? prettify(p.nom_collaboratif_droite) : '', rail: false });
     }
   }
 
@@ -395,6 +421,7 @@ async function main() {
     for (const l of lines(f.geometry)) {
       if (!nearCanal(l)) continue;
       rails.push([px(3 + 4 * Math.max(0, (p.nombre_de_voies ?? 1) - 1)), Number(p.position_par_rapport_au_sol) > 0 ? 1 : 0, ring(l, 0.5)]);
+      if (Number(p.position_par_rapport_au_sol) > 0) bridgeCandidates.push({ pts: l, street: '', official: '', rail: true });
     }
   }
 
@@ -428,6 +455,48 @@ async function main() {
     }
   }
 
+  // ---- Bridge labels: one per bridge that really crosses the canal, named after the bridge itself
+  // when IGN has its name ("Pont de Venise"), else after the street it carries, else "railway".
+  log('Bridge labels…');
+  for (const f of await corridorLayer('BDTOPO_V3:construction_lineaire')) {
+    if (f.properties.nature !== 'Pont') continue;
+    for (const l of lines(f.geometry)) bridgeCandidates.push({ pts: l, street: '', official: f.properties.toponyme ?? '', rail: false });
+  }
+  for (const f of constructions.filter((c) => c.properties.nature === 'Pont' && c.properties.toponyme)) {
+    for (const poly of polygons(f.geometry)) bridgeCandidates.push({ pts: poly[0], street: '', official: f.properties.toponyme, rail: false });
+  }
+  const crossings = [];
+  for (const cand of bridgeCandidates) {
+    // Walk along the bridge and find where it gets closest to the canal's centre line.
+    let best = null;
+    for (const p of resample(cand.pts.length > 1 ? cand.pts : [cand.pts[0], cand.pts[0]], 2)) {
+      for (const i of centreIdx.near(p[0], p[1], 1)) {
+        const d = dist(p, centre[i]);
+        if (!best || d < best.d) best = { d, i };
+      }
+    }
+    if (!best || best.d > W[best.i] / 2 + 6) continue; // doesn't cross the water the boats use
+    crossings.push({ i: best.i, ...cand });
+  }
+  crossings.sort((a, b) => a.i - b.i);
+  const labels = [];
+  for (let k = 0; k < crossings.length;) {
+    // Everything crossing within 30 m of the canal is the same bridge (road + footpath + parapet...).
+    const group = [crossings[k]];
+    while (k + group.length < crossings.length && crossings[k + group.length].i - group[0].i <= 7) group.push(crossings[k + group.length]);
+    k += group.length;
+    const official = fixAccents(group.map((g) => g.official).find(Boolean) || group.map((g) => g.roadOfficial).find(Boolean) || '');
+    const street = fixAccents(group.map((g) => g.street).find(Boolean) || '');
+    const mid = group[Math.floor(group.length / 2)].i;
+    const [kind, name] = official ? [0, official] : street ? [1, street] : group.some((g) => g.rail) ? [2, ''] : [-1, ''];
+    if (kind < 0) continue;
+    labels.push([px(centre[mid][0]), px(centre[mid][1]), kind, name]);
+  }
+  const skipped = crossings.length - labels.length;
+  if (process.env.DEBUG_BRIDGES) console.log(crossings.map((c) => `${c.i} ${c.rail ? 'rail' : ''} off="${c.official}" road="${c.roadOfficial ?? ''}" street="${c.street}"`).join('\n'));
+  log(`  ${labels.length} bridges over the canal (${crossings.length} crossing structures, ${skipped} merged or unnamed):`);
+  log(`  ${labels.length} bridges over the canal: ${labels.map((l) => l[3] || '(railway)').join(', ')}`);
+
   const waterOut = water.filter((poly) => nearCanal(poly[0]) || coversCanal(poly)).map((poly) => ring(poly[0], 0.5));
 
   // 5. Write.
@@ -447,9 +516,9 @@ async function main() {
   mkdirSync(dirname(trackFile), { recursive: true });
   mkdirSync(dirname(sceneryFile), { recursive: true });
   writeFileSync(trackFile, JSON.stringify({ ...meta, startDist: px(C.leadIn), finishDist: px(C.leadIn + raceLength), centerLine: control }));
-  writeFileSync(sceneryFile, JSON.stringify({ ...meta, water: waterOut, vegetation, roads, rails, buildings, bridges }));
+  writeFileSync(sceneryFile, JSON.stringify({ ...meta, water: waterOut, vegetation, roads, rails, buildings, bridges, labels }));
   log(`\nWrote ${trackFile}\n  ${control.length / 3} control points`);
-  log(`Wrote ${sceneryFile}\n  ${buildings.length} buildings, ${roads.length} roads, ${rails.length} railways, ${vegetation.length} vegetation, ${bridges.length} bridges, ${waterOut.length} water`);
+  log(`Wrote ${sceneryFile}\n  ${buildings.length} buildings, ${roads.length} roads, ${rails.length} railways, ${vegetation.length} vegetation, ${bridges.length} bridges, ${labels.length} bridge labels, ${waterOut.length} water`);
   void routeBox;
 }
 

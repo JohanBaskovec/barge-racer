@@ -15,6 +15,7 @@ shown on the track select screen.
 | Race time (AI, River) | about 4 min for the fastest boats, 4 min 50 s for the slowest |
 | Locks removed | n°10 Fléchambault, n°11 Château d'Eau, n°12 Huon (and n°13, where the race ends) |
 | Scenery | 1,423 buildings, 1,733 road segments, railways, vegetation, bridges, other water |
+| Bridge names | 7 bridges over the canal are labelled (see below) |
 
 ## Importer
 
@@ -51,6 +52,27 @@ The game never calls IGN while you play. What the importer does:
    boats.
 
 Everything is in game pixels, rounded, with outlines simplified to about 0.5 m.
+
+## Bridge names
+
+Each bridge that really crosses the canal gets a name on the map, written on the
+bank beside it. The importer picks the best name IGN has, in this order:
+
+1. The bridge's own name, from the bridge structures (`construction_lineaire`,
+   `construction_surfacique`): **Pont de Venise, Pont de Fléchambault, Pont Huon,
+   Pont de Vrilly, Pont Saint-Léonard**.
+2. Otherwise the street it carries, from the road on top (BAN street name): shown
+   as **"Pont · Avenue de Champagne"** ("Bridge · …" in English) and "Pont ·
+   Avenue Nicéphore Niépce".
+3. Otherwise, for a railway bridge, "Pont ferroviaire" / "Railway bridge".
+
+Bridges that run side by side (road, footpath, parapets within 30 m of the canal)
+count as one. A bridge with no name in IGN's data, such as a footbridge, gets no
+label rather than an invented one. IGN's "collaborative" names are in capitals
+without accents, so the importer restores the few that are on this route
+(Fléchambault, Nicéphore Niépce, Saint-Léonard); a new route may need more entries
+in `ACCENTS`. Run `DEBUG_BRIDGES=1 npm run import:reims` to see every crossing and
+the names it considered.
 
 ## In the game
 
