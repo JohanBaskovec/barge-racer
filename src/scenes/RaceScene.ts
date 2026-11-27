@@ -3,13 +3,14 @@ import { DEBUG } from '../config';
 import { PointerController } from '../control/PointerController';
 import { t } from '../i18n';
 import { type Difficulty } from '../data/difficulty';
-import { loadTrack } from '../data/tracks';
+import { getTrackDef, loadTrack } from '../data/tracks';
 import { speedOf } from '../physics/BoatPhysics';
 import { lerp } from '../physics/math';
 import { RaceSimulation, STEP } from '../race/RaceSimulation';
 import type { RaceEvent } from '../race/types';
 import type { Selection } from '../session';
 import { BoatView } from '../view/BoatView';
+import { MapRenderer, type SceneryData } from '../view/MapRenderer';
 import { TrackRenderer } from '../view/TrackRenderer';
 
 type Sprite = Phaser.GameObjects.Image;
@@ -19,7 +20,7 @@ export class RaceScene extends Phaser.Scene {
   pointer!: PointerController;
   selection!: Selection;
   private views: BoatView[] = [];
-  private trackView!: TrackRenderer;
+  private trackView!: { update(time: number): void };
   private accumulator = 0;
   private crateSprites = new Map<number, Sprite>();
   private volSprites = new Map<number, Sprite>();
@@ -47,6 +48,12 @@ export class RaceScene extends Phaser.Scene {
     this.puddleSprites.clear();
   }
 
+  /** Real-world tracks keep their scenery in a separate file, loaded only when that track is raced. */
+  preload(): void {
+    const def = getTrackDef(this.selection.trackId);
+    if (def.scenery && !this.cache.json.exists(def.scenery)) this.load.json(def.scenery, def.scenery);
+  }
+
   create(): void {
     const sel = this.selection;
     const track = loadTrack(sel.trackId);
@@ -62,7 +69,9 @@ export class RaceScene extends Phaser.Scene {
       playerController: this.pointer,
     });
 
-    this.trackView = new TrackRenderer(this, track);
+    this.trackView = track.def.scenery
+      ? new MapRenderer(this, track, this.cache.json.get(track.def.scenery) as SceneryData)
+      : new TrackRenderer(this, track);
     const wake = this.add.particles(0, 0, 'wake', {
       lifespan: 900, speed: 0, scale: { start: 0.3, end: 1.3 }, alpha: { start: 0.4, end: 0 }, emitting: false,
     }).setDepth(5);
@@ -78,7 +87,7 @@ export class RaceScene extends Phaser.Scene {
     for (const r of this.sim.racers) this.views.push(new BoatView(this, r, wake));
 
     const cam = this.cameras.main;
-    cam.setBackgroundColor(track.def.colors.land);
+    if (!track.def.scenery) cam.setBackgroundColor(track.def.colors.land);
     const p = this.sim.player!;
     this.camX = p.x;
     this.camY = p.y;

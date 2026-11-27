@@ -22,10 +22,11 @@ export class ItemSystem {
     const track = this.sim.track;
     for (const row of track.def.crateRows) {
       for (let i = 0; i < row.count; i++) {
-        const s = track.sampleAt(row.at * track.length);
+        const along = track.alongOf(row.at * track.lapLength);
+        const s = track.sampleAt(along);
         const spread = Math.min(70, (s.width * 0.7) / row.count);
         const lateral = (i - (row.count - 1) / 2) * spread;
-        const p = track.pointAt(row.at * track.length, lateral);
+        const p = track.pointAt(along, lateral);
         this.crates.push({ id: this.nextId++, x: p.x, y: p.y, respawn: 0 });
       }
     }
@@ -50,7 +51,7 @@ export class ItemSystem {
       case 'volunteerSquad': {
         let target: number | null = null;
         if (dir === 'forward') target = this.targetAhead(r);
-        this.volunteers.push({ id: this.nextId++, owner: r.id, targetId: target, x: bx, y: by, heading, age: 0, locked: false, dead: false });
+        this.volunteers.push({ id: this.nextId++, owner: r.id, targetId: target, x: bx, y: by, heading, age: 0, locked: false, near: r.nearestIndex, dead: false });
         break;
       }
       case 'jigsaw':
@@ -64,7 +65,7 @@ export class ItemSystem {
         addEffect(r, 'boost', 2);
         break;
       case 'drill':
-        this.drills.push({ id: this.nextId++, owner: r.id, x: bx, y: by, heading, travelled: 0, stuckT: 0, age: 0, dead: false });
+        this.drills.push({ id: this.nextId++, owner: r.id, x: bx, y: by, heading, travelled: 0, stuckT: 0, age: 0, near: r.nearestIndex, dead: false });
         break;
       case 'glue': {
         const back = r.heading + Math.PI;
@@ -107,7 +108,7 @@ export class ItemSystem {
         continue;
       }
       for (const r of this.sim.racers) {
-        if (r.sinkTimer > 0) continue;
+        if (r.sinkTimer > 0 || this.sim.isGhost(r)) continue;
         if (!isTouching(r, c.x, c.y, TUNING.crateRadius - r.stats.radius * 0.4)) continue;
         c.respawn = TUNING.crateRespawn;
         this.sim.emit({ type: 'crate', id: c.id, taken: true });
@@ -115,7 +116,7 @@ export class ItemSystem {
           const leader = this.sim.racers.reduce((m, o) => Math.max(m, o.progress), -Infinity);
           const item = drawItem(this.sim.rng, {
             position: r.position,
-            farBehind: leader - r.progress > this.sim.track.length,
+            farBehind: leader - r.progress > this.sim.track.lapLength,
             volunteersInFlight: this.volunteersInFlight,
             recentItems: r.recentItems,
           });
@@ -183,7 +184,8 @@ export class ItemSystem {
         let desired: number;
         if (v.locked) desired = Math.atan2(dy, dx);
         else {
-          const n = track.nearest(v.x, v.y, -1);
+          const n = track.nearest(v.x, v.y, v.near);
+          v.near = n.index;
           const p = track.pointAt(n.along + 180);
           desired = Math.atan2(p.y - v.y, p.x - v.x);
         }
@@ -201,7 +203,7 @@ export class ItemSystem {
         }
       }
       if (v.dead) continue;
-      if (v.age > TUNING.volunteer.life || this.outOfWater(v.x, v.y, 30)) v.dead = true;
+      if (v.age > TUNING.volunteer.life || this.outOfWater(v, 30)) v.dead = true;
       for (const p of this.puddles) {
         if ((p.x - v.x) ** 2 + (p.y - v.y) ** 2 < TUNING.glue.radius ** 2) v.dead = true;
       }
@@ -237,7 +239,7 @@ export class ItemSystem {
           d.dead = true;
         }
       }
-      if (!d.dead && this.outOfWater(d.x, d.y, 0)) d.stuckT = 0.001;
+      if (!d.dead && this.outOfWater(d, 0)) d.stuckT = 0.001;
     }
   }
 
@@ -268,9 +270,12 @@ export class ItemSystem {
     }
   }
 
-  private outOfWater(x: number, y: number, margin: number): boolean {
-    const n = this.sim.track.nearest(x, y, -1);
-    return Math.abs(n.lateral) > this.sim.track.halfWidth(n.index) + margin;
+  private outOfWater(e: { x: number; y: number; near: number }, margin: number): boolean {
+    const track = this.sim.track;
+    const n = track.nearest(e.x, e.y, e.near);
+    e.near = n.index;
+    const pastEnd = !track.closed && (n.along < 0 || n.along > track.length);
+    return pastEnd || Math.abs(n.lateral) > track.halfWidth(n.index) + margin;
   }
 }
 

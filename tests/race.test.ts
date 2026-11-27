@@ -9,9 +9,9 @@ function run(sim: RaceSimulation, seconds: number): void {
 
 describe('headless races', () => {
   for (const def of TRACK_DEFS) {
-    it(`${def.id}: 4 AI boats finish the race`, () => {
+    it(`${def.id}: 4 AI boats finish the race`, { timeout: 60000 }, () => {
       const sim = new RaceSimulation({ track: loadTrack(def.id), playerBoat: null, difficulty: 'river', seed: 7 });
-      run(sim, 400);
+      run(sim, 900);
       const res = sim.results();
       expect(res.every((r) => r.finished)).toBe(true);
       const lap = res.map((r) => Math.min(...r.racer.lapTimes));
@@ -20,6 +20,19 @@ describe('headless races', () => {
       expect(Math.min(...lap)).toBeGreaterThan(10);
     });
   }
+
+  it('point-to-point: finished boats stay inside the water and stop blocking', { timeout: 60000 }, () => {
+    const sim = new RaceSimulation({ track: loadTrack('reimsCanal'), playerBoat: null, difficulty: 'river', seed: 4 });
+    run(sim, 900);
+    const t = sim.track;
+    for (const r of sim.racers) {
+      expect(r.finished).toBe(true);
+      const n = t.nearest(r.x, r.y, r.nearestIndex);
+      expect(n.along).toBeLessThanOrEqual(t.length);
+      expect(Math.abs(n.lateral)).toBeLessThanOrEqual(t.halfWidth(n.index));
+      expect(sim.isGhost(r)).toBe(true);
+    }
+  });
 
   it('a player-less race is deterministic for a seed', () => {
     const a = new RaceSimulation({ track: loadTrack('lockAndLoad'), playerBoat: null, difficulty: 'river', seed: 3 });

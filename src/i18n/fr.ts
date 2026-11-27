@@ -44,6 +44,10 @@ export const fr: Record<TranslationKey, string> = {
   'track.industrialEstuary.desc': 'Usines et grues. Une longue boucle avec un virage serré au milieu.',
   'track.bayouBends.name': 'Méandres du bayou',
   'track.bayouBends.desc': 'Rivière marécageuse étroite pleine de virages en S. La maniabilité prime sur la vitesse.',
+  'track.reimsCanal.name': 'Canal de Reims',
+  'track.reimsCanal.desc': "Le vrai canal, du boulevard Paul Doumer à l'écluse de Sillery. Une seule longue course, sans tours.",
+  'trackSelect.distance': '{km} km',
+  'credits.map': 'Carte : {source}',
   'difficulty.pond': 'Étang',
   'difficulty.river': 'Rivière',
   'difficulty.ocean': 'Océan',
@@ -59,6 +63,7 @@ export const fr: Record<TranslationKey, string> = {
 
   'hud.lap': 'Tour {n}/{total}',
   'hud.lapPopup': 'Tour {n}',
+  'hud.remaining': 'Encore {km} km',
   'hud.finalLap': 'Dernier tour !',
   'hud.go': 'PARTEZ !',
   'hud.crunch': 'Crac !',

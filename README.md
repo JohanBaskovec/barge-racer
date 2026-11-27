@@ -34,6 +34,7 @@ The whole game is played with **one pointer**: a mouse or a single finger.
 | [Tracks](docs/tracks.md) | The races, track format, hazards, cups |
 | [AI](docs/ai.md) | How the opponents drive and use items |
 | [Architecture](docs/architecture.md) | Tech stack, project layout, scenes, systems, data formats, testing |
+| [Real-world tracks](docs/real-world-tracks.md) | Canal de Reims from IGN open data: importer, scale, rendering |
 | [Localization](docs/localization.md) | English and French; how to add a language |
 | [Deployment](docs/deployment.md) | Deploying to Cloudflare |
 | [Roadmap](docs/roadmap.md) | Milestones from first prototype to first release |
@@ -67,6 +68,9 @@ Debug URL parameters (see [Architecture](docs/architecture.md#debug-flags)):
   `Space` to fire, swipe down on the item button to fire backwards.
 - 7 boats with different stats; boat select with stat bars.
 - 3 tracks (Lock & Load, Industrial Estuary, Bayou Bends) and track select.
+- **Canal de Reims**: the real canal from boulevard Paul Doumer to the Sillery
+  lock at true scale (9.9 km, point-to-point), built from IGN open data
+  (BD TOPO®, Licence Ouverte Etalab 2.0).
 - 4-boat races with countdown, start boost, laps, ranking, results screen.
 - AI opponents (racing line, avoidance, stuck recovery, item use, rubber-banding,
   3 difficulty levels).

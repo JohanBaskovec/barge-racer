@@ -1,6 +1,23 @@
 import { Track, type TrackDef } from '../track/Track';
+import reims from './maps/reimsCanal.track.json';
 
 const pts = (list: [number, number, number][]) => list.map(([x, y, width]) => ({ x, y, width }));
+
+/** Real-world tracks store their centre line as a flat [x, y, width, x, y, width, ...] list. */
+const flatPts = (flat: number[]) => {
+  const out = [];
+  for (let i = 0; i + 2 < flat.length; i += 3) out.push({ x: flat[i], y: flat[i + 1], width: flat[i + 2] });
+  return out;
+};
+
+/** Crate rows every `spacing` pixels along a race of `length` pixels. */
+const crateRowsEvery = (length: number, spacing: number, count: number) => {
+  const rows = [];
+  for (let d = spacing; d < length - spacing / 2; d += spacing) rows.push({ at: d / length, count });
+  return rows;
+};
+
+const reimsLength = reims.finishDist - reims.startDist;
 
 export const TRACK_DEFS: TrackDef[] = [
   {
@@ -43,6 +60,23 @@ export const TRACK_DEFS: TrackDef[] = [
     checkpoints: [0.25, 0.5, 0.75],
     crateRows: [{ at: 0.1, count: 3 }, { at: 0.3, count: 3 }, { at: 0.55, count: 3 }, { at: 0.8, count: 3 }],
     colors: { land: 0x2f4a2a, shore: 0x6e7a3a, water: 0x4d7a4a, waterDeep: 0x3a6140 },
+  },
+  {
+    // Canal de l'Aisne à la Marne, boulevard Paul Doumer (Reims) to the Sillery lock, at true scale.
+    // Generated from IGN open data by scripts/import-reims.mjs.
+    id: 'reimsCanal',
+    laps: 1,
+    theme: 'city',
+    closed: false,
+    centerLine: flatPts(reims.centerLine),
+    startDist: reims.startDist,
+    finishDist: reims.finishDist,
+    pxPerM: reims.pxPerM,
+    scenery: 'maps/reims-canal.json',
+    attribution: `${reims.source}, ${reims.generated}`,
+    checkpoints: [0.25, 0.5, 0.75],
+    crateRows: crateRowsEvery(reimsLength, 2500, 3),
+    colors: { land: 0xd9d2b4, shore: 0xbdb5a2, water: 0x3f7fa8, waterDeep: 0x2f6a92 },
   },
 ];
 

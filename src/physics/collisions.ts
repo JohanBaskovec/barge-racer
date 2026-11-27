@@ -10,6 +10,7 @@ import { speedOf } from './BoatPhysics';
 export function resolveBank(r: Racer, track: Track): number {
   const n = track.nearest(r.x, r.y, r.nearestIndex, 30);
   r.nearestIndex = n.index;
+  if (!track.closed) resolveEnds(r, track, n.index, n.along);
   const limit = track.halfWidth(n.index) - r.stats.radius * 0.85;
   if (Math.abs(n.lateral) <= limit) return 0;
 
@@ -29,6 +30,21 @@ export function resolveBank(r: Racer, track: Track): number {
   r.vx *= 1 - scrape;
   r.vy *= 1 - scrape;
   return vn;
+}
+
+/** Point-to-point tracks end in a wall of land at both ends of the centre line. */
+function resolveEnds(r: Racer, track: Track, index: number, along: number): void {
+  const margin = r.stats.radius;
+  const over = along < margin ? along - margin : along > track.length - margin ? along - (track.length - margin) : 0;
+  if (over === 0) return;
+  const s = track.samples[index];
+  r.x -= s.tx * over;
+  r.y -= s.ty * over;
+  const vt = r.vx * s.tx + r.vy * s.ty;
+  if (Math.sign(vt) === Math.sign(over)) {
+    r.vx -= s.tx * vt * 1.3;
+    r.vy -= s.ty * vt * 1.3;
+  }
 }
 
 /** Circle-circle boat collision with mass-weighted separation and impulse. Returns impact strength. */

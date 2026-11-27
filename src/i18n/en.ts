@@ -46,6 +46,10 @@ export const en = {
   'track.industrialEstuary.desc': 'Factories and cranes. A long loop with a tight notch in the middle.',
   'track.bayouBends.name': 'Bayou Bends',
   'track.bayouBends.desc': 'Narrow swamp river full of S-bends. Handling beats speed.',
+  'track.reimsCanal.name': 'Reims Canal',
+  'track.reimsCanal.desc': "The real canal, from boulevard Paul Doumer to the Sillery lock. One long run, no laps.",
+  'trackSelect.distance': '{km} km',
+  'credits.map': 'Map: {source}',
   'difficulty.pond': 'Pond',
   'difficulty.river': 'River',
   'difficulty.ocean': 'Ocean',
@@ -61,6 +65,7 @@ export const en = {
 
   'hud.lap': 'Lap {n}/{total}',
   'hud.lapPopup': 'Lap {n}',
+  'hud.remaining': '{km} km to go',
   'hud.finalLap': 'Final lap!',
   'hud.go': 'GO!',
   'hud.crunch': 'Crunch!',

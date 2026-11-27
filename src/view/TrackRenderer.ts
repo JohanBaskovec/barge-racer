@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { Rng } from '../physics/math';
 import type { Track } from '../track/Track';
+import { drawLine } from './lines';
 
 export interface WorldBounds {
   x: number;
@@ -47,25 +48,7 @@ export class TrackRenderer {
     this.water.setMask(geo);
     base.setMask(geo);
 
-    // Start/finish line
-    const s0 = track.samples[0];
-    const line = scene.add.graphics().setDepth(3);
-    const cells = 8;
-    const cw = s0.width / cells;
-    for (let i = 0; i < cells; i++) {
-      for (let j = 0; j < 2; j++) {
-        line.fillStyle((i + j) % 2 ? 0x111111 : 0xffffff, 0.9);
-        const lx = (i - cells / 2) * cw;
-        const px = s0.x + s0.nx * lx + s0.tx * (j * 14 - 14);
-        const py = s0.y + s0.ny * lx + s0.ty * (j * 14 - 14);
-        line.fillPoints([
-          new Phaser.Math.Vector2(px, py),
-          new Phaser.Math.Vector2(px + s0.nx * cw, py + s0.ny * cw),
-          new Phaser.Math.Vector2(px + s0.nx * cw + s0.tx * 14, py + s0.ny * cw + s0.ty * 14),
-          new Phaser.Math.Vector2(px + s0.tx * 14, py + s0.ty * 14),
-        ], true);
-      }
-    }
+    drawLine(scene, track, 0);
 
     this.scatterScenery();
   }

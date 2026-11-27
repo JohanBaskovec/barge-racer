@@ -32,18 +32,23 @@ export class AIController implements Controller {
 
   update(r: Racer, sim: RaceSimulation, dt: number): ControlIntent {
     const track = sim.track;
-    const L = track.length;
     const intent: ControlIntent = { desiredHeading: null, throttle: 0, fire: 'none' };
     if (r.sinkTimer > 0) return intent;
     const speed = speedOf(r);
+
+    // After the finish of a point-to-point race there is little water left: just coast to a stop.
+    if (this.autopilot && !track.closed) {
+      const s = track.samples[r.nearestIndex];
+      return { desiredHeading: Math.atan2(s.ty, s.tx), throttle: 0, fire: 'none' };
+    }
 
     this.updatePace(r, sim);
     if (!this.autopilot && sim.clock < this.startAt) return { ...intent, desiredHeading: r.heading };
 
     // --- Steering target on the racing line -------------------------------
-    const along = ((r.progress % L) + L) % L;
+    const along = track.alongOf(r.progress);
     const lookAhead = 120 + 0.8 * speed;
-    const ti = Math.round(((along + lookAhead) % L) / track.spacing);
+    const ti = track.wrap(Math.round((along + lookAhead) / track.spacing));
     const noise = Math.sin(sim.time * 0.7 + this.noisePhase) * this.diff.lineNoise;
     const hw = track.halfWidth(ti);
     let lateralPx = clamp(track.racingOffset[track.wrap(ti)] + this.personal + noise * 0.4, -0.75, 0.75) * hw;
@@ -126,8 +131,7 @@ export class AIController implements Controller {
     }
     let pace = this.diff.speedMult;
     const player = sim.player;
-    const L = sim.track.length;
-    if (player && r !== player && r.progress < (sim.track.laps - 0.5) * L) {
+    if (player && r !== player && r.progress < sim.track.raceDistance - 0.5 * sim.track.lapLength) {
       const f = clamp((r.progress - player.progress) / 600, -1, 1);
       pace *= 1 - this.diff.rubberBand * f;
     }
@@ -156,7 +160,7 @@ export class AIController implements Controller {
       return { f: dx * hx + dy * hy, p: -dx * hy + dy * hx, d: Math.hypot(dx, dy) };
     };
     const others = sim.racers.filter((o) => o !== r && o.sinkTimer <= 0);
-    const L = sim.track.length;
+    const L = sim.track.lapLength;
 
     switch (r.item) {
       case 'volunteer':

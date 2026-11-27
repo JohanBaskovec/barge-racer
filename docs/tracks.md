@@ -27,6 +27,11 @@ Unlocks: Canal Cup tracks 1 and 2 are unlocked at the start. Finishing a race
 unlocks the next track for Single Race. Winning the Canal Cup unlocks the Open
 Water Cup.
 
+## Real-world tracks
+
+Canal de Reims is built from map data rather than drawn by hand; see
+[Real-world tracks](real-world-tracks.md).
+
 ## Track format
 
 Tracks are data, not code. **Current state:** the three implemented tracks are

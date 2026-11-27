@@ -71,6 +71,8 @@ export interface Volunteer {
   heading: number;
   age: number;
   locked: boolean;
+  /** Last nearest centre-line sample, so searches stay local and cheap. */
+  near: number;
   /** Set when a hit or timeout ended it, for the view to play an animation. */
   dead: boolean;
 }
@@ -83,6 +85,7 @@ export interface Drill {
   heading: number;
   travelled: number;
   stuckT: number;
+  near: number;
   age: number;
   dead: boolean;
 }

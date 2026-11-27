@@ -82,7 +82,7 @@ export class RaceSimulation {
 
     boats.forEach((b, i) => {
       const slot = GRID[i % GRID.length];
-      const p = this.track.pointAt(this.track.length + slot.along, slot.across);
+      const p = this.track.pointAt(this.track.alongOf(slot.along), slot.across);
       const r = this.makeRacer(i, b.boat, b.name, b.isPlayer, p.x, p.y, p.heading, slot.along);
       this.racers.push(r);
       if (b.isPlayer) {
@@ -186,7 +186,7 @@ export class RaceSimulation {
       for (let j = i + 1; j < this.racers.length; j++) {
         const a = this.racers[i];
         const b = this.racers[j];
-        if (a.sinkTimer > 0 || b.sinkTimer > 0) continue;
+        if (a.sinkTimer > 0 || b.sinkTimer > 0 || this.isGhost(a) || this.isGhost(b)) continue;
         const s = resolveBoatPair(a, b);
         if (s > 40) this.emit({ type: 'bump', a: a.id, b: b.id, strength: s });
       }
@@ -228,7 +228,7 @@ export class RaceSimulation {
 
   /** Apply damage, a spin-out and brief invulnerability. Returns true if the hit landed. */
   hit(r: Racer, damage: number, by: number | null, source: ItemId | 'bank', spin = true): boolean {
-    if (hasEffect(r, 'invulnerable') || r.sinkTimer > 0) return false;
+    if (hasEffect(r, 'invulnerable') || r.sinkTimer > 0 || this.isGhost(r)) return false;
     r.hull -= damage;
     r.sinceHit = 0;
     addEffect(r, 'invulnerable', TUNING.hitInvulnerable);
@@ -269,15 +269,16 @@ export class RaceSimulation {
     this.emit({ type: 'respawn', racer: r.id });
   }
 
+  /** On point-to-point tracks, boats that have finished stop interacting so they never block the line. */
+  isGhost(r: Racer): boolean {
+    return r.finished && !this.track.closed;
+  }
+
   private updateProgress(r: Racer): void {
-    const L = this.track.length;
+    const L = this.track.lapLength;
     const n = this.track.nearest(r.x, r.y, r.nearestIndex, 40);
     r.nearestIndex = n.index;
-    const cur = ((r.progress % L) + L) % L;
-    let d = n.along - cur;
-    if (d > L / 2) d -= L;
-    else if (d < -L / 2) d += L;
-    r.progress += d;
+    r.progress = this.track.advance(r.progress, n.along);
     if (r.finished) return;
 
     const cps = this.track.def.checkpoints;
@@ -324,7 +325,7 @@ export class RaceSimulation {
 
   /** Finishing order. Boats still racing get a time estimated from their progress so far. */
   results(): RaceResult[] {
-    const total = this.track.laps * this.track.length;
+    const total = this.track.raceDistance;
     const out: RaceResult[] = this.racers.map((r) => {
       if (r.finished) return { racer: r, time: r.finishTime, finished: true };
       const covered = Math.max(1, r.progress);

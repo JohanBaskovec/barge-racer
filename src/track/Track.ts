@@ -1,7 +1,7 @@
 import { type ControlPoint, type Sample, sampleSpline } from './spline';
 
 export interface CrateRowDef {
-  /** Fraction of the lap length. */
+  /** Fraction of the lap (or, for point-to-point tracks, of the race) length. */
   at: number;
   count: number;
 }
@@ -9,18 +9,29 @@ export interface CrateRowDef {
 export interface TrackDef {
   id: string;
   laps: number;
-  theme: 'canal' | 'industrial' | 'bayou';
+  theme: 'canal' | 'industrial' | 'bayou' | 'city';
   centerLine: ControlPoint[];
   checkpoints: number[];
   crateRows: CrateRowDef[];
   colors: { land: number; shore: number; water: number; waterDeep: number };
+  /** false = point-to-point: the race runs from startDist to finishDist along an open centre line. */
+  closed?: boolean;
+  startDist?: number;
+  finishDist?: number;
+  /** Real-world tracks: pixels per metre, scenery file (in public/) and data attribution. */
+  pxPerM?: number;
+  scenery?: string;
+  attribution?: string;
 }
 
 export interface NearestResult {
   index: number;
   /** Signed offset from the centre line along the normal. */
   lateral: number;
-  /** Distance along the lap, 0..length. */
+  /**
+   * Distance along the centre line. Closed tracks: 0..length.
+   * Open tracks: not wrapped, so it is below 0 or above length past the ends.
+   */
   along: number;
   distSq: number;
 }
@@ -35,23 +46,54 @@ export class Track {
   /** Racing-line lateral offset per sample, as a fraction of the half width (-1..1). */
   readonly racingOffset: number[];
 
+  readonly closed: boolean;
+  /** Where the start line is, along the centre line (0 for closed tracks). */
+  readonly startDist: number;
+  /** Length of one lap; for point-to-point tracks, start line to finish line. */
+  readonly lapLength: number;
+
   constructor(readonly def: TrackDef) {
-    this.samples = sampleSpline(def.centerLine, true, SAMPLE_SPACING);
+    this.closed = def.closed !== false;
+    this.samples = sampleSpline(def.centerLine, this.closed, SAMPLE_SPACING);
     const n = this.samples.length;
     const last = this.samples[n - 1];
     const first = this.samples[0];
     this.spacing = last.dist / (n - 1);
-    this.length = last.dist + Math.hypot(first.x - last.x, first.y - last.y);
+    this.length = this.closed ? last.dist + Math.hypot(first.x - last.x, first.y - last.y) : last.dist;
+    this.startDist = this.closed ? 0 : (def.startDist ?? 0);
+    this.lapLength = this.closed ? this.length : (def.finishDist ?? this.length) - this.startDist;
     this.racingOffset = this.buildRacingLine();
   }
 
   get laps(): number {
-    return this.def.laps;
+    return this.closed ? this.def.laps : 1;
   }
 
+  /** Total race distance from the start line to the finish. */
+  get raceDistance(): number {
+    return this.laps * this.lapLength;
+  }
+
+  /** Position along the centre line for a race progress (progress 0 = start line). */
+  alongOf(progress: number): number {
+    const d = this.startDist + progress;
+    return this.closed ? ((d % this.length) + this.length) % this.length : d;
+  }
+
+  /** New race progress given the previous one and the current position along the centre line. */
+  advance(progress: number, along: number): number {
+    if (!this.closed) return along - this.startDist;
+    const L = this.length;
+    let d = along - this.alongOf(progress);
+    if (d > L / 2) d -= L;
+    else if (d < -L / 2) d += L;
+    return progress + d;
+  }
+
+  /** Sample index: wraps around on closed tracks, clamps at the ends of open ones. */
   wrap(i: number): number {
     const n = this.samples.length;
-    return ((i % n) + n) % n;
+    return this.closed ? ((i % n) + n) % n : Math.max(0, Math.min(n - 1, i));
   }
 
   /** Sample at a distance along the lap (wraps). */
@@ -61,6 +103,7 @@ export class Track {
 
   /** Position on the centre line (interpolated) at a distance along the lap. */
   pointAt(dist: number, lateral = 0): { x: number; y: number; heading: number } {
+    if (!this.closed) dist = Math.max(0, Math.min(this.length - 0.001, dist));
     const f = dist / this.spacing;
     const i0 = Math.floor(f);
     const t = f - i0;
@@ -95,7 +138,8 @@ export class Track {
     const s = this.samples[best];
     const lateral = (x - s.x) * s.nx + (y - s.y) * s.ny;
     const along = (x - s.x) * s.tx + (y - s.y) * s.ty;
-    const dist = (best * this.spacing + along + this.length) % this.length;
+    const raw = best * this.spacing + along;
+    const dist = this.closed ? (raw + this.length) % this.length : raw;
     return { index: best, lateral, along: dist, distSq: bestD };
   }
 
