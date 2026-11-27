@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { FONT } from '../config';
 import { ITEM_INFO, type ItemId } from '../data/items';
 import type { RaceEvent } from '../race/types';
+import { addFullscreenButton } from '../view/fullscreen';
 import { button, fmtTime, ordinal, text } from '../view/ui';
 import type { RaceScene } from './RaceScene';
 
@@ -74,7 +75,8 @@ export class HudScene extends Phaser.Scene {
     pb.setInteractive({ useHandCursor: true }).on('pointerup', () => this.togglePause());
     this.input.keyboard?.on('keydown-ESC', () => this.togglePause());
 
-    race.pointer.hudZones = [ITEM_BTN, PAUSE_BTN];
+    const fs = addFullscreenButton(this, PAUSE_BTN.x + 80, PAUSE_BTN.y);
+    race.pointer.hudZones = fs ? [ITEM_BTN, PAUSE_BTN, fs] : [ITEM_BTN, PAUSE_BTN];
 
     this.big = text(this, 640, 300, '', 160).setStroke(stroke, 16);
 

@@ -53,7 +53,7 @@ Off by default.
 | Input | Action |
 | --- | --- |
 | Tap / click the **item slot** button (bottom right) | Fire the held item forwards |
-| Right mouse button, anywhere | Fire the held item (desktop shortcut) |
+| Right mouse button, anywhere | Fire the held item (desktop shortcut); works while the left button is held for steering |
 | Second finger tap, anywhere (multi-touch) | Fire the held item |
 | Swipe down on the item slot | Fire **backwards** (Volunteers, Drill and Glue, see below) |
 
@@ -66,6 +66,17 @@ Off by default.
   no difference for Jigsaw and White Powder.
 - On desktop, `Space` fires and `Shift + Space` fires backwards, as optional
   shortcuts.
+
+## Fullscreen on phones and tablets
+
+- **Android (Chrome, Firefox):** the first tap on the title screen enters
+  fullscreen and asks for landscape. There is also a fullscreen button on the
+  title screen and next to the pause button during a race.
+- **iPhone Safari:** browsers on iPhone don't allow fullscreen for web pages
+  (iPad does). Use **Share, Add to Home Screen**: the game then opens full
+  screen with no browser bars, using `public/manifest.webmanifest` and the
+  `apple-mobile-web-app-*` tags in `index.html`.
+- In portrait a "please rotate your device" overlay covers the game.
 
 ## Menus
 

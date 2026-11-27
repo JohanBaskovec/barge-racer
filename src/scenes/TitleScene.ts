@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { addFullscreenButton, enterFullscreen } from '../view/fullscreen';
 import { background, text } from '../view/ui';
 
 export class TitleScene extends Phaser.Scene {
@@ -24,6 +25,16 @@ export class TitleScene extends Phaser.Scene {
     const tap = text(this, 640, 430, 'Tap or click to start', 44, '#ffe08a').setStroke('#0b3a5b', 8);
     this.tweens.add({ targets: tap, alpha: 0.35, duration: 700, yoyo: true, repeat: -1 });
     text(this, 640, 690, 'Hold to steer · tap the item button to fire', 22, '#bfe1f7', false);
-    this.input.once('pointerdown', () => this.scene.start('BoatSelect'));
+    const fsZone = addFullscreenButton(this, 1220, 60);
+    this.input.once('pointerdown', (p: Phaser.Input.Pointer) => {
+      const onFsButton = fsZone && (p.x - fsZone.x) ** 2 + (p.y - fsZone.y) ** 2 < fsZone.r ** 2;
+      if (onFsButton) {
+        this.input.once('pointerdown', () => this.scene.start('BoatSelect'));
+        return;
+      }
+      // On phones and tablets the first tap goes fullscreen (needs a user gesture).
+      if (this.sys.game.device.input.touch) enterFullscreen(this);
+      this.scene.start('BoatSelect');
+    });
   }
 }

@@ -4,15 +4,28 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
     <meta name="theme-color" content="#0b3a5b" />
+    <meta name="description" content="Barge Racer: a top-down arcade boat racing game. Play with a mouse or your finger." />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" type="image/png" href="./icons/icon-192.png" />
+    <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
+    <!-- Home-screen install on iPhone/iPad opens without browser chrome -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Barge Racer" />
     <title>Barge Racer</title>
     <style>
       html, body { margin: 0; height: 100%; background: #0b3a5b; overflow: hidden; overscroll-behavior: none; }
       #game { width: 100%; height: 100%; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
       canvas { display: block; touch-action: none; }
+      #rotate { display: none; position: fixed; inset: 0; z-index: 10; background: #0b3a5b; color: #fff;
+        font: bold 24px "Trebuchet MS", Verdana, sans-serif; align-items: center; justify-content: center; text-align: center; padding: 24px; }
+      @media (orientation: portrait) and (pointer: coarse) { #rotate { display: flex; } }
     </style>
   </head>
   <body>
     <div id="game"></div>
+    <div id="rotate">Please rotate your device to landscape</div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

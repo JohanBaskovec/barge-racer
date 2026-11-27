@@ -50,7 +50,9 @@ export class PointerController implements Controller {
 
   private onDown(p: Phaser.Input.Pointer): void {
     if (this.inHud(p)) return;
-    if (p.rightButtonDown()) {
+    // `p.button` is the button that changed. (Not rightButtonDown(): that stays true while
+    // the right button is held, which would also swallow a later left press.)
+    if (p.button === 2) {
       this.pendingFire = 'forward';
       return;
     }
@@ -62,7 +64,10 @@ export class PointerController implements Controller {
   }
 
   private onUp(p: Phaser.Input.Pointer): void {
-    if (p.id === this.steerId) this.steerId = null;
+    if (p.id !== this.steerId) return;
+    // Releasing the right (fire) button must not end a left-button hold.
+    if (!p.wasTouch && p.leftButtonDown()) return;
+    this.steerId = null;
   }
 
   update(r: Racer): ControlIntent {

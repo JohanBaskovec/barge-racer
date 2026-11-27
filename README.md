@@ -71,6 +71,8 @@ Debug URL parameters (see [Architecture](docs/architecture.md#debug-flags)):
   3 difficulty levels).
 - Crates, item roulette and all five items; hull, spin-outs, sinking, respawn.
 - HUD: position, lap, time, minimap, item slot, pause menu.
+- Fullscreen button, landscape lock on Android, home-screen install (web app
+  manifest and icons) for full screen on iPhone.
 
 Not done yet: sound, cups and unlocks, options screen, the remaining tracks and
 their hazards, the "tap to set a target" steering mode, final art. See the
