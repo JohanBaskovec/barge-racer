@@ -14,7 +14,7 @@ shown on the track select screen.
 | Canal width | 57 m at the start basin, 14–30 m elsewhere |
 | Race time (AI, River) | about 4 min for the fastest boats, 4 min 50 s for the slowest |
 | Locks removed | n°10 Fléchambault, n°11 Château d'Eau, n°12 Huon (and n°13, where the race ends) |
-| Scenery | 1,423 buildings, 1,733 road segments, railways, vegetation, bridges, other water |
+| Scenery | 1,423 buildings, 1,733 road segments, railways, vegetation, 14 sports grounds, 1 cemetery, bridges, other water |
 | Street names | 64 labels for 63 streets, written along the streets (see below) |
 | Bridge names | 7 bridges over the canal are labelled (see below) |
 
@@ -48,7 +48,9 @@ The game never calls IGN while you play. What the importer does:
    canal at least 11 m wide so boats can always pass.
 5. Keeps only scenery within 230 m of the canal, since nothing further away can
    ever be seen: buildings (with heights for shadows), roads (bridges flagged,
-   tunnels dropped), railways, vegetation, water and bridge decks. The aqueduct
+   tunnels dropped), railways, vegetation, sports grounds (`terrain_de_sport`:
+   football, tennis, running track, pool or other court), cemeteries, water and
+   bridge decks. The aqueduct
    carrying the canal over the Vesle is left out, so it isn't drawn above the
    boats.
 
@@ -111,6 +113,32 @@ the names it considered.
   most two per frame) and recycled when it leaves. Water is erased from the tiles
   so the animated water layer shows through. Bridges are drawn on separate tiles:
   a shadow below the boats and a deck above them.
+
+## How the city is drawn
+
+The drawing code is in `src/view/mapArt.ts`; everything is generated from IGN's
+shapes, no image files. The aim is that you recognise things at a glance, like on
+an aerial photo but cleaner:
+
+| Thing | Drawn as |
+| --- | --- |
+| Woods, hedges, orchards | Individual round tree crowns with a shadow and a sunlit side, in a few greens; small bushes for hedges, a regular grid for orchards |
+| Vineyards | Rows of vines along the parcel's long side |
+| Roads | Grey asphalt with a light pavement on each side. Wide roads (5 m and more) get a dashed centre line; motorways get verges, edge lines and dashed lanes |
+| Railways | Ballast, sleepers and two rails per track |
+| Buildings | A shadow (longer for taller buildings), then a roof: pitched roofs in slate or tiles, split along the ridge with a lit and a shaded side; big or industrial buildings get a flat roof with a parapet and rooftop units; churches are darker |
+| Canal | A stone quay edge between the water and the towpath |
+| Sports grounds | Football pitches with mowing stripes and markings, clay tennis courts with a net, blue courts, red running tracks with lanes, pools with lanes |
+| Cemeteries | Rows of graves on the cemetery's own grid, with paths |
+
+Small details (tree positions and colours, roof colours) come from a hash of the
+position, so the city looks the same in every race and on every screen.
+
+Speed matters because a tile is drawn while you race. Phaser draws every circle as a
+100-point polygon, which made tiles with woods take up to 90 ms. So tree crowns are
+two small textures (the crown in greys, and its shadow) stamped and tinted, and road
+joints use 10-sided shapes. A tile takes about 5 ms in a software-rendered test
+browser, as before the new art.
 
 ## Adding another place
 

@@ -121,6 +121,17 @@ export function generateTextures(scene: Phaser.Scene): void {
     g.fillStyle(0xfff6b8).fillCircle(11, 11, 5);
     g.fillStyle(0xffffff, 0.8).fillCircle(9, 9, 2);
   });
+  // A tree crown seen from above, in greys so a tint colours it: darker rim, lighter top-left.
+  gen(scene, 'crown', 64, 64, (g) => {
+    g.fillStyle(0xbcbcbc, 1).fillCircle(32, 32, 30);
+    g.fillStyle(0xd9d9d9, 1).fillCircle(30, 30, 25);
+    g.fillStyle(0xf2f2f2, 1).fillCircle(24, 23, 15);
+    g.fillStyle(0xffffff, 1).fillCircle(21, 20, 7);
+    g.fillStyle(0xa8a8a8, 1).fillCircle(42, 40, 5).fillCircle(38, 22, 4).fillCircle(22, 44, 4);
+  });
+  gen(scene, 'crownShadow', 64, 64, (g) => {
+    g.fillStyle(0x000000, 1).fillCircle(32, 32, 30);
+  });
   gen(scene, 'droplet', 10, 10, (g) => {
     g.fillStyle(0xffffff, 1).fillCircle(5, 5, 4);
   });

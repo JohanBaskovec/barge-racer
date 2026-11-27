@@ -496,6 +496,25 @@ async function main() {
     }
   }
 
+  // Sports grounds get their markings drawn in the game; cemeteries their rows of graves.
+  log('Downloading sports grounds and cemeteries…');
+  const SPORT = (p) => {
+    const n = `${p.nature ?? ''} ${p.nature_detaillee ?? ''}`;
+    if (/natation/i.test(n)) return 4;
+    if (/athl|vélodrome|Piste de sport/i.test(n)) return 3;
+    if (/tennis/i.test(n)) return 1;
+    if (/Grand terrain|football|rugby/i.test(n)) return 0;
+    return 2; // basketball, handball, multi-sports...
+  };
+  const sports = [];
+  for (const f of await corridorLayer('BDTOPO_V3:terrain_de_sport')) {
+    for (const poly of polygons(f.geometry)) if (nearCanal(poly[0])) sports.push([SPORT(f.properties), ring(poly[0], 0.3)]);
+  }
+  const cemeteries = [];
+  for (const f of await corridorLayer('BDTOPO_V3:cimetiere')) {
+    for (const poly of polygons(f.geometry)) if (nearCanal(poly[0]) || coversCanal(poly)) cemeteries.push(ring(poly[0], 0.5));
+  }
+
   log('Bridges…');
   const bridges = [];
   for (const f of constructions.filter((c) => c.properties.nature === 'Pont')) {
@@ -632,9 +651,9 @@ async function main() {
   mkdirSync(dirname(trackFile), { recursive: true });
   mkdirSync(dirname(sceneryFile), { recursive: true });
   writeFileSync(trackFile, JSON.stringify({ ...meta, startDist: px(C.leadIn), finishDist: px(C.leadIn + raceLength), centerLine: control }));
-  writeFileSync(sceneryFile, JSON.stringify({ ...meta, water: waterOut, vegetation, roads, rails, buildings, bridges, labels, streets }));
+  writeFileSync(sceneryFile, JSON.stringify({ ...meta, water: waterOut, vegetation, roads, rails, buildings, bridges, labels, streets, sports, cemeteries }));
   log(`\nWrote ${trackFile}\n  ${control.length / 3} control points`);
-  log(`Wrote ${sceneryFile}\n  ${buildings.length} buildings, ${roads.length} roads, ${rails.length} railways, ${vegetation.length} vegetation, ${bridges.length} bridges, ${labels.length} bridge labels, ${streets.length} street labels, ${waterOut.length} water`);
+  log(`Wrote ${sceneryFile}\n  ${buildings.length} buildings, ${roads.length} roads, ${rails.length} railways, ${vegetation.length} vegetation, ${bridges.length} bridges, ${labels.length} bridge labels, ${streets.length} street labels, ${sports.length} sports grounds, ${cemeteries.length} cemeteries, ${waterOut.length} water`);
   void routeBox;
 }
 

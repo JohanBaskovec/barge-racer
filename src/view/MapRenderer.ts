@@ -3,6 +3,10 @@ import { FONT } from '../config';
 import { t } from '../i18n';
 import type { Track } from '../track/Track';
 import { drawLine } from './lines';
+import {
+  type Box, drawBuilding, drawBuildingShadow, drawCemetery, drawRail, drawRoadBase, drawRoadMarkings, drawSport,
+  fastCircle, fillRing, type Plant, plants, thickLine, vegetationGround,
+} from './mapArt';
 
 /** Scenery of a real-world track, as written by scripts/import-reims.mjs (game pixels). */
 export interface SceneryData {
@@ -17,6 +21,9 @@ export interface SceneryData {
   labels?: [number, number, number, string][];
   /** Street names written along the streets: x, y, angle (milliradians), font size, name, available length (px). */
   streets?: [number, number, number, number, string, number][];
+  /** Sports grounds: kind (0 pitch, 1 tennis, 2 court, 3 track, 4 pool), ring. */
+  sports?: [number, number[]][];
+  cemeteries?: number[][];
 }
 
 const CHUNK = 512;
@@ -25,13 +32,6 @@ const BLEED = 2;
 const MARGIN = 160;
 const TOWPATH = 45; // px of quay/towpath drawn along both banks
 
-const VEG_COLORS = [0, 0x8fb07a, 0xb9c27a, 0xa9c68a, 0x7fa36b, 0xc5d29a];
-const ROAD = [
-  { fill: 0xf4f2ec, edge: 0x9d978b },
-  { fill: 0xf7f5ef, edge: 0xb3ad9f },
-  { fill: 0xe7dcc2, edge: 0 },
-];
-const ROOFS = [0xc9785d, 0xb8664f, 0xd08a6a, 0xa8a199, 0xbf7058];
 
 type Pt = { x: number; y: number };
 const toPts = (flat: number[]): Pt[] => {
@@ -49,6 +49,8 @@ interface ChunkIndex {
   channel: number[];
   bridges: number[];
   streets: number[];
+  sports: number[];
+  cemeteries: number[];
 }
 
 type Layer = 'ground' | 'shadow' | 'deck';
@@ -123,7 +125,7 @@ export class MapRenderer {
         const key = `${cx},${cy}`;
         let e = this.index.get(key);
         if (!e) {
-          e = { water: [], vegetation: [], roads: [], rails: [], buildings: [], channel: [], bridges: [], streets: [] };
+          e = { water: [], vegetation: [], roads: [], rails: [], buildings: [], channel: [], bridges: [], streets: [], sports: [], cemeteries: [] };
           this.index.set(key, e);
         }
         e[kind].push(i);
@@ -139,6 +141,8 @@ export class MapRenderer {
     d.rails.forEach(([w, , l], i) => this.add('rails', i, l, w / 2 + 6));
     d.buildings.forEach(([h, , r], i) => this.add('buildings', i, r, Math.min(40, h * 4)));
     d.bridges.forEach(([, r], i) => this.add('bridges', i, r, BRIDGE_SHADOW + 4));
+    (d.sports ?? []).forEach(([, r], i) => this.add('sports', i, r));
+    (d.cemeteries ?? []).forEach((r, i) => this.add('cemeteries', i, r));
     // A street name covers a stretch of road: index it by the box around the text.
     (d.streets ?? []).forEach(([x, y, , , , len], i) => this.add('streets', i, [x - len / 2, y - len / 2, x + len / 2, y + len / 2]));
     // Road segments on bridges are drawn on the bridge layers too.
@@ -213,41 +217,48 @@ export class MapRenderer {
     const d = this.data;
     const colors = this.track.def.colors;
     g.fillStyle(colors.land, 1).fillRect(x - BLEED, y - BLEED, CHUNK + BLEED * 2, CHUNK + BLEED * 2);
+    const tileBox: Box = { x0: x - BLEED, y0: y - BLEED, x1: x + CHUNK + BLEED, y1: y + CHUNK + BLEED };
+    const trees: Plant[] = [];
     if (e) {
-      for (const i of e.vegetation) {
-        const [kind, ring] = d.vegetation[i];
-        g.fillStyle(VEG_COLORS[kind] ?? VEG_COLORS[1], 1).fillPoints(toPts(ring), true);
-      }
+      // Ground: grass and woodland floors, cemeteries, sports grounds, the towpath and stone quays.
+      for (const i of e.vegetation) fillRing(g, d.vegetation[i][1], vegetationGround(d.vegetation[i][0]));
+      for (const i of e.cemeteries) drawCemetery(g, d.cemeteries![i], tileBox);
+      for (const i of e.sports) drawSport(g, d.sports![i][0], d.sports![i][1]);
       g.fillStyle(colors.shore, 1);
       for (const i of e.channel) this.channelQuad(g, i, TOWPATH);
+      g.fillStyle(0x8d8a83, 1);
+      for (const i of e.channel) this.channelQuad(g, i, 6); // what's left of this after the water is cut out: a quay edge
+      for (const i of e.water) thickLine(g, [...d.water[i], d.water[i][0], d.water[i][1]], 10, 0x8d8a83);
+
+      // Roads (surfaces first, so markings are never covered by a crossing street) and railways
       for (const i of e.roads) {
         const [cls, w, bridge, line] = d.roads[i];
-        if (!bridge && ROAD[cls].edge) this.polyline(g, line, w + 6, ROAD[cls].edge);
-      }
-      for (const i of e.roads) {
-        const [cls, w, bridge, line] = d.roads[i];
-        if (!bridge) this.polyline(g, line, w, ROAD[cls].fill);
+        if (!bridge) drawRoadBase(g, cls, w, line);
       }
       for (const i of e.rails) {
         const [w, bridge, line] = d.rails[i];
-        if (bridge) continue;
-        this.polyline(g, line, w + 8, 0x8c8279);
-        this.polyline(g, line, Math.max(4, w * 0.4), 0x5d544d);
+        if (!bridge) drawRail(g, w, line);
       }
-      for (const i of e.buildings) {
-        const [h, , ring] = d.buildings[i];
-        const off = Math.min(40, h * 4);
-        g.fillStyle(0x000000, 0.16).fillPoints(toPts(ring).map((p) => ({ x: p.x + off * 0.6, y: p.y + off })), true);
+      for (const i of e.roads) {
+        const [cls, w, bridge, line] = d.roads[i];
+        if (!bridge) drawRoadMarkings(g, cls, w, line);
       }
-      for (const i of e.buildings) {
-        const [, kind, ring] = d.buildings[i];
-        const roof = kind === 1 ? 0xd9c38a : kind === 2 ? 0x9fa4ab : ROOFS[Math.abs(ring[0] * 7 + ring[1] * 13) % ROOFS.length];
-        const pts = toPts(ring);
-        g.fillStyle(roof, 1).fillPoints(pts, true);
-        g.lineStyle(3, 0x000000, 0.25).strokePoints(pts, true, true);
-      }
+
+      // Buildings: shadows, then roofs
+      for (const i of e.buildings) drawBuildingShadow(g, d.buildings[i][0], d.buildings[i][2]);
+      for (const i of e.buildings) drawBuilding(g, d.buildings[i][1], d.buildings[i][2]);
+
+      // Trees last (stamped below): their crowns overhang paths and road edges, as they do.
+      for (const i of e.vegetation) trees.push(...plants(g, d.vegetation[i][0], d.vegetation[i][1], tileBox));
     }
     rt.draw(g, ox, oy);
+    // Tree crowns are textures stamped in one batch: far cheaper than drawing thousands of circles.
+    if (trees.length) {
+      rt.beginDraw();
+      for (const p of trees) rt.stamp('crownShadow', undefined, p.x + p.r * 0.35 + ox, p.y + p.r * 0.45 + oy, { scale: p.r / 30, alpha: 0.22, skipBatch: true });
+      for (const p of trees) rt.stamp('crown', undefined, p.x + ox, p.y + oy, { scale: p.r / 30, tint: p.color, skipBatch: true });
+      rt.endDraw();
+    }
 
     // Cut out the water so the animated layer underneath shows.
     if (e && (e.water.length || e.channel.length)) {
@@ -318,7 +329,7 @@ export class MapRenderer {
     g.lineStyle(width, color, 1).strokePoints(pts as Phaser.Math.Vector2[], false, false);
     if (width >= 16) {
       g.fillStyle(color, 1);
-      for (const p of pts) g.fillCircle(p.x, p.y, width / 2);
+      for (const p of pts) fastCircle(g, p.x, p.y, width / 2);
     }
   }
 
@@ -342,9 +353,9 @@ export class MapRenderer {
         this.polyline(g, shift(line), w + 30, 0x000000);
         continue;
       }
-      this.polyline(g, line, w + 30, 0x8f877c); // parapets
-      this.polyline(g, line, w + 10, 0xb9b1a3);
-      this.polyline(g, line, w, ROAD[cls].fill);
+      thickLine(g, line, w + 34, 0x8f877c); // parapets
+      drawRoadBase(g, cls, w, line);
+      drawRoadMarkings(g, cls, w, line);
     }
   }
 }
