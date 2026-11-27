@@ -7,8 +7,10 @@ jigsaws, electric drills, glue and a mysterious white powder.
 
 The whole game is played with **one pointer**: a mouse or a single finger.
 
-> **Status:** design phase. This repository has documentation only so far; no
-> game code yet. See the [roadmap](docs/roadmap.md).
+> **Status:** playable prototype (milestones M0 to M3 of the [roadmap](docs/roadmap.md)).
+> You can pick one of 7 boats, race 3 AI opponents on 3 tracks at 3 difficulty
+> levels, and use all five items. Art is placeholder (drawn in code) and there
+> is no sound yet. See [what is implemented](#implemented-so-far).
 
 ## Pitch
 
@@ -42,15 +44,33 @@ The whole game is played with **one pointer**: a mouse or a single finger.
 - [Vitest](https://vitest.dev/) for unit tests of the pure game logic
 - ESLint and Prettier
 
-## Planned quick start
-
-Once the code exists, this is how it will run:
+## Quick start
 
 ```bash
 npm install
 npm run dev      # dev server on http://localhost:5173
 npm run build    # static production build in dist/
-npm test         # unit tests
+npm test         # unit tests (physics, tracks, item odds, headless AI races)
+npm run typecheck
 ```
 
 The production build is a static site and can be served from any static host.
+
+Debug URL parameters (see [Architecture](docs/architecture.md#debug-flags)):
+`?track=lockAndLoad&boat=tugboat&item=glue&laps=1&seed=1&ai=0&difficulty=pond&debug=1`.
+
+## Implemented so far
+
+- Pointer steering (hold and point), item button, right click / second finger /
+  `Space` to fire, swipe down on the item button to fire backwards.
+- 7 boats with different stats; boat select with stat bars.
+- 3 tracks (Lock & Load, Industrial Estuary, Bayou Bends) and track select.
+- 4-boat races with countdown, start boost, laps, ranking, results screen.
+- AI opponents (racing line, avoidance, stuck recovery, item use, rubber-banding,
+  3 difficulty levels).
+- Crates, item roulette and all five items; hull, spin-outs, sinking, respawn.
+- HUD: position, lap, time, minimap, item slot, pause menu.
+
+Not done yet: sound, cups and unlocks, options screen, the remaining tracks and
+their hazards, the "tap to set a target" steering mode, final art. See the
+[roadmap](docs/roadmap.md).

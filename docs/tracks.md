@@ -29,9 +29,11 @@ Water Cup.
 
 ## Track format
 
-Tracks are data, not code. Each track is a JSON file in
-`public/assets/tracks/`, made in the [Tiled](https://www.mapeditor.org/) map
-editor or written by hand, and loaded by the `TrackLoader`.
+Tracks are data, not code. **Current state:** the three implemented tracks are
+plain `TrackDef` objects in `src/data/tracks.ts` (centre line control points with
+widths, checkpoints, crate rows and colours), turned into a `Track` by
+`src/track/Track.ts`. The JSON/Tiled format below is the plan for when there are
+more tracks and obstacles, hazards and branches.
 
 ### The centre line
 

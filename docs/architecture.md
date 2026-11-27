@@ -237,6 +237,8 @@ URL query parameters, read in `config.ts`:
 | `item=<id>` | Every crate gives this item |
 | `seed=<n>` | Fixed random seed |
 | `ai=0` | No AI racers (practice) |
+| `laps=<n>` | Override the number of laps |
+| `difficulty=<pond\|river\|ocean>` | Difficulty for `track=` |
 
 ## Testing
 

@@ -3,7 +3,7 @@
 Each milestone ends with something playable. Art and audio can start as
 placeholders (coloured shapes, free sound effects) and be replaced later.
 
-## M0: Project setup
+## M0: Project setup (done, except ESLint/Prettier)
 
 - Vite + TypeScript + Phaser project, strict TS, ESLint, Prettier, Vitest.
 - GitHub Actions: lint, type-check, test, build.
@@ -12,7 +12,7 @@ placeholders (coloured shapes, free sound effects) and be replaced later.
 
 **Done when:** `npm run dev` shows a blank water scene; CI is green.
 
-## M1: One boat on one track
+## M1: One boat on one track (done)
 
 - Track loader with centre line, banks and bank collisions.
 - Boat physics model and one boat definition.
@@ -24,7 +24,7 @@ placeholders (coloured shapes, free sound effects) and be replaced later.
 **Done when:** you can drive 3 laps with a mouse or a finger and it feels good.
 This is the most important milestone: steering feel decides the game.
 
-## M2: Racing
+## M2: Racing (done)
 
 - 4 racers: AI controller with racing line, avoidance, stuck recovery.
 - Boat-to-boat collisions.
@@ -33,7 +33,7 @@ This is the most important milestone: steering feel decides the game.
 
 **Done when:** a full race against 3 AI boats is fun without items.
 
-## M3: Items
+## M3: Items (done)
 
 - Crates, roulette, item slot button, firing forward and backward.
 - Hull, damage, spin-out, invulnerability, sinking and respawn.
@@ -44,7 +44,11 @@ This is the most important milestone: steering feel decides the game.
 **Done when:** all items work for both player and AI and races are chaotic in a
 good way.
 
-## M4: Content
+## M4: Content (partly done)
+
+Done: all 7 boats and Boat Select, 3 of 8 tracks, Track Select, difficulty
+levels and rubber-banding. Still to do: the other 5 tracks and their hazards,
+cup mode, save data (unlocks, best times, options).
 
 - All 7 boats with stats and placeholder sprites; Boat Select scene.
 - All 8 tracks with their features and hazards; Track Select scene.

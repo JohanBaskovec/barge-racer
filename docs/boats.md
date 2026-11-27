@@ -156,8 +156,12 @@ interface BoatDef {
 }
 ```
 
-Boats collide as **capsules** (or circles for short boats), sized from
-`size`. A long barge is harder to get around than a short tug.
+Boats currently collide as **circles** with radius `(length + width) / 4`; capsules
+are a possible later improvement. A long barge is harder to get around than a
+short tug because of its bigger radius.
+
+**Current state:** all boats are unlocked from the start; the unlock rules above
+are not implemented yet.
 
 ## Art direction
 
