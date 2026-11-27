@@ -7,7 +7,8 @@ import { background, button, fitText, text } from '../view/ui';
 
 const NAME_KEY = 'barge-racer-name';
 
-const inputStyle = 'font: bold 30px "Trebuchet MS", Verdana, sans-serif; padding: 10px 16px; border-radius: 12px; border: 3px solid #ffffff; background: #0b3a5b; color: #ffffff; text-align: center; outline: none;';
+// Single quotes inside: this goes into a double-quoted style="..." attribute.
+const inputStyle = "font: bold 30px 'Trebuchet MS', Verdana, sans-serif; padding: 10px 16px; border-radius: 12px; border: 3px solid #ffffff; background: #0b3a5b; color: #ffffff; text-align: center; outline: none;";
 
 /** Play online: pick a name, then create a room (a new code) or join one with a friend's code. */
 export class OnlineScene extends Phaser.Scene {

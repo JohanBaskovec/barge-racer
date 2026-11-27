@@ -19,7 +19,9 @@ const game = new Phaser.Game({
   width: GAME_WIDTH,
   height: GAME_HEIGHT,
   backgroundColor: '#0b3a5b',
-  scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
+  // Fullscreen the whole #game element, not just the canvas, so the HTML text fields (player name,
+  // room code) and the rotate notice come along.
+  scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH, fullscreenTarget: 'game' },
   input: { activePointers: 3 },
   // HTML text fields (player name, room code) on the online screen.
   dom: { createContainer: true },
