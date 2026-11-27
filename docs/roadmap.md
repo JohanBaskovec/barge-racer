@@ -47,11 +47,12 @@ good way.
 
 ## M4: Content (partly done)
 
-Done: all 8 boats and Boat Select, 3 of 8 tracks, Track Select, difficulty
-levels and rubber-banding. Still to do: the other 5 tracks and their hazards,
-cup mode, save data (unlocks, best times, options).
+Done: all 8 boats (including Cabourg, a real péniche) and Boat Select, 3 of 8
+drawn tracks plus the real Canal de Reims, Track Select, difficulty levels and
+rubber-banding, nine items in two slots. Still to do: the other 5 tracks and their
+hazards, cup mode, save data (unlocks, best times, options).
 
-- All 7 boats with stats and placeholder sprites; Boat Select scene.
+- All boats with stats and placeholder sprites; Boat Select scene.
 - All 8 tracks with their features and hazards; Track Select scene.
 - Cup mode and points.
 - Difficulty levels and rubber-banding.
@@ -59,7 +60,10 @@ cup mode, save data (unlocks, best times, options).
 
 **Done when:** both cups can be completed on all difficulties.
 
-## M5: Polish
+## M5: Polish (started)
+
+Done so far: basic particles (wakes, sparks, splashes), screen shake on hits,
+pop-up texts, English and French. Not started: sound, final art, options scene.
 
 - Final art: boats, tracks, items, UI.
 - Music and sound effects, engine sounds.
@@ -71,11 +75,13 @@ cup mode, save data (unlocks, best times, options).
 
 **Done when:** it feels like a finished small game.
 
-## M6: Release
+## M6: Release (mostly done)
 
-- PWA manifest and offline caching so it can be installed on phones.
-- Deploy the static build (e.g. GitHub Pages).
-- Basic credits and version number on the title screen.
+- Deployed to Cloudflare on every update of `main` (done).
+- Web app manifest and icons, fullscreen, home-screen install (done); offline
+  caching (not yet).
+- Basic credits and version number on the title screen (not yet; the IGN map
+  credit is on the track select screen).
 
 ## Later / ideas
 
