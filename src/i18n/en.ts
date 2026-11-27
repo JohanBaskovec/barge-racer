@@ -11,6 +11,15 @@ export const en = {
   'title.hint': 'Hold to steer · tap an item button to fire (mouse: right and middle click)',
 
   'common.back': 'Back',
+  'menu.options': 'Options',
+  'options.title': 'Options',
+  'options.music': 'Music',
+  'options.sfx': 'Sound effects',
+  'options.leftHanded': 'Left-handed (item buttons on the left)',
+  'options.autoFire': 'Auto-fire items',
+  'options.reducedShake': 'Reduce screen shake',
+  'options.on': 'On',
+  'options.off': 'Off',
 
   'boatSelect.title': 'Choose your boat',
   'boatSelect.next': 'Next ▸',

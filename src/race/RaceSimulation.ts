@@ -108,7 +108,7 @@ export class RaceSimulation {
       slots: [null, null], rouletteT: 0, rouletteItem: null, recentItems: [], jigsawHit: new Set(),
       progress, nearestIndex: near.index, lapsDone: 0, nextCheckpoint: 0, position: id, finished: false,
       finishTime: 0, lapTimes: [], lapStart: 0, pace: 1, autopilot: false, firstFullThrottleT: null,
-      bankHitCooldown: 0, stuckTimer: 0,
+      bankHitCooldown: 0, stuckTimer: 0, throttle: 0,
     };
   }
 
@@ -137,6 +137,7 @@ export class RaceSimulation {
     for (const r of this.racers) {
       const ctrl = r.autopilot ? this.autopilot(r) : this.controllers.get(r.id)!;
       const intent = ctrl.update(r, this, dt);
+      r.throttle = intent.throttle;
       intents.set(r.id, intent);
       if (r.firstFullThrottleT === null && intent.throttle >= 0.8) r.firstFullThrottleT = this.clock;
     }
@@ -144,7 +145,10 @@ export class RaceSimulation {
       this.startBoostDone = true;
       for (const r of this.racers) {
         const t = r.firstFullThrottleT;
-        if (t !== null && t >= -0.25 && t <= 0.25) addEffect(r, 'boost', 1);
+        if (t !== null && t >= -0.25 && t <= 0.25) {
+          addEffect(r, 'boost', 1);
+          this.emit({ type: 'boost', racer: r.id });
+        }
       }
     }
 

@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { LANGUAGES, getLanguage, setLanguage, t } from '../i18n';
 import { addFullscreenButton, enterFullscreen } from '../view/fullscreen';
+import { audio } from '../audio/AudioManager';
 import { getBoat } from '../data/boats';
 import { createBoatSprite } from '../view/boatSprite';
 import { background, button, fitText, text } from '../view/ui';
@@ -12,6 +13,7 @@ export class TitleScene extends Phaser.Scene {
 
   create(): void {
     background(this);
+    audio.playMusic('menu');
     // Drifting wave lines
     const waves = this.add.tileSprite(0, 0, 1280, 720, 'water').setOrigin(0).setAlpha(0.9);
     this.events.on('update', () => {
@@ -29,6 +31,7 @@ export class TitleScene extends Phaser.Scene {
     this.tweens.add({ targets: tap, alpha: 0.35, duration: 700, yoyo: true, repeat: -1 });
     fitText(text(this, 640, 690, t('title.hint'), 22, '#bfe1f7', false), 1200);
     addFullscreenButton(this, 1220, 60);
+    button(this, 100 + LANGUAGES.length * 170, 60, 150, 48, t('menu.options'), () => this.scene.start('Options'), { fill: 0x3d5266, textSize: 22 });
 
     // Language picker: the current language is highlighted; picking one redraws this screen.
     LANGUAGES.forEach((lang, i) => {

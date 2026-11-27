@@ -116,10 +116,9 @@ Off by default.
 
 ## Accessibility
 
-- **Steering assist** (option, on by default on Pond difficulty): gently pulls
-  the desired heading towards the track direction and keeps the boat off the
-  banks.
-- **Auto-fire** (option): fires an item automatically when the AI targeting
-  logic would (good target in range).
-- **Reduced screen shake** option.
+- **Auto-fire** (option): fires a held item automatically when the AI's own
+  targeting logic would (a good target in range). You can still fire by hand.
+- **Left-handed** (option): the item buttons move to the bottom left.
+- **Reduced screen shake** option (also turns off hit pauses).
+- No steering assist, by design.
 - All important information uses shapes and text as well as colour.

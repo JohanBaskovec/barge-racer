@@ -60,18 +60,18 @@ hazards, cup mode, save data (unlocks, best times, options).
 
 **Done when:** both cups can be completed on all difficulties.
 
-## M5: Polish (started)
+## M5: Polish (done, except final art)
 
-Done so far: basic particles (wakes, sparks, splashes), screen shake on hits,
-pop-up texts, English and French. Not started: sound, final art, options scene.
-
-- Final art: boats, tracks, items, UI.
-- Music and sound effects, engine sounds.
-- Particles: wakes, splashes, sparks, smoke.
-- Screen shake, hit pauses, pop-up texts.
-- Options scene, left-handed layout, steering assist, auto-fire, reduced shake.
-- Performance pass on mobile.
-- Balancing using headless simulation runs and playtests.
+- Music, sound effects and engine sounds, all synthesised (done).
+- Particles: wakes, sparks, splashes, ripples, splinters, bubbles, dust, glue
+  (done).
+- Screen shake, hit pauses, pop-up texts (done).
+- Options scene: volumes, left-handed layout, auto-fire, reduced shake (done).
+  Steering assist dropped on purpose.
+- UI: rounded buttons with shadows and a pressed state (done).
+- Final art: still code-drawn placeholders, apart from Cabourg; real art needs an
+  artist.
+- Performance on phones and balancing: done by the owner through playtests.
 
 **Done when:** it feels like a finished small game.
 

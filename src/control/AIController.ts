@@ -154,7 +154,7 @@ export class AIController implements Controller {
   }
 
   /** Checks both slots in turn and returns the first item the AI wants to fire now. */
-  private decideFire(r: Racer, sim: RaceSimulation, dt: number, speed: number): FireCommand | null {
+  decideFire(r: Racer, sim: RaceSimulation, dt: number, speed: number): FireCommand | null {
     for (const slot of [0, 1] as const) {
       const held = r.slots[slot];
       if (!held || r.rouletteItem) {

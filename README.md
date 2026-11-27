@@ -85,6 +85,10 @@ Debug URL parameters (see [Architecture](docs/architecture.md#debug-flags)):
 - Fullscreen button, landscape lock on Android, home-screen install (web app
   manifest and icons) for full screen on iPhone.
 
-Not done yet: sound, cups and unlocks, options screen, the remaining tracks and
-their hazards, the "tap to set a target" steering mode, final art. See the
-[roadmap](docs/roadmap.md).
+- Sound: synthesised music for menus and each kind of track (an accordion waltz
+  on the Reims canal), engine sounds that follow each boat, effects for every
+  item and event.
+- Options: music and effects volume, left-handed layout, auto-fire, reduced shake.
+
+Not done yet: cups and unlocks, the remaining tracks and their hazards, final
+art, online multiplayer. See the [roadmap](docs/roadmap.md).

@@ -3,6 +3,8 @@ import { ITEM_INFO, type ItemId } from '../data/items';
 import { FONT } from '../config';
 import { formatNumber, itemName, ordinal, t } from '../i18n';
 import type { RaceEvent } from '../race/types';
+import { audio } from '../audio/AudioManager';
+import { options } from '../options';
 import { addFullscreenButton } from '../view/fullscreen';
 import { button, fmtTime, text } from '../view/ui';
 import type { RaceScene } from './RaceScene';
@@ -72,8 +74,9 @@ export class HudScene extends Phaser.Scene {
     }
     this.children.bringToTop(this.map);
 
-    // Item buttons (tap = fire forward, swipe down = fire backward)
-    this.slotUi = SLOT_BTNS.map((b, k) => {
+    // Item buttons (tap = fire forward, swipe down = fire backward); mirrored for left-handed players.
+    const slotBtns = options.leftHanded ? SLOT_BTNS.map((b) => ({ ...b, x: 1280 - b.x })) : SLOT_BTNS;
+    this.slotUi = slotBtns.map((b, k) => {
       const ring = this.add.circle(b.x, b.y, b.r, 0x0b3a5b, 0.7).setStrokeStyle(6, 0xffffff, 0.9);
       const icon = this.add.image(b.x, b.y, 'icon_glue').setDisplaySize(76, 76).setVisible(false);
       const count = text(this, b.x + 38, b.y + 38, '', 26, '#ffe08a').setStroke(stroke, 5);
@@ -111,7 +114,7 @@ export class HudScene extends Phaser.Scene {
     this.input.keyboard?.on('keydown-ESC', () => this.togglePause());
 
     const fs = addFullscreenButton(this, PAUSE_BTN.x + 80, PAUSE_BTN.y);
-    race.pointer.hudZones = fs ? [...SLOT_BTNS, PAUSE_BTN, fs] : [...SLOT_BTNS, PAUSE_BTN];
+    race.pointer.hudZones = fs ? [...slotBtns, PAUSE_BTN, fs] : [...slotBtns, PAUSE_BTN];
 
     this.big = text(this, 640, 300, '', 160).setStroke(stroke, 16);
 
@@ -239,27 +242,34 @@ export class HudScene extends Phaser.Scene {
     if (this.race.sim.phase === 'over') return;
     this.paused = true;
     this.race.scene.pause();
+    audio.muteEngines(true);
+    audio.duckMusic(true);
     const shade = this.add.rectangle(640, 360, 1280, 720, 0x000000, 0.6).setInteractive();
-    const title = text(this, 640, 190, t('pause.title'), 80).setStroke('#0b3a5b', 10);
-    const resume = button(this, 640, 320, 360, 78, t('pause.resume'), () => this.resume(), { fill: 0x2d9d5a, textSize: 38 });
-    const restart = button(this, 640, 420, 360, 78, t('pause.restart'), () => {
+    const title = text(this, 640, 160, t('pause.title'), 80).setStroke('#0b3a5b', 10);
+    const resume = button(this, 640, 280, 360, 72, t('pause.resume'), () => this.resume(), { fill: 0x2d9d5a, textSize: 36 });
+    const opts = button(this, 640, 460, 360, 72, t('menu.options'), () => this.scene.launch('Options', { overlay: true }), { fill: 0x3d5266, textSize: 36 });
+    const restart = button(this, 640, 370, 360, 72, t('pause.restart'), () => {
       this.resume();
       this.race.scene.restart();
     }, { textSize: 38 });
-    const quit = button(this, 640, 520, 360, 78, t('pause.quit'), () => {
+    const quit = button(this, 640, 550, 360, 72, t('pause.quit'), () => {
       this.overlay?.destroy();
       this.paused = false;
+      audio.muteEngines(false);
       this.race.scene.stop();
       this.scene.stop();
       this.scene.start('BoatSelect');
-    }, { fill: 0x8a4a4a, textSize: 38 });
-    this.overlay = this.add.container(0, 0, [shade, title, resume, restart, quit]).setDepth(100);
+    }, { fill: 0x8a4a4a, textSize: 36 });
+    this.overlay = this.add.container(0, 0, [shade, title, resume, restart, opts, quit]).setDepth(100);
   }
 
   private resume(): void {
+    this.scene.stop('Options');
     this.overlay?.destroy();
     this.overlay = undefined;
     this.paused = false;
     this.race.scene.resume();
+    audio.muteEngines(false);
+    audio.duckMusic(false);
   }
 }

@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { DEBUG } from '../config';
 import { session } from '../session';
+import { audio } from '../audio/AudioManager';
 import { generateTextures } from '../view/textures';
 
 export class BootScene extends Phaser.Scene {
@@ -10,6 +11,7 @@ export class BootScene extends Phaser.Scene {
 
   create(): void {
     generateTextures(this);
+    audio.init(this.game);
     if (DEBUG.track) {
       if (DEBUG.boat) session.boatId = DEBUG.boat;
       session.trackId = DEBUG.track;

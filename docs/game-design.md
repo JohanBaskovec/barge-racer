@@ -158,11 +158,35 @@ No accounts, no server, no purchases.
 
 ## Audio
 
-- One music loop per track, plus menu and results themes.
-- Sound effects: engine (pitch follows speed, one sound per boat class), water
-  splash, bank scrape, crate pickup, item roulette, each item's use and hit
-  sound, volunteers shouting "Wheee!", sink *bloop*, countdown beeps, finish
-  horn.
+All sound is **synthesised in the browser** with the Web Audio API (`src/audio/`):
+no audio files to download or license, and engines can follow the boat exactly.
+
+- **Music**: a small step sequencer plays loops written as text in
+  `src/audio/music.ts`. Menu theme (calm, C major), race theme (Lock & Load),
+  the same tune lower with a heavier beat (Industrial Estuary), a swampy blues
+  (Bayou Bends) and a **musette waltz on the accordion** for the Canal de Reims.
+  The results screen plays a win or lose jingle, then the menu theme.
+- **Engines**: one voice per boat, its pitch and loudness following speed and
+  throttle. A chugging diesel for the barges, tug, canal boat and fire boat, an
+  outboard buzz for the speedboat and the pontoon, a fan whine for the hovercraft.
+  Opponents' engines fade with distance and are panned left or right.
+- **Effects** (`src/audio/sfx.ts`): countdown beeps and GO, crate crack, roulette
+  ticks and ding, "wheee!" for volunteers, jigsaw buzz (a loop while it runs),
+  white-powder whoosh, drill whine, glue squelch, silicone squirt, fake-crate
+  drop and its "boing" trap, beer pop and fizz, mushroom chord, hits, bank
+  scrapes, bumps, splashes, sinking bloop and bubbles, respawn, lap chime,
+  final-lap fanfare, a ship's horn at the finish, UI clicks.
+- Effects away from the camera are quieter and panned. Pausing silences engines
+  and lowers the music. A compressor on the output keeps loud moments from
+  clipping. Phaser unlocks audio on the first tap and suspends it when the tab is
+  hidden.
+
+## Options
+
+Options screen (from the title screen or the pause menu), saved in the browser:
+music and sound-effects volume, **left-handed** layout (item buttons on the
+left), **auto-fire** (items are fired when the AI would fire them) and **reduce
+screen shake** (also turns off hit pauses). There is no steering assist.
 
 ## Tone and content
 

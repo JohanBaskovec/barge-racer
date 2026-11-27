@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { boatName, ordinal, t, trackName } from '../i18n';
+import { audio } from '../audio/AudioManager';
 import type { Selection } from '../session';
 import { background, button, fitText, fmtTime, text } from '../view/ui';
 
@@ -20,6 +21,9 @@ export class ResultsScene extends Phaser.Scene {
   create(data: { rows: ResultRow[]; trackId: string; selection: Selection }): void {
     background(this);
     const pos = data.rows.findIndex((r) => r.isPlayer);
+    audio.playMusic(null);
+    audio.play(pos === 0 ? 'win' : 'lose');
+    this.time.delayedCall(2200, () => audio.playMusic('menu'));
     fitText(text(this, 640, 70, pos === 0 ? t('results.won') : t('results.finished', { place: ordinal(pos + 1) }), 64, pos === 0 ? '#ffe08a' : '#ffffff'), 1150).setStroke('#0b3a5b', 10);
     text(this, 640, 130, trackName(data.trackId), 28, '#bfe1f7', false);
 

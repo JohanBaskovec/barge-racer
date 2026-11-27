@@ -1,7 +1,11 @@
 import Phaser from 'phaser';
-import { clamp } from '../physics/math';
+import { clamp, Rng } from '../physics/math';
 import { speedOf } from '../physics/BoatPhysics';
 import type { Controller, ControlIntent, FireCommand, Racer } from '../race/types';
+import type { RaceSimulation } from '../race/RaceSimulation';
+import { DIFFICULTIES } from '../data/difficulty';
+import { options } from '../options';
+import { AIController } from './AIController';
 
 export const STEER = { deadZone: 40, fullThrottle: 180 };
 
@@ -20,6 +24,8 @@ export class PointerController implements Controller {
   private steerId: number | null = null;
   private pendingFire: FireCommand | null = null;
   hudZones: HudZone[] = [];
+  /** Auto-fire option: the AI's own judgement of when an item is worth firing. */
+  private advisor = new AIController(new Rng(97), DIFFICULTIES.river, 0);
 
   constructor(
     private scene: Phaser.Scene,
@@ -74,8 +80,9 @@ export class PointerController implements Controller {
     this.steerId = null;
   }
 
-  update(r: Racer): ControlIntent {
-    const intent: ControlIntent = { desiredHeading: null, throttle: 0, fire: this.pendingFire };
+  update(r: Racer, sim: RaceSimulation, dt: number): ControlIntent {
+    const advice = options.autoFire ? this.advisor.decideFire(r, sim, dt, speedOf(r)) : null;
+    const intent: ControlIntent = { desiredHeading: null, throttle: 0, fire: this.pendingFire ?? advice };
     this.pendingFire = null;
     if (this.steerId === null) return intent;
     const p = this.scene.input.manager.pointers.find((q) => q.id === this.steerId);

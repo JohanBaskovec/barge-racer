@@ -69,6 +69,8 @@ export interface Racer {
   firstFullThrottleT: number | null;
   bankHitCooldown: number;
   stuckTimer: number;
+  /** Last throttle asked for (0..1, negative = reverse). For the view: engine sound. */
+  throttle: number;
 }
 
 export interface Volunteer {
@@ -144,6 +146,7 @@ export type RaceEvent =
   | { type: 'itemPickup'; racer: number; item: ItemId }
   | { type: 'itemUsed'; racer: number; item: ItemId }
   | { type: 'heal'; racer: number; amount: number }
+  | { type: 'boost'; racer: number }
   | { type: 'hit'; racer: number; by: number | null; source: ItemId | 'bank'; damage: number }
   | { type: 'sunk'; racer: number }
   | { type: 'respawn'; racer: number }

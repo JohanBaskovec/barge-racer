@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { BOATS, deriveStats } from '../data/boats';
 import { boatDesc, boatName, t, type TranslationKey } from '../i18n';
 import { saveSession, session } from '../session';
+import { audio } from '../audio/AudioManager';
 import { createBoatSprite } from '../view/boatSprite';
 import { background, button, fitText, text } from '../view/ui';
 
@@ -24,6 +25,7 @@ export class BoatSelectScene extends Phaser.Scene {
   create(): void {
     this.index = Math.max(0, BOATS.findIndex((b) => b.id === session.boatId));
     background(this);
+    audio.playMusic('menu');
     fitText(text(this, 640, 60, t('boatSelect.title'), 52), 1000).setStroke('#0b3a5b', 8);
     this.dyn = this.add.container(0, 0);
     button(this, 75, 340, 100, 120, '‹', () => this.step(-1), { textSize: 80 });

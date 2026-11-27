@@ -9,6 +9,15 @@ export const fr: Record<TranslationKey, string> = {
   'title.hint': "Maintenez pour diriger · touchez un bouton d'objet pour tirer (souris : clic droit et clic molette)",
 
   'common.back': 'Retour',
+  'menu.options': 'Options',
+  'options.title': 'Options',
+  'options.music': 'Musique',
+  'options.sfx': 'Effets sonores',
+  'options.leftHanded': "Gaucher (boutons d'objets à gauche)",
+  'options.autoFire': 'Tir automatique des objets',
+  'options.reducedShake': "Réduire les secousses de l'écran",
+  'options.on': 'Oui',
+  'options.off': 'Non',
 
   'boatSelect.title': 'Choisissez votre bateau',
   'boatSelect.next': 'Suivant ▸',

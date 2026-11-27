@@ -121,6 +121,20 @@ export function generateTextures(scene: Phaser.Scene): void {
     g.fillStyle(0xfff6b8).fillCircle(11, 11, 5);
     g.fillStyle(0xffffff, 0.8).fillCircle(9, 9, 2);
   });
+  gen(scene, 'droplet', 10, 10, (g) => {
+    g.fillStyle(0xffffff, 1).fillCircle(5, 5, 4);
+  });
+  gen(scene, 'ring', 96, 96, (g) => {
+    g.lineStyle(4, 0xffffff, 0.9).strokeCircle(48, 48, 44);
+    g.lineStyle(2, 0xffffff, 0.4).strokeCircle(48, 48, 38);
+  });
+  gen(scene, 'splinter', 12, 5, (g) => {
+    g.fillStyle(0xffffff, 1).fillRect(0, 0, 12, 5);
+  });
+  gen(scene, 'bubble', 16, 16, (g) => {
+    g.lineStyle(2, 0xffffff, 0.9).strokeCircle(8, 8, 6);
+    g.fillStyle(0xffffff, 0.8).fillCircle(6, 6, 1.5);
+  });
   gen(scene, 'wake', 24, 24, (g) => {
     g.fillStyle(0xffffff, 1).fillCircle(12, 12, 10);
   });

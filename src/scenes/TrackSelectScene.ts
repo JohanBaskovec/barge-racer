@@ -3,11 +3,12 @@ import { DIFFICULTIES, type Difficulty } from '../data/difficulty';
 import { difficultyName, formatNumber, t, trackDesc, trackName } from '../i18n';
 import { TRACK_DEFS, loadTrack } from '../data/tracks';
 import { saveSession, session } from '../session';
-import { background, button, fitText, text } from '../view/ui';
+import { audio } from '../audio/AudioManager';
+import { background, button, fitText, setSelected, text } from '../view/ui';
 
 export class TrackSelectScene extends Phaser.Scene {
   private cards: { id: string; frame: Phaser.GameObjects.Rectangle }[] = [];
-  private diffButtons: { id: Difficulty; bg: Phaser.GameObjects.Rectangle }[] = [];
+  private diffButtons: { id: Difficulty; b: Phaser.GameObjects.Container }[] = [];
   private credit!: Phaser.GameObjects.Text;
 
   constructor() {
@@ -18,6 +19,7 @@ export class TrackSelectScene extends Phaser.Scene {
     this.cards = [];
     this.diffButtons = [];
     background(this);
+    audio.playMusic('menu');
     fitText(text(this, 640, 56, t('trackSelect.title'), 52), 1000).setStroke('#0b3a5b', 8);
 
     TRACK_DEFS.forEach((def, i) => {
@@ -39,7 +41,7 @@ export class TrackSelectScene extends Phaser.Scene {
     fitText(text(this, 250, 568, t('trackSelect.opponents'), 26, '#bfe1f7', false), 200);
     (Object.keys(DIFFICULTIES) as Difficulty[]).forEach((id, i) => {
       const b = button(this, 470 + i * 190, 568, 170, 54, difficultyName(id), () => this.pickDiff(id), { textSize: 26 });
-      this.diffButtons.push({ id, bg: b.list[0] as Phaser.GameObjects.Rectangle });
+      this.diffButtons.push({ id, b });
     });
 
     button(this, 150, 660, 200, 64, t('common.back'), () => this.scene.start('BoatSelect'), { fill: 0x555f6b, textSize: 28 });
@@ -62,7 +64,7 @@ export class TrackSelectScene extends Phaser.Scene {
 
   private pickDiff(id: Difficulty): void {
     session.difficulty = id;
-    for (const d of this.diffButtons) d.bg.setStrokeStyle(d.id === id ? 8 : 4, d.id === id ? 0xffe08a : 0xffffff, 0.95);
+    for (const d of this.diffButtons) setSelected(d.b, d.id === id);
   }
 
   private drawPreview(id: string, cx: number, cy: number): void {

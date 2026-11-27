@@ -13,6 +13,10 @@ import type { Selection } from '../session';
 import { BoatView } from '../view/BoatView';
 import { MapRenderer, type SceneryData } from '../view/MapRenderer';
 import { TrackRenderer } from '../view/TrackRenderer';
+import { options } from '../options';
+import { Fx } from '../view/fx';
+import { RaceAudio } from '../view/raceAudio';
+import { audio } from '../audio/AudioManager';
 
 type Sprite = Phaser.GameObjects.Image;
 
@@ -34,6 +38,10 @@ export class RaceScene extends Phaser.Scene {
   private tripT = 0;
   private tripFx: { colors: Phaser.FX.ColorMatrix; barrel: Phaser.FX.Barrel } | null = null;
   private sparks!: Phaser.GameObjects.Particles.ParticleEmitter;
+  private fx!: Fx;
+  private raceAudio!: RaceAudio;
+  /** Hit pause: the simulation holds still for this long after a big hit involving the player. */
+  private freeze = 0;
   private camX = 0;
   private camY = 0;
   private over = false;
@@ -58,6 +66,7 @@ export class RaceScene extends Phaser.Scene {
     this.trip = 0;
     this.tripT = 0;
     this.tripFx = null;
+    this.freeze = 0;
   }
 
   /** Real-world tracks keep their scenery in a separate file, loaded only when that track is raced. */
@@ -93,6 +102,11 @@ export class RaceScene extends Phaser.Scene {
 
     for (const c of this.sim.items.crates) this.crateSprites.set(c.id, this.makeCrateSprite(c.x, c.y));
     for (const r of this.sim.racers) this.views.push(new BoatView(this, r, wake));
+    this.fx = new Fx(this);
+    this.raceAudio = new RaceAudio(this, this.sim);
+    audio.muteEngines(false);
+    audio.duckMusic(false);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.raceAudio.destroy());
 
     const cam = this.cameras.main;
     if (!track.def.scenery) cam.setBackgroundColor(track.def.colors.land);
@@ -129,7 +143,8 @@ export class RaceScene extends Phaser.Scene {
   update(time: number): void {
     // Raw frame time: Phaser's smoothed `delta` would slow the simulation down at low frame rates.
     const dt = Math.min(this.game.loop.rawDelta / 1000, 0.25);
-    this.accumulator += dt;
+    if (this.freeze > 0) this.freeze -= dt; // hit pause: time stands still for a moment
+    else this.accumulator += dt;
     while (this.accumulator >= STEP && this.sim.phase !== 'over') {
       for (const v of this.views) v.snapshot();
       this.sim.step(STEP);
@@ -140,6 +155,7 @@ export class RaceScene extends Phaser.Scene {
     this.syncEntities(time);
     this.trackView.update(time);
     this.updateTrip(time, dt);
+    this.raceAudio.update(dt);
     this.updateCamera(dt, time);
     for (const e of this.sim.takeEvents()) this.handleEvent(e);
     if (this.fpsText) this.fpsText.setText(`${this.game.loop.actualFps.toFixed(0)} fps`);
@@ -168,18 +184,31 @@ export class RaceScene extends Phaser.Scene {
     }
     this.syncGroup(this.volSprites, items.volunteers, (v) => this.add.image(v.x, v.y, 'volunteer').setDepth(14), (s, v) => {
       s.setPosition(v.x, v.y).setRotation(v.heading + Math.sin(v.age * 24) * 0.35);
-    }, (s) => this.retire(s, 'wave'));
+    }, (s) => {
+      // A volunteer lands in the water (after a hit or a miss).
+      this.fx.splash(s.x, s.y, 0.7);
+      this.raceAudio.at('splash', s.x, s.y, 0.6);
+      this.retire(s, 'wave');
+    });
     this.syncGroup(this.drillSprites, items.drills, (d) => this.add.image(d.x, d.y, 'drill').setDepth(14), (s, d) => {
       s.setPosition(d.x, d.y).setRotation(d.heading);
     }, (s) => this.retire(s, 'fade'));
     // Fake crates are drawn exactly like real ones (same sprite, same bobbing).
     this.syncGroup(this.fakeSprites, items.fakeCrates, (f) => this.makeCrateSprite(f.x, f.y), (s, f) => {
       s.setPosition(f.x, f.y).setRotation(Math.sin(time / 500 + f.id) * 0.12);
-    }, (s) => this.retire(s, 'fade'));
+    }, (s) => {
+      this.fx.crate(s.x, s.y);
+      this.retire(s, 'fade');
+    });
     this.syncGroup(this.blobSprites, items.blobs, (b) => this.add.image(b.x, b.y, 'blob').setDepth(14), (s, b) => {
       s.setPosition(b.x, b.y).setRotation(b.heading).setScale(1 + Math.sin(b.age * 30) * 0.08);
     }, (s) => this.retire(s, 'fade'));
-    this.syncGroup(this.puddleSprites, items.puddles, (p) => this.add.image(p.x, p.y, 'glue').setDepth(4), (s, p) => {
+    this.syncGroup(this.puddleSprites, items.puddles, (p) => {
+      // Glue lands: from the glue item or a silicone gun shot.
+      this.fx.glue(p.x, p.y);
+      this.raceAudio.at('glue', p.x, p.y);
+      return this.add.image(p.x, p.y, 'glue').setDepth(4);
+    }, (s, p) => {
       const grow = Math.min(1, p.age / 0.3);
       s.setPosition(p.x, p.y).setDisplaySize(120 * grow, 120 * grow).setAlpha(p.age > 12 ? (15 - p.age) / 3 : 1);
     }, (s) => this.retire(s, 'fade'));
@@ -214,30 +243,55 @@ export class RaceScene extends Phaser.Scene {
 
   private handleEvent(e: RaceEvent): void {
     this.events.emit('race-event', e);
+    this.raceAudio.onEvent(e);
     const player = this.sim.player!;
     switch (e.type) {
       case 'hit': {
         const r = this.sim.racers[e.racer];
         this.sparks.setParticleTint(e.source === 'bank' ? 0xcccccc : 0xfff2a0);
         this.sparks.emitParticleAt(r.x, r.y, 14);
+        if (e.source !== 'bank') this.fx.splash(r.x, r.y, 0.8);
         if (e.racer === player.id && !this.reduceShake()) this.cameras.main.shake(220, 0.007);
+        // A short hit pause when the player is hit by an item, or lands a hit.
+        if (e.source !== 'bank' && (e.racer === player.id || e.by === player.id) && !this.reduceShake()) this.freeze = 0.07;
         break;
       }
       case 'sunk': {
         const r = this.sim.racers[e.racer];
         this.sparks.setParticleTint(0x9fd8ff);
         this.sparks.emitParticleAt(r.x, r.y, 24);
+        this.fx.sink(r.x, r.y);
+        if (e.racer === player.id && !this.reduceShake()) this.freeze = 0.12;
+        break;
+      }
+      case 'respawn': {
+        const r = this.sim.racers[e.racer];
+        this.fx.splash(r.x, r.y, 1.2);
         break;
       }
       case 'heal': {
         const r = this.sim.racers[e.racer];
         this.sparks.setParticleTint(0x7dff8a);
         this.sparks.emitParticleAt(r.x, r.y, 18);
+        this.fx.heal(r.x, r.y);
         break;
       }
-      case 'itemUsed':
-        if (e.racer === player.id && e.item === 'mushroom') this.tripT = TUNING.mushroom.duration;
+      case 'crate': {
+        const c = this.sim.items.crates.find((k) => k.id === e.id);
+        if (c && e.taken) this.fx.crate(c.x, c.y);
         break;
+      }
+      case 'boost': {
+        const r = this.sim.racers[e.racer];
+        this.fx.puff(r.x - Math.cos(r.heading) * r.boat.size.length * 0.5, r.y - Math.sin(r.heading) * r.boat.size.length * 0.5);
+        break;
+      }
+      case 'itemUsed': {
+        const r = this.sim.racers[e.racer];
+        if (e.racer === player.id && e.item === 'mushroom') this.tripT = TUNING.mushroom.duration;
+        if (e.item === 'whitePowder' || e.item === 'bigBag') this.fx.puff(r.x - Math.cos(r.heading) * r.boat.size.length * 0.5, r.y - Math.sin(r.heading) * r.boat.size.length * 0.5);
+        break;
+      }
       case 'bump': {
         const a = this.sim.racers[e.a];
         this.sparks.setParticleTint(0xffffff);
@@ -282,7 +336,7 @@ export class RaceScene extends Phaser.Scene {
   }
 
   private reduceShake(): boolean {
-    return false;
+    return options.reducedShake;
   }
 
   private finish(): void {
