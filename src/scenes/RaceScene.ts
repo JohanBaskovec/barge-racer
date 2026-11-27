@@ -18,6 +18,7 @@ import { BoatView } from '../view/BoatView';
 import { MapRenderer, type SceneryData } from '../view/MapRenderer';
 import { generateScenery } from '../view/sceneryGen';
 import { TrafficView } from '../view/trafficView';
+import { StreetLife } from '../view/streetLife';
 import { WORLD_ART_SCALE } from '../view/textures';
 import { options } from '../options';
 import { hasEffect } from '../effects/effects';
@@ -45,6 +46,8 @@ export class RaceScene extends Phaser.Scene {
   private dropSprites = new Map<number, Sprite>();
   /** The barges (the HUD's minimap reads their positions). */
   trafficView: TrafficView | null = null;
+  /** Cars and people round the camera: decoration only. */
+  streetLife: StreetLife | null = null;
   /** 0..1: how psychedelic the screen is (mushrooms). The HUD reads this for its colour wash. */
   trip = 0;
   private tripT = 0;
@@ -89,6 +92,7 @@ export class RaceScene extends Phaser.Scene {
     this.cloudSprites.clear();
     this.dropSprites.clear();
     this.trafficView = null;
+    this.streetLife = null;
     this.trip = 0;
     this.tripT = 0;
     this.tripFx = null;
@@ -152,7 +156,9 @@ export class RaceScene extends Phaser.Scene {
     }
 
     // Real-world tracks bring their scenery in a file; the invented ones have theirs generated.
-    this.trackView = new MapRenderer(this, track, track.def.scenery ? (this.cache.json.get(track.def.scenery) as SceneryData) : generateScenery(track));
+    const scenery = track.def.scenery ? (this.cache.json.get(track.def.scenery) as SceneryData) : generateScenery(track);
+    this.trackView = new MapRenderer(this, track, scenery);
+    this.streetLife = new StreetLife(this, track, scenery);
     const wake = this.add.particles(0, 0, 'wake', {
       lifespan: 900, speed: 0, scale: { start: 0.3, end: 1.3 }, alpha: { start: 0.4, end: 0 }, emitting: false,
     }).setDepth(5);
@@ -225,6 +231,7 @@ export class RaceScene extends Phaser.Scene {
     this.trafficView?.update(trafficT, dt, followed ? { x: followed.x, y: followed.y } : null);
     this.syncEntities(time, dt);
     this.trackView.update(time);
+    this.streetLife?.update(Math.min(dt, 0.1));
     this.updateTrip(time, dt);
     this.raceAudio.update(dt);
     this.updateCamera(dt, time);

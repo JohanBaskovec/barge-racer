@@ -4,6 +4,7 @@ import { generateItemIcons } from './itemIcons';
 import { BOAT_ART_PAD, drawBoatArt, hasBoatArt } from './boatArt';
 import { drawPeniche, drawPenicheAccent } from './peniche';
 import { drawBarge } from './bargeArt';
+import { CAR, CAR_COLORS, SHIRTS, STREET_ART_SCALE, drawAngler, drawCar, drawCyclist, drawDog, drawWalker } from './streetArt';
 import { TUNING } from '../data/items';
 import { drawCheesePuddle, drawCheeseScreen, drawCrate, drawDrill, drawGlueBlob, drawGluePuddle, drawHam, drawPotato, drawSaw, drawToxicSmoke, drawVolunteer, drawWaterTile } from './worldArt';
 
@@ -85,6 +86,14 @@ export function generateTextures(scene: Phaser.Scene): void {
   const T = TUNING.traffic;
   for (let k = 0; k < 3; k++) world(`barge_${k}`, T.length + 4, T.width + 4, (c) => (c.translate(2, 2), drawBarge(c, k, T.length, T.width)), 2.5);
   world('water', 256, 256, drawWaterTile, 1);
+  // Street life (streetLife.ts): small and seen close up, so drawn at STREET_ART_SCALE.
+  CAR_COLORS.forEach((col, i) => {
+    for (let k = 0; k < 3; k++) world(`car_${k * CAR_COLORS.length + i}`, CAR.length + 4, CAR.width + 4, (c) => drawCar(c, col, k), STREET_ART_SCALE);
+  });
+  SHIRTS.forEach((col, i) => world(`walker_${i}`, 10, 10, (c) => drawWalker(c, col, i), STREET_ART_SCALE));
+  for (let i = 0; i < 4; i++) world(`cyclist_${i}`, 22, 10, (c) => drawCyclist(c, SHIRTS[(i * 3 + 1) % SHIRTS.length]), STREET_ART_SCALE);
+  for (let i = 0; i < 3; i++) world(`angler_${i}`, 40, 14, (c) => drawAngler(c, SHIRTS[(i * 4 + 6) % SHIRTS.length]), STREET_ART_SCALE);
+  world('dog', 10, 6, drawDog, STREET_ART_SCALE);
   // A tree crown seen from above, in greys so a tint colours it: darker rim, lighter top-left.
   gen(scene, 'crown', 64, 64, (g) => {
     g.fillStyle(0xbcbcbc, 1).fillCircle(32, 32, 30);

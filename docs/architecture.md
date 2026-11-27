@@ -78,6 +78,7 @@ barge-racer/
 │   │   └── Effects.ts        # timed modifiers on a boat (boost, sticky, spin-out, invulnerable)
 │   ├── view/
 │   │   ├── BoatView.ts       # sprite, wake, damage overlays
+│   │   ├── streetLife.ts     # decorative cars and people round the camera
 │   │   ├── CameraController.ts
 │   │   └── Minimap.ts
 │   ├── audio/

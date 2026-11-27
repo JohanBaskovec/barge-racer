@@ -177,6 +177,16 @@ sees is drawn, in tiles.
 - Wakes: each boat leaves a fading wake trail of particles.
 - Things on the water (crates, volunteers, the drill, glue, the saw) are drawn in
   `src/view/worldArt.ts`, also with the 2D canvas.
+- **Street life**, decoration only (`src/view/streetLife.ts`, drawings in
+  `src/view/streetArt.ts`): cars drive on the right along the roads (faster on
+  motorways), carry on at junctions or turn round at dead ends, brake behind each
+  other and cross the bridges above the deck. People walk the towpaths (some with a
+  dog), the pavements and the footpaths, never a motorway, a railway or a roof;
+  joggers and cyclists go faster along the towpaths; anglers sit on the quays with
+  their rods over the water. About seventy of them live in a ring round the camera:
+  one that drifts too far away is put back somewhere just out of sight. Each screen
+  animates its own with plain random numbers: nothing is simulated or sent online,
+  and none of it gets in the boats' way.
 
 ## Making a new track
 
