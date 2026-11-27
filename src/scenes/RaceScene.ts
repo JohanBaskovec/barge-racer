@@ -58,11 +58,14 @@ export class RaceScene extends Phaser.Scene {
 
   /** Online race: the server runs it; this screen predicts your boat and shows the others. */
   online: OnlineRace | null = null;
+  /** Online, joined during the race: no boat of your own; the camera follows `sim.player`, which a tap changes. */
+  spectating = false;
   private onlineStart: Extract<ServerMsg, { t: 'start' }> | null = null;
 
   init(data: Selection & { online?: Extract<ServerMsg, { t: 'start' }> }): void {
     this.onlineStart = data.online ?? null;
     this.online = null;
+    this.spectating = false;
     this.selection = data.online ? { ...session, trackId: data.online.settings.trackId, difficulty: data.online.settings.difficulty } : data;
     this.views = [];
     this.accumulator = 0;
@@ -93,18 +96,36 @@ export class RaceScene extends Phaser.Scene {
     const start = this.onlineStart;
     if (start) {
       // Online: a local copy of the server's race, kept in step by snapshots (never simulated here).
+      const mine = start.roster.findIndex((e) => e.playerId === net.you);
+      this.spectating = mine < 0;
       this.sim = new RaceSimulation({
         track,
         difficulty: start.settings.difficulty,
         seed: start.seed,
         roster: start.roster.map((e) => ({ name: e.name, boatId: e.boatId, human: e.human })),
-        localRacer: Math.max(0, start.roster.findIndex((e) => e.playerId === net.you)),
+        localRacer: mine, // -1 when watching: then sim.player is just the boat being watched
       });
-      const online = new OnlineRace(this.sim, this.sim.player!);
+      const online = new OnlineRace(this.sim, this.spectating ? null : this.sim.player!);
       this.online = online;
+      online.onCorrection = (dx, dy, dh) => this.views[this.sim.player!.id]?.correct(dx, dy, dh);
       net.on(this, 'snap', (m) => online.onSnap(m, performance.now()));
       net.on(this, 'results', (m) => this.finishOnline(m));
       net.on(this, 'closed', () => this.scene.start('Online', { error: t('online.lost') }));
+      // Back after losing the connection: the same race carries on; a different one starts afresh.
+      net.on(this, 'start', (m) => {
+        if (m.seed === start.seed) online.resume();
+        else this.scene.start('Race', { online: m });
+      });
+      // The race ended while the connection was down (we missed the results): back to the room.
+      net.on(this, 'lobby', (m) => {
+        if (!m.racing && !this.over) this.scene.start('Lobby');
+      });
+      if (this.spectating) {
+        // Tap to watch the next boat.
+        this.input.on('pointerdown', (p: Phaser.Input.Pointer) => {
+          if (p.leftButtonDown() || p.wasTouch) this.watchNext();
+        });
+      }
     } else {
       this.sim = new RaceSimulation({
         track,
@@ -195,15 +216,26 @@ export class RaceScene extends Phaser.Scene {
   private stepOnline(dt: number): void {
     const online = this.online!;
     const me = this.sim.player!;
-    const myView = this.views[me.id];
+    const myView = this.spectating ? null : this.views[me.id];
     this.accumulator += dt;
     while (this.accumulator >= STEP) {
-      myView.snapshot();
-      online.local(this.pointer.update(me, this.sim, STEP));
+      if (myView) {
+        myView.snapshot();
+        online.local(this.pointer.update(me, this.sim, STEP));
+      }
       this.accumulator -= STEP;
     }
     for (const v of this.views) if (v !== myView) v.snapshot();
     online.render(performance.now());
+  }
+
+  /** Watching: follow the next boat (the HUD and the sounds follow it too). */
+  private watchNext(): void {
+    const sim = this.sim;
+    sim.player = sim.racers[((sim.player?.id ?? -1) + 1) % sim.racers.length];
+    const v = this.views[sim.player.id];
+    this.camX = v.x;
+    this.camY = v.y;
   }
 
   /** Online results arrive from the server. */

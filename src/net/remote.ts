@@ -13,6 +13,12 @@ export class RemoteController implements Controller {
   private last: ControlIntent = { desiredHeading: null, throttle: 0, fire: null };
   private lastQueued = -1;
   ack = -1;
+  /** Steps in a row with no controls to use (the connection stalled, or the game is in the background). */
+  starved = 0;
+
+  get hasInput(): boolean {
+    return this.queue.length > 0;
+  }
 
   push(inputs: InputTuple[]): void {
     for (const [step, heading, throttle, slot, back] of inputs) {
@@ -28,7 +34,11 @@ export class RemoteController implements Controller {
 
   update(): ControlIntent {
     const next = this.queue.shift();
-    if (!next) return { ...this.last, fire: null };
+    if (!next) {
+      this.starved++;
+      return { ...this.last, fire: null };
+    }
+    this.starved = 0;
     this.ack = next.step;
     this.last = next.intent;
     return next.intent;

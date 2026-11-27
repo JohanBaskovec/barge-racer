@@ -40,6 +40,22 @@ export class BoatView {
   }
 
   /** Call right before each simulation step. */
+  /** Drawn this far from the boat's real position, fading out: a smoothed-out online correction. */
+  private err = { x: 0, y: 0, h: 0 };
+
+  /**
+   * The boat was moved by (-dx, -dy, -dh) between frames (an online correction). Keep drawing it
+   * where it was and glide to the corrected place over about a fifth of a second.
+   */
+  correct(dx: number, dy: number, dh: number): void {
+    this.prev.x -= dx;
+    this.prev.y -= dy;
+    this.prev.h -= dh;
+    this.err.x += dx;
+    this.err.y += dy;
+    this.err.h += dh;
+  }
+
   snapshot(): void {
     this.prev = { x: this.r.x, y: this.r.y, h: this.r.heading };
   }
@@ -49,6 +65,16 @@ export class BoatView {
     this.x = this.prev.x + (r.x - this.prev.x) * alpha;
     this.y = this.prev.y + (r.y - this.prev.y) * alpha;
     this.heading = this.prev.h + angleDiff(r.heading, this.prev.h) * alpha;
+    if (this.err.x || this.err.y || this.err.h) {
+      this.x += this.err.x;
+      this.y += this.err.y;
+      this.heading += this.err.h;
+      const k = Math.exp(-dt * 12);
+      this.err.x *= k;
+      this.err.y *= k;
+      this.err.h *= k;
+      if (Math.abs(this.err.x) + Math.abs(this.err.y) < 0.05 && Math.abs(this.err.h) < 0.001) this.err = { x: 0, y: 0, h: 0 };
+    }
     const sinking = r.sinkTimer > 0;
     const c = this.container;
     c.setPosition(this.x, this.y);

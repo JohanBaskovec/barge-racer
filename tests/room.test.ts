@@ -39,7 +39,9 @@ describe('lobby', () => {
     const { r } = room();
     const cs = ['a', 'b', 'c', 'd', 'e'].map(client);
     for (const c of cs) r.message(c.conn, JSON.stringify({ t: 'join', name: c.conn.id, boatId: 'tugboat' }));
-    expect(cs[0].last('welcome')).toEqual({ t: 'welcome', you: 'a', code: 'ABCD' });
+    expect(cs[0].last('welcome')).toMatchObject({ t: 'welcome', you: 'a', code: 'ABCD' });
+    expect(cs[0].last('welcome')!.key).toMatch(/^[0-9a-f]{32}$/);
+    expect(cs[0].last('welcome')!.key).not.toBe(cs[1].last('welcome')!.key);
     const lobby = cs[0].last('lobby')!;
     expect(lobby.players.map((p) => p.id)).toEqual(['a', 'b', 'c', 'd']);
     expect(lobby.players[0].host).toBe(true);
@@ -68,7 +70,7 @@ describe('lobby', () => {
     expect(start.roster.slice(2).every((e) => !e.human && e.playerId === null)).toBe(true);
   });
 
-  it('ignores garbage and refuses to join a race in progress', () => {
+  it('ignores garbage; someone joining during a race watches it, then races in the next one', () => {
     const { r } = room();
     const a = client('a');
     r.message(a.conn, 'not json');
@@ -78,7 +80,13 @@ describe('lobby', () => {
     r.message(a.conn, JSON.stringify({ t: 'start' }));
     const late = client('late');
     r.message(late.conn, JSON.stringify({ t: 'join', name: 'L', boatId: 'tugboat' }));
-    expect(late.last('error')).toEqual({ t: 'error', reason: 'racing' });
+    expect(late.last('error')).toBeUndefined();
+    expect(late.last('start')!.roster.some((e) => e.playerId === 'late')).toBe(false); // watching: how the race started
+    expect(late.last('lobby')!.players[1]).toMatchObject({ id: 'late', watching: true });
+    r.tick();
+    expect(late.last('snap')!.ack).toBe(-1);
+    r.message(late.conn, JSON.stringify({ t: 'in', i: [[1, 0, 1, 0, 0]] })); // a watcher has no boat to drive
+    expect(r.sim!.racers.filter((x) => x.human)).toHaveLength(1);
   });
 });
 
@@ -165,3 +173,102 @@ describe('race', () => {
     expect(mirror.player!.name).toBe('A');
   });
 });
+
+describe('connection trouble', () => {
+  /** A started race with A (host) and B, both sending controls each tick through `drive`. */
+  function twoPlayerRace() {
+    const t = room();
+    const a = client('a');
+    const b = client('b');
+    t.r.message(a.conn, JSON.stringify({ t: 'join', name: 'A', boatId: 'cigaretteSpeedboat' }));
+    t.r.message(b.conn, JSON.stringify({ t: 'join', name: 'B', boatId: 'narrowboat' }));
+    t.r.message(b.conn, JSON.stringify({ t: 'ready', ready: true }));
+    t.r.message(a.conn, JSON.stringify({ t: 'start' }));
+    const step: Record<string, number> = {};
+    const drive = (ticks: number, who: { conn: { id: string; send(d: string): void } }[]) => {
+      for (let k = 0; k < ticks; k++) {
+        for (const c of who) {
+          const inputs: InputTuple[] = [];
+          for (let i = 0; i < 3; i++) inputs.push([(step[c.conn.id] = (step[c.conn.id] ?? 0) + 1), 0, 1, -1, 0]);
+          t.r.message(c.conn, JSON.stringify({ t: 'in', i: inputs }));
+        }
+        t.advance(TICK_MS);
+        t.r.tick();
+      }
+    };
+    return { ...t, a, b, drive };
+  }
+
+  it('keeps the seat of someone who lost the connection, and gives it back when they rejoin with their key', () => {
+    const { r, a, b, drive } = twoPlayerRace();
+    const key = b.last('welcome')!.key;
+    drive(100, [a, b]);
+    r.disconnect(b.conn);
+    expect(r.sim!.racers[1].human).toBe(false); // the AI drives B's boat
+    expect(a.last('lobby')!.players[1]).toMatchObject({ id: 'b', away: true });
+    expect(r.playerCount).toBe(2);
+    drive(40, [a]);
+
+    const b2 = client('b2');
+    r.message(b2.conn, JSON.stringify({ t: 'join', name: 'B', boatId: 'narrowboat', key }));
+    expect(b2.last('welcome')).toMatchObject({ you: 'b', key }); // same player as before
+    expect(b2.last('start')!.roster[1].playerId).toBe('b'); // how the race started, to rebuild it
+    expect(r.sim!.racers[1].human).toBe(true);
+    drive(10, [a, b2]);
+    expect(b2.last('snap')!.ack).toBeGreaterThan(0); // B's new controls are being used
+    expect(a.last('lobby')!.players[1].away).toBeUndefined();
+  });
+
+  it('a reconnection that arrives before the old connection is noticed as dead replaces it', () => {
+    const { r, a, b, drive } = twoPlayerRace();
+    let closed = false;
+    const old = { ...b.conn, close: () => (closed = true) };
+    // Re-register B's connection with a close() (the fake in client() has none).
+    r.disconnect(b.conn);
+    r.message(old, JSON.stringify({ t: 'join', name: 'B', boatId: 'narrowboat', key: b.last('welcome')!.key }));
+    const b2 = client('b2');
+    r.message(b2.conn, JSON.stringify({ t: 'join', name: 'B', boatId: 'narrowboat', key: b.last('welcome')!.key }));
+    expect(closed).toBe(true);
+    r.disconnect(old); // the old socket finally closes: nothing happens
+    expect(r.sim!.racers[1].human).toBe(true);
+    drive(5, [a, b2]);
+    expect(b2.last('snap')).toBeDefined();
+  });
+
+  it('an unknown key is just a new player', () => {
+    const { r } = room();
+    const a = client('a');
+    r.message(a.conn, JSON.stringify({ t: 'join', name: 'A', boatId: 'tugboat', key: 'nope' }));
+    expect(a.last('welcome')!.you).toBe('a');
+  });
+
+  it('when controls stop arriving the AI drives until they come back', () => {
+    const { r, a, b, drive } = twoPlayerRace();
+    drive(150, [a, b]);
+    drive(30, [a]); // B silent for 1.5 s (a frozen phone, a stalled connection)
+    const bBoat = r.sim!.racers[1];
+    const progress = bBoat.progress;
+    drive(60, [a]);
+    expect(bBoat.progress).toBeGreaterThan(progress + 100); // still moving along the course
+    expect(bBoat.human).toBe(true); // still B's boat: the race waits for B at the finish
+    const ack = b.last('snap')!.ack;
+    drive(5, [a, b]);
+    expect(b.last('snap')!.ack).toBeGreaterThan(ack); // B's controls are used again
+  });
+
+  it('a race everyone has dropped out of waits a minute for someone to come back, then is dropped', () => {
+    const { r, a, b, advance } = twoPlayerRace();
+    r.disconnect(a.conn);
+    r.disconnect(b.conn);
+    expect(r.racing).toBe(true);
+    expect(r.empty).toBe(false);
+    advance(30_000);
+    r.tick();
+    expect(r.racing).toBe(true);
+    advance(31_000);
+    r.tick();
+    expect(r.racing).toBe(false);
+    expect(r.empty).toBe(true);
+  });
+});
+

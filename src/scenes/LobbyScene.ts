@@ -19,6 +19,7 @@ const COLORS = [0xff5a4d, 0x4da3ff, 0xffd23f, 0x62d26f];
  */
 export class LobbyScene extends Phaser.Scene {
   private dyn!: Phaser.GameObjects.Container;
+  private netText!: Phaser.GameObjects.Text;
 
   constructor() {
     super('Lobby');
@@ -31,11 +32,21 @@ export class LobbyScene extends Phaser.Scene {
     net.on(this, 'lobby', () => this.render());
     net.on(this, 'start', (m) => this.scene.start('Race', { online: m }));
     net.on(this, 'closed', () => this.scene.start('Online', { error: t('online.lost') }));
-    if (!net.connected) {
+    if (!net.inRoom) {
       this.scene.start('Online', { error: t('online.lost') });
       return;
     }
+    // Joined while a race is on (its start came with the welcome): watch it.
+    if (net.lobby?.racing && net.start) {
+      this.scene.start('Race', { online: net.start });
+      return;
+    }
+    this.netText = text(this, 640, 190, t('online.reconnecting'), 24, '#ffd0c4', false).setDepth(10).setVisible(false);
     this.render();
+  }
+
+  update(): void {
+    this.netText.setVisible(net.reconnecting);
   }
 
   private me(lobby: Extract<ServerMsg, { t: 'lobby' }>) {
@@ -70,8 +81,8 @@ export class LobbyScene extends Phaser.Scene {
       const nm = add(this.add.text(130, y - 26, p.name + (p.id === net.you ? ` (${t('you')})` : ''), { fontFamily: 'Trebuchet MS, Verdana, sans-serif', fontSize: '26px', fontStyle: 'bold', color: '#ffffff', resolution: 2 }));
       if (nm.width > 300) nm.setScale(300 / nm.width);
       add(this.add.text(130, y + 6, boatName(p.boatId), { fontFamily: 'Trebuchet MS, Verdana, sans-serif', fontSize: '20px', color: '#bfe1f7', resolution: 2 }));
-      const tag = p.host ? t('lobby.host') : p.ready ? t('lobby.ready') : t('lobby.notReady');
-      add(text(this, 530, y, tag, 22, p.host ? '#ffe08a' : p.ready ? '#9dff9d' : '#ffb0a0'));
+      const tag = p.away ? t('lobby.away') : p.watching ? t('lobby.watching') : p.host ? t('lobby.host') : p.ready ? t('lobby.ready') : t('lobby.notReady');
+      add(text(this, 530, y, tag, 22, p.away || p.watching ? '#bfe1f7' : p.host ? '#ffe08a' : p.ready ? '#9dff9d' : '#ffb0a0'));
     }
 
     // My boat

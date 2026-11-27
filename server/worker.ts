@@ -30,6 +30,8 @@ export class RaceRoom implements DurableObject {
   private room: RoomCore | null = null;
   private timer: ReturnType<typeof setInterval> | null = null;
   private nextId = 1;
+  /** Open sockets, including ones that haven't sent their join yet. */
+  private sockets = 0;
 
   async fetch(request: Request): Promise<Response> {
     const code = new URL(request.url).pathname.slice(-4).toUpperCase();
@@ -38,16 +40,39 @@ export class RaceRoom implements DurableObject {
     const pair = new WebSocketPair();
     const [client, socket] = [pair[0], pair[1]];
     socket.accept();
-    const conn = { id: `p${this.nextId++}`, send: (d: string) => socket.send(d) };
+    this.sockets++;
+    const conn = { id: `p${this.nextId++}`, send: (d: string) => socket.send(d), close: () => socket.close(4000, 'replaced') };
     socket.addEventListener('message', (e) => room.message(conn, typeof e.data === 'string' ? e.data : ''));
+    let gone = false;
     const leave = (): void => {
+      if (gone) return;
+      gone = true;
+      this.sockets--;
       room.disconnect(conn);
-      if (room.playerCount === 0) this.stopTimer();
+      if (this.idle(room)) this.stopTimer();
     };
-    socket.addEventListener('close', leave);
+    socket.addEventListener('close', () => {
+      // Answer the close, or the other side waits a long time before it sees the socket closed.
+      try {
+        socket.close(1000, 'bye');
+      } catch {
+        /* already closed */
+      }
+      leave();
+    });
     socket.addEventListener('error', leave);
-    this.timer ??= setInterval(() => room.tick(), TICK_MS);
+    // Runs while anyone is in the room, including during a race everyone has dropped out of (they
+    // may reconnect; the room gives up after a minute).
+    this.timer ??= setInterval(() => {
+      room.tick();
+      if (this.idle(room)) this.stopTimer();
+    }, TICK_MS);
     return new Response(null, { status: 101, webSocket: client });
+  }
+
+  /** Nobody in the room and no socket about to join it. */
+  private idle(room: RoomCore): boolean {
+    return room.empty && this.sockets <= 0;
   }
 
   private stopTimer(): void {

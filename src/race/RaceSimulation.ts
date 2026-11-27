@@ -124,14 +124,21 @@ export class RaceSimulation {
     if (pi >= 0 && boats.length > 2) boats.splice(2, 0, boats.splice(pi, 1)[0]);
   }
 
-  /** Swap who drives a racer (multiplayer: a player who leaves is replaced by the AI). */
-  setController(id: number, controller: Controller | 'ai'): void {
+  /**
+   * Swap who drives a racer. Multiplayer: a player who leaves is replaced by the AI (the boat stops
+   * counting as human, so the race doesn't wait for it), and gets it back if they reconnect. With
+   * `stillHuman` the AI only stands in for a player whose controls stopped arriving for a moment.
+   */
+  setController(id: number, controller: Controller | 'ai', stillHuman = false): void {
     const r = this.racers[id];
     if (!r) return;
     if (controller === 'ai') {
-      r.human = false;
+      r.human = stillHuman;
       this.controllers.set(id, new AIController(this.rng, DIFFICULTIES[this.difficulty], 0));
-    } else this.controllers.set(id, controller);
+    } else {
+      r.human = true;
+      this.controllers.set(id, controller);
+    }
   }
 
   private makeRacer(id: number, boat: BoatDef, name: string, isPlayer: boolean, x: number, y: number, heading: number, progress: number): Racer {

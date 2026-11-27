@@ -7,7 +7,7 @@ import { audio } from '../audio/AudioManager';
 import { options } from '../options';
 import { net } from '../net/client';
 import { addFullscreenButton } from '../view/fullscreen';
-import { button, fmtTime, text } from '../view/ui';
+import { button, fitText, fmtTime, text } from '../view/ui';
 import type { RaceScene } from './RaceScene';
 
 /** Two item buttons: the first is fired with right click, the second with middle click. */
@@ -34,6 +34,8 @@ export class HudScene extends Phaser.Scene {
   private paused = false;
   private overlay?: Phaser.GameObjects.Container;
   private lastPopup = 0;
+  private watchText?: Phaser.GameObjects.Text;
+  private netText!: Phaser.GameObjects.Text;
 
   constructor() {
     super('Hud');
@@ -51,11 +53,18 @@ export class HudScene extends Phaser.Scene {
     this.lapText = text(this, 26, 92, '', 30).setOrigin(0, 0).setStroke(stroke, 6);
     this.timeText = text(this, 26, 130, '', 26, '#ffe08a').setOrigin(0, 0).setStroke(stroke, 5);
 
+    this.netText = text(this, 640, 250, t('online.reconnecting'), 34, '#ffd0c4').setStroke(stroke, 7).setVisible(false);
+    if (race.spectating) {
+      // Left of the item buttons, which show the watched boat's items.
+      this.watchText = text(this, 470, 640, '', 30).setStroke(stroke, 6);
+      fitText(text(this, 470, 680, t('watch.hint'), 20, '#bfe1f7').setStroke(stroke, 4), 760);
+    }
+
     // Minimap
     this.map = this.add.graphics();
-    const t = race.sim.track;
+    const tr = race.sim.track;
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-    for (const s of t.samples) {
+    for (const s of tr.samples) {
       minX = Math.min(minX, s.x); maxX = Math.max(maxX, s.x);
       minY = Math.min(minY, s.y); maxY = Math.max(maxY, s.y);
     }
@@ -65,12 +74,12 @@ export class HudScene extends Phaser.Scene {
     // The outline never changes: draw it once (decimated: real-world tracks have thousands of samples).
     const base = this.add.graphics();
     base.fillStyle(0x0b3a5b, 0.55).fillRoundedRect(MAP.x, MAP.y, MAP.w, MAP.h, 10);
-    const step = Math.max(1, Math.floor(t.samples.length / 400));
-    const outline = t.samples.filter((_, i) => i % step === 0).map((s) => new Phaser.Math.Vector2(s.x * this.mapScale + this.mapOx, s.y * this.mapScale + this.mapOy));
-    base.lineStyle(7, 0xffffff, 0.35).strokePoints(outline, t.closed, t.closed);
-    if (!t.closed) {
-      for (const [d, color] of [[t.startDist, 0x62d26f], [t.startDist + t.lapLength, 0xffffff]] as const) {
-        const s = t.sampleAt(d);
+    const step = Math.max(1, Math.floor(tr.samples.length / 400));
+    const outline = tr.samples.filter((_, i) => i % step === 0).map((s) => new Phaser.Math.Vector2(s.x * this.mapScale + this.mapOx, s.y * this.mapScale + this.mapOy));
+    base.lineStyle(7, 0xffffff, 0.35).strokePoints(outline, tr.closed, tr.closed);
+    if (!tr.closed) {
+      for (const [d, color] of [[tr.startDist, 0x62d26f], [tr.startDist + tr.lapLength, 0xffffff]] as const) {
+        const s = tr.sampleAt(d);
         base.fillStyle(color, 1).fillCircle(s.x * this.mapScale + this.mapOx, s.y * this.mapScale + this.mapOy, 5);
       }
     }
@@ -138,6 +147,8 @@ export class HudScene extends Phaser.Scene {
       this.lapText.setText(t('hud.remaining', { km: formatNumber(p.finished ? 0 : left) }));
     }
     this.timeText.setText(sim.phase === 'countdown' ? '' : fmtTime(sim.time));
+    this.netText.setVisible(net.reconnecting);
+    if (this.watchText) fitText(this.watchText.setText(t('watch.title', { name: p.name })), 760);
     // Multiplayer: once someone has finished, the others see how long they have left.
     this.endsText.setText(sim.finishCountdown >= 0 && !p.finished ? t('hud.raceEnds', { s: Math.ceil(sim.finishCountdown) }) : '');
 
@@ -188,8 +199,9 @@ export class HudScene extends Phaser.Scene {
     for (const r of sim.racers) {
       const x = r.x * this.mapScale + this.mapOx;
       const y = r.y * this.mapScale + this.mapOy;
-      g.fillStyle(r.color, 1).fillCircle(x, y, r.isPlayer ? 6 : 4.5);
-      if (r.isPlayer) g.lineStyle(2, 0xffffff, 1).strokeCircle(x, y, 7);
+      const followed = r === sim.player; // your boat, or the one you're watching
+      g.fillStyle(r.color, 1).fillCircle(x, y, followed ? 6 : 4.5);
+      if (followed) g.lineStyle(2, 0xffffff, 1).strokeCircle(x, y, 7);
     }
   }
 

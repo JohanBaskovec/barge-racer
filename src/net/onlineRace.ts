@@ -14,15 +14,19 @@ type Snap = Extract<ServerMsg, { t: 'snap' }>;
 /** How far in the past other boats are shown, in simulation steps (100 ms): smooth despite jitter. */
 const INTERP_STEPS = 6;
 const STEP_MS = STEP * 1000;
+/** A correction bigger than this (px) is a jump (a respawn), not an error to smooth out. */
+const SNAP_PX = 250;
 
 /**
  * The client side of an online race, for the race scene.
  * - Your boat is predicted: each step your controls move it at once, and are sent to the server.
  *   When a snapshot arrives your boat is reset to the server's version and the controls the server
- *   hasn't used yet are replayed, so a disagreement (a bump, a hit) is corrected smoothly.
+ *   hasn't used yet are replayed. A disagreement (a bump, a hit) moves the boat; the difference is
+ *   reported through `onCorrection` so the view can blend it out over a moment instead of jumping.
  * - Everyone else is shown INTERP_STEPS in the past, blended between the two snapshots around that
  *   moment, so they move smoothly at 20 updates a second.
  * - Race events (sounds, pop-ups) come in the snapshots and are handed to the scene.
+ * - Watching (no boat of your own: `me` is null), every boat is interpolated.
  */
 export class OnlineRace {
   private snaps: { s: number; state: SimState }[] = [];
@@ -32,8 +36,19 @@ export class OnlineRace {
   private offset = Infinity; // local time (ms) minus server time (ms), from the fastest snapshot
   private events: RaceEvent[] = [];
   results: Extract<ServerMsg, { t: 'results' }> | null = null;
+  /** Called after a snapshot moved your boat away from where it was predicted (dx, dy, dheading). */
+  onCorrection: ((dx: number, dy: number, dh: number) => void) | null = null;
 
-  constructor(private sim: RaceSimulation, private me: Racer) {}
+  constructor(private sim: RaceSimulation, private me: Racer | null) {}
+
+  /**
+   * Reconnected: the server has a fresh copy of your controls, so forget the ones it never
+   * acknowledged (they'll never be), and start counting again from what it says.
+   */
+  resume(): void {
+    this.history = [];
+    this.pending = [];
+  }
 
   /** A snapshot from the server. */
   onSnap(m: Snap, now: number): void {
@@ -52,29 +67,37 @@ export class OnlineRace {
 
   /** Your boat follows the server, plus the inputs it hasn't processed yet. */
   private reconcile(m: Snap): void {
-    const mine = m.state.racers[this.me.id];
-    if (!mine) return;
-    applyRacer(this.me, mine);
+    const me = this.me;
+    const mine = me && m.state.racers[me.id];
+    if (!me || !mine) return;
+    const before = { x: me.x, y: me.y, h: me.heading };
+    applyRacer(me, mine);
     this.history = this.history.filter((h) => h.step > m.ack);
-    if (this.me.finished || this.me.sinkTimer > 0) return;
-    const canDrive = m.state.phase === 'racing';
-    for (const h of this.history) this.predict(h.intent, canDrive);
+    if (!me.finished && me.sinkTimer <= 0) {
+      const canDrive = m.state.phase === 'racing';
+      for (const h of this.history) this.predict(me, h.intent, canDrive);
+    }
+    const dx = before.x - me.x;
+    const dy = before.y - me.y;
+    if (dx * dx + dy * dy < SNAP_PX * SNAP_PX) this.onCorrection?.(dx, dy, angleDiff(before.h, me.heading));
   }
 
-  private predict(intent: ControlIntent, canDrive: boolean): void {
-    tickEffects(this.me, STEP);
-    stepBoat(this.me, intent, STEP, canDrive);
-    resolveBank(this.me, this.sim.track);
+  private predict(me: Racer, intent: ControlIntent, canDrive: boolean): void {
+    tickEffects(me, STEP);
+    stepBoat(me, intent, STEP, canDrive);
+    resolveBank(me, this.sim.track);
   }
 
   /** One local simulation step with your controls: move your boat now, send the controls soon. */
   local(intent: ControlIntent): void {
+    const me = this.me;
+    if (!me) return;
     this.step++;
     const fire = intent.fire;
     this.pending.push([this.step, intent.desiredHeading === null ? null : Math.round(intent.desiredHeading * 1000) / 1000, Math.round(intent.throttle * 100) / 100, fire ? fire.slot : -1, fire?.dir === 'backward' ? 1 : 0]);
     this.history.push({ step: this.step, intent: { ...intent, fire: null } });
     if (this.history.length > 240) this.history.shift();
-    if (!this.me.finished && this.me.sinkTimer <= 0) this.predict(intent, this.sim.phase === 'racing');
+    if (!me.finished && me.sinkTimer <= 0) this.predict(me, intent, this.sim.phase === 'racing');
     if (this.pending.length >= 2 || fire) this.flush();
   }
 
@@ -94,7 +117,7 @@ export class OnlineRace {
     const a = i > 0 ? this.snaps[i - 1] : b;
     const t = b.s === a.s ? 1 : Math.max(0, Math.min(1, (at - a.s) / (b.s - a.s)));
     // Your own boat: skip it unless the server drives it now (after the finish).
-    const skip = this.me.finished ? -1 : this.me.id;
+    const skip = !this.me || this.me.finished ? -1 : this.me.id;
     applyState(this.sim, b.state, skip);
     const lerp = (x: number, y: number): number => x + (y - x) * t;
     b.state.racers.forEach((rb, k) => {

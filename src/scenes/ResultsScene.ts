@@ -23,9 +23,11 @@ export class ResultsScene extends Phaser.Scene {
     background(this);
     const pos = data.rows.findIndex((r) => r.isPlayer);
     audio.playMusic(null);
-    audio.play(pos === 0 ? 'win' : 'lose');
+    audio.play(pos <= 0 ? 'win' : 'lose');
     this.time.delayedCall(2200, () => audio.playMusic('menu'));
-    fitText(text(this, 640, 70, pos === 0 ? t('results.won') : t('results.finished', { place: ordinal(pos + 1) }), 64, pos === 0 ? '#ffe08a' : '#ffffff'), 1150).setStroke('#0b3a5b', 10);
+    // pos -1: watched the race online without racing in it.
+    const title = pos < 0 ? t('results.over') : pos === 0 ? t('results.won') : t('results.finished', { place: ordinal(pos + 1) });
+    fitText(text(this, 640, 70, title, 64, pos === 0 ? '#ffe08a' : '#ffffff'), 1150).setStroke('#0b3a5b', 10);
     text(this, 640, 130, trackName(data.trackId), 28, '#bfe1f7', false);
 
     data.rows.forEach((r, i) => {
@@ -40,7 +42,7 @@ export class ResultsScene extends Phaser.Scene {
     });
 
     if (data.online) {
-      button(this, 460, 640, 340, 72, t('results.backToLobby'), () => this.scene.start(net.connected ? 'Lobby' : 'Online'), { fill: 0x2d9d5a, textSize: 30 });
+      button(this, 460, 640, 340, 72, t('results.backToLobby'), () => this.scene.start(net.inRoom ? 'Lobby' : 'Online'), { fill: 0x2d9d5a, textSize: 30 });
       button(this, 840, 640, 300, 72, t('lobby.leave'), () => {
         net.leave();
         this.scene.start('Title');

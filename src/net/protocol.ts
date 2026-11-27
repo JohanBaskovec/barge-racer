@@ -10,6 +10,10 @@ import type { SimState } from './snapshot';
 export const MAX_PLAYERS = 4;
 /** The server sends a snapshot every TICK_MS (and simulates 60 steps a second in between). */
 export const TICK_MS = 50;
+/** A connected player's boat whose controls stop arriving for this many steps (1 s) is driven by the AI until they resume. */
+export const IDLE_STEPS = 60;
+/** A race with nobody connected is kept this long (ms) for someone to reconnect, then dropped. */
+export const EMPTY_RACE_MS = 60_000;
 /** Room codes: 4 letters, without I and O (easy to read out loud). */
 export const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
 
@@ -35,6 +39,10 @@ export interface LobbyPlayer {
   boatId: string;
   ready: boolean;
   host: boolean;
+  /** Lost the connection during the race: the AI drives their boat until they come back. */
+  away?: boolean;
+  /** Joined during a race: watching it, racing in the next one. */
+  watching?: boolean;
 }
 
 export interface StartEntry {
@@ -54,7 +62,8 @@ export interface ResultRowNet {
 }
 
 export type ClientMsg =
-  | { t: 'join'; name: string; boatId: string }
+  /** `key`: from an earlier welcome, to take your seat back after losing the connection. */
+  | { t: 'join'; name: string; boatId: string; key?: string }
   | { t: 'boat'; boatId: string }
   | { t: 'ready'; ready: boolean }
   | { t: 'settings'; settings: RoomSettings }
@@ -63,7 +72,8 @@ export type ClientMsg =
   | { t: 'ping'; c: number };
 
 export type ServerMsg =
-  | { t: 'welcome'; you: string; code: string }
+  /** `key` lets this player rejoin (see join). */
+  | { t: 'welcome'; you: string; code: string; key: string }
   | { t: 'lobby'; players: LobbyPlayer[]; settings: RoomSettings; racing: boolean }
   | { t: 'start'; seed: number; settings: RoomSettings; roster: StartEntry[] }
   | { t: 'snap'; s: number; ack: number; state: SimState; ev: RaceEvent[] }

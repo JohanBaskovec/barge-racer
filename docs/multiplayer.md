@@ -27,7 +27,9 @@ own boat and **interpolation** of everyone else.
 - **Your boat is predicted.** Each step your controls move your boat on your screen at once. When
   a snapshot arrives your boat is reset to the server's version, and the controls the server
   hasn't used yet are replayed on top. Usually nothing visible happens; after a bump or a hit
-  your boat is corrected.
+  your boat is corrected, and the correction is **smoothed**: the boat is drawn where it was and
+  glides to the corrected place over about a fifth of a second instead of jumping. (A jump of
+  more than 25 m, such as a respawn after sinking, is shown as it is.)
 - **Other boats are interpolated.** They are shown 100 ms in the past, blended between the two
   snapshots around that moment, so they move smoothly even though updates come 20 times a second.
   Volunteers, drills and glue balls are blended the same way.
@@ -36,8 +38,27 @@ own boat and **interpolation** of everyone else.
 - **Finishing**: when every person has finished, the race ends 3 s later. Once the first person
   finishes, the others have **30 s** (shown on screen), then the race ends and their times are
   estimated. The server sends the results to everyone, and the room goes back to its lobby.
-- **Leaving**: if someone leaves or loses their connection mid-race, the AI takes over their boat
-  and the race goes on.
+- **Leaving**: if someone leaves mid-race, the AI takes over their boat and the race goes on.
+
+## Connection trouble
+
+- **Reconnecting**: when the connection drops (a phone changing network, a tunnel), the game
+  reconnects by itself: right away, then a few more times over about 30 seconds, showing
+  "Connection lost. Reconnecting…". A connection can also die without closing: if nothing has
+  arrived for 6 seconds, the game gives up on it and reconnects.
+- **Your seat is kept** until the race ends. Meanwhile the AI drives your boat (the lobby shows
+  you as reconnecting) and the race doesn't wait for you at the finish. When you're back you take
+  the helm again where your boat is. The server gave your screen a secret **key** when you
+  joined; reconnecting with it gets you the same seat, and nobody else can take it. If the old
+  connection hasn't been noticed as dead yet, the new one replaces it.
+- **Controls stop arriving** but the connection is still open (a frozen phone, the game in the
+  background, a stalled network): after 1 second the AI stands in, so your boat doesn't drift
+  into the bank, and you take over again as soon as your controls arrive. Your boat still counts
+  as yours at the finish.
+- If the race ended while you were away, you come back to the room's lobby (you miss the results).
+- A race everyone has dropped out of waits a minute for someone to come back, then is dropped.
+- Reloading the page forgets the key: you join the room again as someone new (watching, if a race
+  is on).
 
 ## Rooms and lobby
 
@@ -47,7 +68,9 @@ own boat and **interpolation** of everyone else.
   goes straight to the online screen with the code filled in. Or type the code by hand.
 - In the lobby everyone picks a boat. The host picks the race and the AI difficulty, and starts
   once everyone else is ready. Alone, the host races the AI.
-- A room is full at 4 people, and can't be joined while a race is on.
+- A room is full at 4 people (including anyone watching or reconnecting).
+- **Joining during a race**: you watch it. The camera follows a boat with its HUD (position,
+  items); tap to watch the next one. You race in the next race. The lobby shows you as watching.
 - The pause button doesn't pause an online race; its menu has Options and "Leave the race".
 
 ## Hosting
@@ -58,8 +81,9 @@ deploy (Cloudflare builds from `main` as before):
 - `server/worker.ts`: requests to `/api/room/ABCD` (WebSocket) go to the room; everything else
   is the game's static files (`dist/`).
 - **One Durable Object per room** (`RaceRoom`, found with `idFromName(code)`). It holds the
-  WebSockets and runs a 20 Hz timer while anyone is connected. Each tick catches the simulation up
-  with the clock (60 steps a second) and sends a snapshot. An empty room is forgotten.
+  WebSockets and runs a 20 Hz timer while anyone is in the room, including seats kept for people
+  reconnecting. Each tick catches the simulation up with the clock (60 steps a second) and sends
+  a snapshot. An empty room is forgotten.
 - `wrangler.jsonc` declares the Durable Object (`ROOMS`, SQLite-backed class, which the free
   plan requires) and the assets binding. Check the current Durable Objects pricing and free-plan
   limits on Cloudflare's site. A race uses very little CPU: the whole 4-boat simulation is about
@@ -92,13 +116,14 @@ npm run dev          # the game with hot reload on :5173; /api is forwarded to :
 
 Open two browser windows on the dev server to race yourself. `tests/room.test.ts` drives a room
 with fake connections and a fake clock (joining, the lobby, a full race, someone leaving), and
-checks that a snapshot recreates the race on another screen.
+checks that a snapshot recreates the race on another screen. It also covers connection trouble:
+a seat kept and given back with the key, a reconnection replacing a connection not yet noticed
+as dead, someone joining mid-race to watch, the AI standing in when controls stop, and a race
+everyone left.
 
 ## Not done yet
 
-- **Reconnecting** to a race after losing the connection (you rejoin the room's lobby after it).
-- **Smoothing corrections** of your own boat: after a bump it jumps to the corrected position.
-- **Joining a race in progress** (as a spectator).
+- **Keeping your seat across a page reload** (the key would have to be saved in the browser).
 - **Matchmaking** with strangers: rooms are for people who share a code.
 - **Cheat protection** beyond the server being in charge: controls are clamped, but a modified
   client could still steer perfectly.
