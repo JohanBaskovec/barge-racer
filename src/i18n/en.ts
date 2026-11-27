@@ -148,6 +148,7 @@ export const en = {
   'hud.hasty': 'Hurry up!',
   'hud.toxic': 'Toxic!',
   'hud.washed': 'Washed out!',
+  'hud.gift': 'A crate for you!',
   'hud.gotHim': 'Got him!',
   'hud.sunk': 'Sunk!',
   'hud.otherSunk': '{name} sank!',

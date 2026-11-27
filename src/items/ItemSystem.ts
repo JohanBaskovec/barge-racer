@@ -1,9 +1,10 @@
 import { FASTEST_TOP_SPEED, ITEM_INFO, TUNING, type ItemId } from '../data/items';
 import { addEffect, hasEffect } from '../effects/effects';
-import { isTouching } from '../physics/collisions';
-import { turnTowards } from '../physics/math';
+import { isTouching, touchesCapsule } from '../physics/collisions';
+import { bargeCapsule } from '../race/traffic';
+import { clamp, turnTowards } from '../physics/math';
 import type { RaceSimulation } from '../race/RaceSimulation';
-import type { Cloud, Crate, Drill, FakeCrate, GlueBlob, GluePuddle, Racer, Shot, Volunteer } from '../race/types';
+import type { Cloud, Crate, Drill, Drop, FakeCrate, GlueBlob, GluePuddle, Racer, Shot, Volunteer } from '../race/types';
 import { drawItem } from './itemOdds';
 
 /** Crates, item roulette, item activation and the entities items spawn. */
@@ -16,7 +17,11 @@ export class ItemSystem {
   blobs: GlueBlob[] = [];
   shots: Shot[] = [];
   clouds: Cloud[] = [];
+  /** Crates tossed by barges to boats that are behind. */
+  drops: Drop[] = [];
   private nextId = 1;
+  /** When each boat last had a crate tossed to it. */
+  private droppedFor = new Map<number, number>();
   /** When each boat last got a "toxic" hit event (the smoke hurts every step, but is announced now and then). */
   private toxicAt = new Map<number, number>();
 
@@ -174,6 +179,8 @@ export class ItemSystem {
     this.updatePuddles(dt);
     this.updateClouds(dt);
     this.updateKarcher(dt);
+    this.updateDrops(dt);
+    this.stopAtBarges();
     this.volunteers = this.volunteers.filter((v) => !v.dead);
     this.drills = this.drills.filter((d) => !d.dead);
     this.puddles = this.puddles.filter((p) => !p.dead);
@@ -181,6 +188,99 @@ export class ItemSystem {
     this.fakeCrates = this.fakeCrates.filter((f) => !f.dead);
     this.shots = this.shots.filter((s) => !s.dead);
     this.clouds = this.clouds.filter((c) => !c.dead);
+    this.drops = this.drops.filter((d) => !d.dead);
+  }
+
+  /** Whether a circle at (x, y) touches a barge. */
+  private onBarge(x: number, y: number, radius: number): boolean {
+    for (const p of this.sim.trafficPoses) if (p.solid && touchesCapsule(x, y, radius, bargeCapsule(p))) return true;
+    return false;
+  }
+
+  /** Volunteers, drills, glue balls and raclette shots stop against a barge (glue lands on the water beside it). */
+  private stopAtBarges(): void {
+    for (const v of this.volunteers) if (!v.dead && this.onBarge(v.x, v.y, 8)) v.dead = true;
+    for (const d of this.drills) if (!d.dead && d.stuckT <= 0 && this.onBarge(d.x, d.y, 6)) d.stuckT = 0.001;
+    for (const s of this.shots) if (!s.dead && this.onBarge(s.x, s.y, 8)) s.dead = true;
+    for (const b of this.blobs) {
+      if (b.dead || !this.onBarge(b.x, b.y, 8)) continue;
+      this.spawnPuddle(b.x - Math.cos(b.heading) * 30, b.y - Math.sin(b.heading) * 30, b.owner);
+      b.dead = true;
+    }
+  }
+
+  /** Open a crate for `r`: the roulette starts if a slot is free and none is spinning. */
+  private openCrate(r: Racer): void {
+    if (this.freeSlot(r) < 0 || r.rouletteItem) return;
+    const leader = this.sim.racers.reduce((m, o) => Math.max(m, o.progress), -Infinity);
+    const item = drawItem(this.sim.rng, {
+      position: r.position,
+      farBehind: leader - r.progress > this.sim.track.lapLength,
+      volunteersInFlight: this.volunteersInFlight,
+      recentItems: r.recentItems,
+    });
+    r.rouletteItem = this.sim.forcedItem ?? item;
+    r.rouletteT = TUNING.rouletteTime;
+    this.sim.emit({ type: 'itemPickup', racer: r.id, item: r.rouletteItem });
+  }
+
+  /**
+   * Barges help the boats behind: now and then one tosses a crate ahead of a nearby boat that
+   * isn't leading and has a free slot. The leader can never pick these up, and no crate is
+   * thrown where the leader is close.
+   */
+  private updateDrops(dt: number): void {
+    const T = TUNING.traffic, sim = this.sim, track = sim.track;
+    if (sim.phase !== 'racing') return;
+    for (const d of this.drops) {
+      d.age += dt;
+      if (d.age > T.dropLife) d.dead = true;
+      if (d.dead || d.age < T.tossTime) continue;
+      for (const r of sim.racers) {
+        if (r.position === 0 || r.sinkTimer > 0 || sim.isGhost(r) || this.freeSlot(r) < 0 || r.rouletteItem) continue;
+        if (!isTouching(r, d.x, d.y, TUNING.crateRadius - r.stats.radius * 0.4)) continue;
+        d.dead = true;
+        this.openCrate(r);
+        break;
+      }
+    }
+    const leader = sim.racers.find((r) => r.position === 0);
+    for (const b of sim.traffic.barges) {
+      b.dropT -= dt;
+      if (b.dropT > 0) continue;
+      b.dropT = 1; // look again in a second
+      const p = sim.trafficPoses.find((q) => q.id === b.id);
+      if (!p || p.alpha < 1) continue;
+      let target: Racer | null = null;
+      let best = T.dropRange;
+      for (const r of sim.racers) {
+        if (r.position === 0 || r.finished || r.sinkTimer > 0 || this.freeSlot(r) < 0 || r.rouletteItem) continue;
+        if (sim.time - (this.droppedFor.get(r.id) ?? -99) < T.dropEvery) continue;
+        const d = Math.hypot(r.x - p.x, r.y - p.y);
+        if (d < best) {
+          best = d;
+          target = r;
+        }
+      }
+      if (!target) continue;
+      // Ahead of the boat, in its line, clear of the barge.
+      const along = track.alongOf(target.progress) + T.dropAhead;
+      const n = track.nearest(target.x, target.y, target.nearestIndex);
+      const hw = track.sampleAt(along).width / 2;
+      let lat = clamp(n.lateral, -hw + 30, hw - 30);
+      let spot = track.pointAt(along, lat);
+      if (this.onBarge(spot.x, spot.y, 40)) {
+        lat = clamp(-Math.sign(p.lat || 1) * hw * 0.45, -hw + 30, hw - 30);
+        spot = track.pointAt(along, lat);
+      }
+      if (this.onBarge(spot.x, spot.y, 30)) continue;
+      if (!track.closed && (along < 0 || along > track.length)) continue;
+      if (leader && Math.hypot(leader.x - spot.x, leader.y - spot.y) < T.leaderClear) continue;
+      this.drops.push({ id: this.nextId++, x: spot.x, y: spot.y, fromX: p.x, fromY: p.y, age: 0, target: target.id, dead: false });
+      this.droppedFor.set(target.id, sim.time);
+      b.dropT = T.dropCooldown;
+      sim.emit({ type: 'drop', racer: target.id, id: this.nextId - 1 });
+    }
   }
 
   /** Crates a magic mushroom is pulling: they fly to the nearest boat that has eaten one, and float home when let go. */
@@ -224,19 +324,7 @@ export class ItemSystem {
         c.y = c.homeY;
         this.sim.emit({ type: 'crate', id: c.id, taken: true });
         // A crate only gives something if a slot is free and the roulette isn't already spinning.
-        if (this.freeSlot(r) >= 0 && !r.rouletteItem) {
-          const leader = this.sim.racers.reduce((m, o) => Math.max(m, o.progress), -Infinity);
-          const item = drawItem(this.sim.rng, {
-            position: r.position,
-            farBehind: leader - r.progress > this.sim.track.lapLength,
-            volunteersInFlight: this.volunteersInFlight,
-            recentItems: r.recentItems,
-          });
-          if (this.sim.forcedItem) r.rouletteItem = this.sim.forcedItem;
-          else r.rouletteItem = item;
-          r.rouletteT = TUNING.rouletteTime;
-          this.sim.emit({ type: 'itemPickup', racer: r.id, item: r.rouletteItem });
-        }
+        this.openCrate(r);
         break;
       }
     }

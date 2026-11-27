@@ -17,6 +17,7 @@ import type { ResultRow } from './ResultsScene';
 import { BoatView } from '../view/BoatView';
 import { MapRenderer, type SceneryData } from '../view/MapRenderer';
 import { generateScenery } from '../view/sceneryGen';
+import { TrafficView } from '../view/trafficView';
 import { WORLD_ART_SCALE } from '../view/textures';
 import { options } from '../options';
 import { hasEffect } from '../effects/effects';
@@ -41,6 +42,9 @@ export class RaceScene extends Phaser.Scene {
   private blobSprites = new Map<number, Sprite>();
   private shotSprites = new Map<number, Sprite>();
   private cloudSprites = new Map<number, Sprite>();
+  private dropSprites = new Map<number, Sprite>();
+  /** The barges (the HUD's minimap reads their positions). */
+  trafficView: TrafficView | null = null;
   /** 0..1: how psychedelic the screen is (mushrooms). The HUD reads this for its colour wash. */
   trip = 0;
   private tripT = 0;
@@ -83,6 +87,8 @@ export class RaceScene extends Phaser.Scene {
     this.blobSprites.clear();
     this.shotSprites.clear();
     this.cloudSprites.clear();
+    this.dropSprites.clear();
+    this.trafficView = null;
     this.trip = 0;
     this.tripT = 0;
     this.tripFx = null;
@@ -155,9 +161,14 @@ export class RaceScene extends Phaser.Scene {
     }).setDepth(40);
 
     for (const c of this.sim.items.crates) this.crateSprites.set(c.id, this.makeCrateSprite(c.x, c.y));
-    for (const r of this.sim.racers) this.views.push(new BoatView(this, r, wake));
+    // The two arms of the V a moving boat leaves behind: particles drifting outward.
+    const wakeArm = this.add.particles(0, 0, 'wake', {
+      lifespan: 1600, speed: { min: 22, max: 40 }, scale: { start: 0.22, end: 0.9 }, alpha: { start: 0.38, end: 0 }, emitting: false,
+    }).setDepth(5);
+    for (const r of this.sim.racers) this.views.push(new BoatView(this, r, wake, wakeArm));
     this.fx = new Fx(this);
     this.raceAudio = new RaceAudio(this, this.sim);
+    this.trafficView = new TrafficView(this, this.sim, wake, wakeArm, this.raceAudio);
     audio.muteEngines(false);
     audio.duckMusic(false);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.raceAudio.destroy());
@@ -208,6 +219,10 @@ export class RaceScene extends Phaser.Scene {
     }
     const alpha = this.sim.phase === 'over' ? 1 : this.accumulator / STEP;
     for (let i = 0; i < this.views.length; i++) this.views[i].render(alpha, time, dt);
+    // Barges: offline at the simulation's clock (smoothed between steps); online at your boat's clock.
+    const trafficT = this.online ? this.online.trafficTime : (this.sim.steps + alpha) * STEP;
+    const followed = this.views[this.sim.player!.id];
+    this.trafficView?.update(trafficT, dt, followed ? { x: followed.x, y: followed.y } : null);
     this.syncEntities(time, dt);
     this.trackView.update(time);
     this.updateTrip(time, dt);
@@ -336,6 +351,33 @@ export class RaceScene extends Phaser.Scene {
         sp.setPosition(c.x, c.y).setDisplaySize(k, k).setRotation(time / 2600 + c.id).setAlpha(0.85 * fade);
       }
     }, (sp) => this.retire(sp, 'fade'));
+    // Crates tossed by barges: an arc through the air from the barge, then bobbing like any crate.
+    const T = TUNING.traffic;
+    this.syncGroup(this.dropSprites, items.drops, (d) => this.makeCrateSprite(d.fromX, d.fromY).setData('landed', false), (s, d) => {
+      const k = Math.min(1, d.age / T.tossTime);
+      s.setData('age', d.age);
+      if (k < 1) {
+        s.setPosition(d.fromX + (d.x - d.fromX) * k, d.fromY + (d.y - d.fromY) * k).setRotation(k * Math.PI * 3);
+        this.tweens.killTweensOf(s);
+        s.setScale(WORLD_ART_SCALE * (1 + Math.sin(k * Math.PI) * 0.8));
+      } else {
+        if (!s.getData('landed')) {
+          s.setData('landed', true).setScale(WORLD_ART_SCALE);
+          this.fx.splash(d.x, d.y, 0.6);
+          this.tweens.add({ targets: s, scale: { from: 0.92 * WORLD_ART_SCALE, to: 1.08 * WORLD_ART_SCALE }, duration: 650, yoyo: true, repeat: -1 });
+        }
+        s.setPosition(d.x, d.y).setRotation(Math.sin(time / 500 + d.id) * 0.12);
+        if (d.age > T.dropLife - 2) s.setAlpha((T.dropLife - d.age) / 2);
+      }
+    }, (s) => {
+      if ((s.getData('age') ?? 0) < T.dropLife - 0.3) {
+        // Taken: it breaks like any crate
+        this.fx.crate(s.x, s.y);
+        this.raceAudio.at('crate', s.x, s.y);
+        this.tweens.killTweensOf(s);
+        s.destroy();
+      } else this.retire(s, 'fade');
+    });
     this.syncGroup(this.puddleSprites, items.puddles, (p) => {
       // Glue lands: from the glue item or a silicone gun shot.
       this.fx.glue(p.x, p.y);

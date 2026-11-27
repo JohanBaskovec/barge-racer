@@ -1,6 +1,7 @@
 import { tickEffects } from '../effects/effects';
 import { stepBoat } from '../physics/BoatPhysics';
-import { resolveBank } from '../physics/collisions';
+import { resolveBank, resolveStatic } from '../physics/collisions';
+import { bargeCapsule } from '../race/traffic';
 import { angleDiff } from '../physics/math';
 import { STEP } from '../race/RaceSimulation';
 import type { RaceSimulation } from '../race/RaceSimulation';
@@ -36,6 +37,12 @@ export class OnlineRace {
   private offset = Infinity; // local time (ms) minus server time (ms), from the fastest snapshot
   private events: RaceEvent[] = [];
   results: Extract<ServerMsg, { t: 'results' }> | null = null;
+  /**
+   * The server's step count as of the step your boat is predicted at (ahead of the last snapshot
+   * by the controls it hasn't used yet). Barges are placed at this clock, both for your boat's
+   * collisions and on screen, so you see them exactly where you bump into them.
+   */
+  private clock = 0;
   /** Called after a snapshot moved your boat away from where it was predicted (dx, dy, dheading). */
   onCorrection: ((dx: number, dy: number, dh: number) => void) | null = null;
 
@@ -73,19 +80,27 @@ export class OnlineRace {
     const before = { x: me.x, y: me.y, h: me.heading };
     applyRacer(me, mine);
     this.history = this.history.filter((h) => h.step > m.ack);
+    this.clock = m.state.k;
     if (!me.finished && me.sinkTimer <= 0) {
       const canDrive = m.state.phase === 'racing';
       for (const h of this.history) this.predict(me, h.intent, canDrive);
-    }
+    } else this.clock += this.history.length;
     const dx = before.x - me.x;
     const dy = before.y - me.y;
     if (dx * dx + dy * dy < SNAP_PX * SNAP_PX) this.onCorrection?.(dx, dy, angleDiff(before.h, me.heading));
   }
 
   private predict(me: Racer, intent: ControlIntent, canDrive: boolean): void {
+    this.clock++;
     tickEffects(me, STEP);
     stepBoat(me, intent, STEP, canDrive);
     resolveBank(me, this.sim.track);
+    for (const p of this.sim.traffic.poses(this.clock * STEP)) if (p.solid) resolveStatic(me, bargeCapsule(p), p.vx, p.vy, { x: p.mx, y: p.my });
+  }
+
+  /** Seconds on the traffic's clock to draw the barges at (see `clock`). */
+  get trafficTime(): number {
+    return this.clock * STEP;
   }
 
   /** One local simulation step with your controls: move your boat now, send the controls soon. */
@@ -98,6 +113,7 @@ export class OnlineRace {
     this.history.push({ step: this.step, intent: { ...intent, fire: null } });
     if (this.history.length > 240) this.history.shift();
     if (!me.finished && me.sinkTimer <= 0) this.predict(me, intent, this.sim.phase === 'racing');
+    else this.clock++;
     if (this.pending.length >= 2 || fire) this.flush();
   }
 
@@ -111,6 +127,7 @@ export class OnlineRace {
   render(now: number): void {
     if (!this.snaps.length || !Number.isFinite(this.offset)) return;
     const at = (now - this.offset) / STEP_MS - INTERP_STEPS;
+    if (!this.me) this.clock = at; // watching: barges on the same clock as the boats
     let i = this.snaps.length - 1;
     while (i > 0 && this.snaps[i - 1].s > at) i--;
     const b = this.snaps[i];

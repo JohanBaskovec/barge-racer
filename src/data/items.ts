@@ -132,6 +132,26 @@ export const TUNING = {
    * sideways. A boat that is still wet (`soakTime`) when it reaches the bank crashes into it.
    */
   karcher: { duration: 3.5, reach: 300, push: 5200, maxSideSpeed: 420, crashDamage: 24, soakTime: 1.4, soakedTurnMult: 0.6 },
+
+  /**
+   * Traffic: working barges going both ways, each keeping to its own side. They are immovable
+   * (`mass` only matters for their wake). Barges also help the boats behind: now and then one
+   * tosses a crate ahead of a nearby boat that isn't leading (never for the leader, who can't
+   * pick those crates up either).
+   */
+  traffic: {
+    length: 230, width: 32, speed: [100, 85] as [number, number], every: 4000, mass: 7, lane: 0.72,
+    bumpDamage: 8, fadeEnds: 400,
+    dropRange: 520, dropCooldown: 9, dropEvery: 7, dropLife: 20, dropAhead: 280, leaderClear: 700, tossTime: 0.6,
+  },
+  /**
+   * Wakes: a moving boat leaves a V behind it; a boat on one of its arms is pushed outward,
+   * harder the heavier and faster the maker and the lighter the receiver. Straight behind (in the
+   * V's middle) there is no push: that is where the slipstream is. Hovercraft float above it.
+   */
+  wake: { length: 440, angle: 0.34, band: 34, push: 170, maxRatio: 3, minSpeed: 60, maxSide: 260, rock: 60 },
+  /** Slipstream: close behind a boat, in line and both going fast, a boat speeds up after `charge` seconds. */
+  draft: { reach: 280, width: 30, charge: 0.5, hold: 0.6, topSpeed: 1.1, accel: 1.35, minSpeed: 0.45 },
 };
 
 /** Fastest possible boat top speed; projectile speeds are relative to this. */

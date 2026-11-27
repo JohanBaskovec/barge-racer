@@ -265,6 +265,14 @@ export class HudScene extends Phaser.Scene {
     const g = this.map;
     const sim = this.race.sim;
     g.clear();
+    // Barges as little grey dashes
+    g.fillStyle(0xd0d4d8, 0.85);
+    for (const p of this.race.trafficView?.poses ?? []) {
+      if (p.alpha < 0.5) continue;
+      const x = p.x * this.mapScale + this.mapOx, y = p.y * this.mapScale + this.mapOy;
+      if (x < MAP.x || x > MAP.x + MAP.w || y < MAP.y || y > MAP.y + MAP.h) continue;
+      g.fillRect(x - 1.5, y - 1.5, 3, 3);
+    }
     for (const r of sim.racers) {
       const x = r.x * this.mapScale + this.mapOx;
       const y = r.y * this.mapScale + this.mapOy;
@@ -285,6 +293,9 @@ export class HudScene extends Phaser.Scene {
         break;
       case 'heal':
         if (e.racer === me) this.popup(t('hud.heal'), '#9dff9d');
+        break;
+      case 'drop':
+        if (e.racer === me) this.popup(t('hud.gift'), '#9dff9d');
         break;
       case 'hit':
         if (e.racer === me) {

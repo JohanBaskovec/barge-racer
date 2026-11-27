@@ -8,6 +8,9 @@
   **item roulette** runs in that slot for 1 s, then lands on one item. If both
   slots are full, the crate just breaks and gives nothing.
 - A broken crate respawns after **4 s**.
+- **Barges toss extra crates** to boats that are behind (never to the leader, who can't
+  pick them up either): see [Game design](game-design.md#traffic-wakes-and-slipstream).
+  They give items like any crate, drawn for the boat's position.
 - A racer holds **two items at once**: slot 1 (fired with right click or the first
   button) and slot 2 (middle click or the second button). A new item goes into
   the first free slot. Items can't be swapped or thrown away.

@@ -145,6 +145,7 @@ export const fr: Record<TranslationKey, string> = {
   'hud.hasty': 'Plus vite !',
   'hud.toxic': 'Toxique !',
   'hud.washed': 'Karchérisé !',
+  'hud.gift': 'Une caisse pour vous !',
   'hud.hit': 'Touché !',
   'hud.gotHim': 'Dans le mille !',
   'hud.sunk': 'Coulé !',

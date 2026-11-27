@@ -25,7 +25,15 @@ export class BoatView {
   heading: number;
   private wakeTimer = 0;
 
-  constructor(scene: Phaser.Scene, private r: Racer, private wake: Phaser.GameObjects.Particles.ParticleEmitter) {
+  private armTimer = 0;
+
+  constructor(
+    scene: Phaser.Scene,
+    private r: Racer,
+    private wake: Phaser.GameObjects.Particles.ParticleEmitter,
+    /** The arms of the V behind big boats (optional: the title screen has none). */
+    private wakeArm: Phaser.GameObjects.Particles.ParticleEmitter | null = null,
+  ) {
     const { length: L, width: W } = r.boat.size;
     this.shadow = scene.add.image(3, 5, 'shadow').setDisplaySize(L * 1.05, W * 1.1);
     const hull = createBoatSprite(scene, r.boat, r.color);
@@ -85,7 +93,9 @@ export class BoatView {
     const sinking = r.sinkTimer > 0;
     const c = this.container;
     c.setPosition(this.x, this.y);
-    c.setRotation(this.heading + r.spin);
+    // Rocked by another boat's wake: it rolls a little.
+    const roll = hasEffect(r, 'rocked') ? Math.sin(time / 70 + r.id) * 0.07 : 0;
+    c.setRotation(this.heading + r.spin + roll);
     this.shadow.setRotation(0);
 
     // Hit flashing, sinking, bobbing
@@ -150,6 +160,19 @@ export class BoatView {
       const L = r.boat.size.length;
       this.wake.emitParticleAt(this.x + Math.cos(back) * L * 0.45, this.y + Math.sin(back) * L * 0.45, 1);
     }
+    // Heavy boats going fast leave the arms of a V: the wake that pushes lighter boats around.
+    this.armTimer -= dt;
+    if (this.wakeArm && this.armTimer <= 0 && r.stats.mass >= 2.3 && speedOf(r) > r.stats.topSpeed * 0.4 && !sinking) {
+      this.armTimer = 0.09;
+      const back = this.heading + Math.PI;
+      const L = r.boat.size.length * r.size, Wd = r.boat.size.width * r.size;
+      for (const side of [-1, 1]) {
+        this.wakeArm.setEmitterAngle(Phaser.Math.RadToDeg(back + side * 0.6));
+        const sx = this.x + Math.cos(back) * L * 0.45 + Math.cos(this.heading + (side * Math.PI) / 2) * Wd * 0.4;
+        const sy = this.y + Math.sin(back) * L * 0.45 + Math.sin(this.heading + (side * Math.PI) / 2) * Wd * 0.4;
+        this.wakeArm.emitParticleAt(sx, sy, 1);
+      }
+    }
   }
 
   /** Kärcher jets, electrical sparks and cheese drips on the hull. */
@@ -190,6 +213,16 @@ export class BoatView {
         g.strokePath();
       }
       g.fillStyle(0x000000, 0.18 + Math.random() * 0.2).fillRoundedRect(-L / 2, -W / 2, L, W, 6); // the lights flicker
+    }
+    if (hasEffect(r, 'draft')) {
+      // In a slipstream: streaks of air sliding back along both sides
+      for (const side of [-1, 1]) {
+        for (let k = 0; k < 3; k++) {
+          const ph = ((time / 260 + k / 3 + (side > 0 ? 0.5 : 0)) % 1);
+          const x0 = L / 2 - ph * L * 1.2;
+          g.lineStyle(2.5, 0xffffff, 0.75 * (1 - ph)).lineBetween(x0, side * (W / 2 + 7 + k * 3), x0 - 26, side * (W / 2 + 7 + k * 3));
+        }
+      }
     }
     if (hasEffect(r, 'cheesed')) {
       g.fillStyle(0xffc933, 0.95);

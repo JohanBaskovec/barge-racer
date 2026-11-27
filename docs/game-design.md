@@ -79,8 +79,37 @@ Every boat has a **hull** value (hit points), set by the boat's `hull` stat
   finished a point-to-point race do the same.
 - **Boat against bank**: the boat slides along the bank and loses speed
   depending on the impact angle. A head-on impact does a little damage (5).
+- **Boat against a barge** (traffic, below): like a bank that moves. A head-on bump
+  does a little damage (8). A boat met head-on by a barge's bow is shoved towards the
+  middle of the canal, not pushed along in front of it.
 - **Boat against floating obstacles** (logs, buoys, ice floes): like a bank, but
   some obstacles can be pushed.
+
+## Traffic, wakes and slipstream
+
+- **Traffic**: working barges go up and down every canal, both ways, each keeping to
+  its side (about one every 400 m each way, one every 600 m on the long Reims canal).
+  They are slow (8 to 10 km/h at the game's scale) and immovable: you overtake the ones
+  going your way and dodge the ones coming at you. Projectiles stop against them, and a
+  boat a Kärcher pushes into one crashes as into the bank. A barge sounds its horn as it
+  passes close to you. They carry cargo under green tarpaulins, sand, or oil, with the
+  family's car on the stern deck and the washing out.
+- **Barges help the boats behind**: now and then a barge tosses a crate ahead of a
+  nearby boat that **isn't leading** and has a free slot ("A crate for you!"). Never to
+  the leader, never where the leader is close, and **the leader can't pick these crates
+  up** at all. A boat gets at most one every 7 s, a barge throws one every 9 s at most.
+  It is meant for beginners who fall behind: more items, and they are the good ones
+  the back of the field draws.
+- **Wakes**: a moving boat leaves a V behind it. A boat on one of the V's arms is pushed
+  outward, sideways: harder the heavier and faster the maker and the lighter the
+  receiver. A speedboat gets thrown about behind Cabourg or a barge; a coal barge hardly
+  notices a speedboat. Heavy boats show the arms of their V on the water. The Hovercraft
+  floats over wakes.
+- **Slipstream**: straight behind another boat (within about 28 m), in line with it and
+  both going fast, a boat gets a little faster (top speed x 1.1, acceleration x 1.35)
+  after half a second there, shown by streaks of air along its sides. Leave it at the
+  right moment to overtake. There is no push in the middle of a wake, so a light boat
+  can draft behind a heavy one as long as it stays in line.
 
 ## Items
 

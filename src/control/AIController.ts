@@ -70,6 +70,19 @@ export class AIController implements Controller {
         lateralPx += side * (gap - Math.abs(p) + 20);
       }
     }
+    // Barges: pass on the free side (they keep to theirs), looking further ahead for oncoming ones.
+    // Measured along the canal, so a barge round a bend is seen in time.
+    for (const b of sim.trafficPoses) {
+      if (!b.solid) continue;
+      let ahead = b.along - along;
+      if (track.closed) ahead = ((ahead % track.length) + track.length * 1.5) % track.length - track.length / 2;
+      const closing = speed - (b.vx * hx + b.vy * hy);
+      const look = 260 + Math.max(0, closing) * 1.3 + TUNING.traffic.length / 2;
+      if (ahead > -TUNING.traffic.length / 2 - r.boat.size.length * 0.6 && ahead < look) {
+        const want = -Math.sign(b.lat || 1) * hw * 0.5;
+        if (Math.sign(want) !== Math.sign(lateralPx) || Math.abs(lateralPx) < Math.abs(want)) lateralPx = want;
+      }
+    }
     // Avoid glue unless boosted.
     if (!hasEffect(r, 'boost') && !r.boat.specials?.washesGlue) {
       for (const g of sim.items.puddles) {

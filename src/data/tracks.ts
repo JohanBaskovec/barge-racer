@@ -74,6 +74,7 @@ export const TRACK_DEFS: TrackDef[] = [
     range: reims.range as [number, number],
     places: reims.places as [number, number, number, string][],
     crateSpacing: { every: 2500, count: 3 },
+    traffic: 6000,
     pxPerM: reims.pxPerM,
     scenery: 'maps/reims-canal.json',
     attribution: `${reims.source}, ${reims.generated}`,

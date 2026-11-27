@@ -99,6 +99,11 @@ export const SFX = {
     noise(c, d, { dur: 3.3, filter: 'highpass', freq: 2200, gain: 0.3, attack: 0.15 });
     noise(c, d, { dur: 3.3, filter: 'bandpass', freq: 1200, q: 0.7, gain: 0.22, attack: 0.15 });
   },
+  /** A barge's horn: one long, low blast */
+  horn: (c: Ctx, d: AudioNode) => {
+    tone(c, d, { type: 'sawtooth', freq: 110, dur: 0.9, gain: 0.16, lowpass: 600, attack: 0.08, release: 0.2 });
+    tone(c, d, { type: 'sawtooth', freq: 165, dur: 0.9, gain: 0.1, lowpass: 600, attack: 0.08, release: 0.2 });
+  },
   /** Breathing in toxic smoke: a low, wet cough */
   toxic: (c: Ctx, d: AudioNode) => {
     tone(c, d, { type: 'sawtooth', freq: 150, freqEnd: 70, dur: 0.2, gain: 0.2, lowpass: 600 });

@@ -7,6 +7,8 @@ import type { Racer, Slot } from '../race/types';
 /** Everything a screen needs to show a race, sent by the server about 20 times a second. */
 export interface SimState {
   phase: RaceSimulation['phase'];
+  /** Steps since the start (the traffic's clock: barges are computed from it on every screen). */
+  k: number;
   cd: number;
   time: number;
   fc: number;
@@ -21,6 +23,7 @@ export interface SimState {
   blobs: [number, number, number, number, number, number, number, number][]; // id, owner, x, y, heading, travelled, age, near
   shots: [number, number, number, number, number, number, number, number, number][]; // id, owner, kind, x, y, heading, travelled, age, near
   clouds: [number, number, number, number, number, number][]; // id, owner, kind, x, y, age
+  drops: [number, number, number, number, number, number, number][]; // id, x, y, fromX, fromY, age, target
 }
 
 export interface RacerState {
@@ -59,6 +62,7 @@ export function encodeState(sim: RaceSimulation): SimState {
   const it = sim.items;
   return {
     phase: sim.phase,
+    k: sim.steps,
     cd: r3(sim.countdownT),
     time: r3(sim.time),
     fc: r1(sim.finishCountdown),
@@ -72,6 +76,7 @@ export function encodeState(sim: RaceSimulation): SimState {
     blobs: it.blobs.map((b) => [b.id, b.owner, r1(b.x), r1(b.y), r3(b.heading), r1(b.travelled), r3(b.age), b.near]),
     shots: it.shots.map((s) => [s.id, s.owner, s.kind, r1(s.x), r1(s.y), r3(s.heading), r1(s.travelled), r3(s.age), s.near]),
     clouds: it.clouds.map((c) => [c.id, c.owner, c.kind, r1(c.x), r1(c.y), r3(c.age)]),
+    drops: it.drops.map((d) => [d.id, r1(d.x), r1(d.y), r1(d.fromX), r1(d.fromY), r3(d.age), d.target]),
   };
 }
 
@@ -103,6 +108,7 @@ export function applyRacer(r: Racer, s: RacerState): void {
  */
 export function applyState(sim: RaceSimulation, s: SimState, except = -1): void {
   sim.phase = s.phase;
+  sim.steps = s.k;
   sim.countdownT = s.cd;
   sim.time = s.time;
   sim.finishCountdown = s.fc;
@@ -132,4 +138,5 @@ export function applyState(sim: RaceSimulation, s: SimState, except = -1): void 
   it.blobs = s.blobs.map(([id, owner, x, y, heading, travelled, age, near]) => ({ id, owner, x, y, heading, travelled, age, near, dead: false }));
   it.shots = s.shots.map(([id, owner, kind, x, y, heading, travelled, age, near]) => ({ id, owner, kind: kind as 0 | 1, x, y, heading, travelled, age, near, dead: false }));
   it.clouds = s.clouds.map(([id, owner, kind, x, y, age]) => ({ id, owner, kind: kind as 0 | 1, x, y, age, dead: false }));
+  it.drops = s.drops.map(([id, x, y, fromX, fromY, age, target]) => ({ id, x, y, fromX, fromY, age, target, dead: false }));
 }

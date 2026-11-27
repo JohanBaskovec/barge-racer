@@ -36,6 +36,8 @@ export interface Racer {
   size: number;
   /** Who last sprayed this boat with a Kärcher, for the crash that follows (server and offline only). */
   soakedBy: number | null;
+  /** Seconds spent in a slipstream so far; the boost starts after TUNING.draft.charge (server and offline only). */
+  draftT: number;
   /** Tint colour used by the view to tell racers apart. */
   color: number;
 
@@ -168,6 +170,20 @@ export interface Cloud {
   dead: boolean;
 }
 
+/** A crate a barge has tossed ahead of a boat that is behind. Flies for a moment, then floats until taken. */
+export interface Drop {
+  id: number;
+  /** Where it lands, and where it was thrown from. */
+  x: number;
+  y: number;
+  fromX: number;
+  fromY: number;
+  age: number;
+  /** The boat it was thrown to (anyone but the leader may take it). */
+  target: number;
+  dead: boolean;
+}
+
 export interface Crate {
   id: number;
   /** Where it is now: a magic mushroom pulls crates away from home. */
@@ -192,6 +208,8 @@ export type RaceEvent =
   | { type: 'bump'; a: number; b: number; strength: number }
   | { type: 'bank'; racer: number; strength: number }
   | { type: 'crate'; id: number; taken: boolean }
+  /** A barge tossed a crate ahead of `racer`. */
+  | { type: 'drop'; racer: number; id: number }
   | { type: 'raceOver' };
 
 export interface Controller {

@@ -118,8 +118,11 @@ Special: Glue puddles touched by the Fire Boat are washed away immediately.
 | --- | --- | --- | --- | --- |
 | 9 | 8 | 4 | 4 | 5 |
 
-Special: slides a lot (very low sideways grip), but ignores shallow water and
-can cut briefly over sandbanks (not solid banks).
+Special: slides a lot (very low sideways grip), but ignores shallow water and other
+boats' wakes, and can cut briefly over sandbanks (not solid banks).
+
+Weight also decides wakes (see [Game design](game-design.md#traffic-wakes-and-slipstream)):
+heavy boats' wakes push light boats sideways, and heavy boats hardly feel anyone's.
 
 ### Unlock order
 

@@ -27,6 +27,8 @@ export interface TrackDef {
   crateSpacing?: { every: number; count: number };
   /** Named places along the canal for the stretch picker: [x, y, kind, name], kind 0 end, 1 named bridge, 2 lock, 3 bridge named by its street, 4 railway bridge. */
   places?: [number, number, number, string][];
+  /** Distance between traffic barges going the same way (px); default TUNING.traffic.every. */
+  traffic?: number;
   /** Real-world tracks: pixels per metre, scenery file (in public/) and data attribution. */
   pxPerM?: number;
   scenery?: string;

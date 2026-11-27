@@ -105,6 +105,12 @@ deploy (Cloudflare builds from `main` as before):
 | `src/scenes/OnlineScene.ts`, `LobbyScene.ts` | Name and room code; the lobby |
 | `server/worker.ts` | The Cloudflare Worker and the `RaceRoom` Durable Object |
 
+**Traffic costs nothing to send**: where every barge is depends only on the seed and the
+step count, and the snapshot carries the step count (`k`), so each screen works the barges
+out. Your boat's prediction knows them too: it collides with them at the step it is
+predicted for, and the barges are drawn at that same moment, so you see a barge exactly
+where you bump into it. The crates barges toss are sent like the other entities.
+
 A snapshot also carries the raclette's shots, the cheese and smoke clouds, each boat's
 size (mushrooms) and the crates a mushroom has pulled away from home (only those: the
 others sit at home on every screen). Moving shots and pulled crates glide between

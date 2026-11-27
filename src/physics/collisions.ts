@@ -138,6 +138,57 @@ export function resolveBoatPair(a: Racer, b: Racer): number {
   return -rel;
 }
 
+/**
+ * Push a boat out of an immovable capsule moving at (vx, vy) (a traffic barge). Returns the
+ * speed with which they came together (0 if they didn't touch).
+ */
+export function resolveStatic(
+  r: Racer, c: { ax: number; ay: number; bx: number; by: number; radius: number }, vx: number, vy: number,
+  /** Met head-on by the moving end (b), the boat is shoved this way (a unit vector) rather than bulldozed along. */
+  aside: { x: number; y: number } | null = null,
+): number {
+  const A = capsule(r);
+  const minD = A.radius + c.radius;
+  const cx = (c.ax + c.bx) / 2, cy = (c.ay + c.by) / 2;
+  const reach = r.stats.halfLen + Math.hypot(c.bx - c.ax, c.by - c.ay) / 2 + minD;
+  if ((r.x - cx) ** 2 + (r.y - cy) ** 2 >= reach * reach) return 0;
+  const cp = segmentSegment(c.ax, c.ay, c.bx, c.by, A.ax, A.ay, A.bx, A.by); // a on the barge, b on the boat
+  let dx = cp.bx - cp.ax, dy = cp.by - cp.ay;
+  const d2 = dx * dx + dy * dy;
+  if (d2 >= minD * minD) return 0;
+  let d = Math.sqrt(d2);
+  if (d < 1e-6) {
+    dx = r.x - cx || 1;
+    dy = r.y - cy;
+    d = Math.hypot(dx, dy) || 1;
+  }
+  let nx = dx / d, ny = dy / d;
+  const overlap = minD - Math.min(d, minD);
+  r.x += nx * overlap;
+  r.y += ny * overlap;
+  if (aside) {
+    const len = Math.hypot(c.bx - c.ax, c.by - c.ay) || 1;
+    if ((nx * (c.bx - c.ax) + ny * (c.by - c.ay)) / len > 0.6) {
+      const sx = aside.x + nx * 0.3, sy = aside.y + ny * 0.3;
+      const sl = Math.hypot(sx, sy) || 1;
+      nx = sx / sl;
+      ny = sy / sl;
+    }
+  }
+  const rel = (r.vx - vx) * nx + (r.vy - vy) * ny; // negative: closing
+  if (rel >= 0) return 0;
+  r.vx -= nx * rel * 1.4;
+  r.vy -= ny * rel * 1.4;
+  const scrape = Math.min(0.35, -rel / 700);
+  r.vx = vx + (r.vx - vx) * (1 - scrape);
+  r.vy = vy + (r.vy - vy) * (1 - scrape);
+  return -rel;
+}
+
+/** True if a circle at (x, y) touches a capsule. */
+export const touchesCapsule = (x: number, y: number, radius: number, c: { ax: number; ay: number; bx: number; by: number; radius: number }): boolean =>
+  pointSegment(x, y, c.ax, c.ay, c.bx, c.by).d < c.radius + radius;
+
 /** True if a circle at (x, y) touches the boat's hull (its capsule). */
 export const isTouching = (r: Racer, x: number, y: number, radius: number): boolean => {
   const c = capsule(r);

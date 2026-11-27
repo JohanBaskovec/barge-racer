@@ -268,11 +268,14 @@ function lone(keep: number[], seed = 5, trackId = 'lockAndLoad'): RaceSimulation
   const sim = new RaceSimulation({ track: loadTrack(trackId), playerBoat: null, difficulty: 'river', seed });
   for (let i = 0; i < 4 * 60; i++) sim.step(STEP);
   for (const c of sim.items.crates) c.respawn = 1e9;
+  sim.traffic.barges.length = 0; // no barges wandering through (tests/traffic.test.ts covers them)
+  sim.trafficPoses = [];
   for (const r of sim.racers) {
     r.slots = [null, null];
     sim.setController(r.id, idle);
     r.vx = r.vy = 0;
     if (!keep.includes(r.id)) place(r, r.x + 40000, r.y);
+    sims.set(r, sim);
   }
   return sim;
 }
@@ -284,7 +287,11 @@ const placeBeside = (r: Racer, ref: Racer, f: number, p: number): void => {
   r.heading = ref.heading;
   r.vx = ref.vx;
   r.vy = ref.vy;
+  const sim = sims.get(r);
+  if (sim) r.nearestIndex = sim.track.nearest(r.x, r.y, -1).index; // or the bank check thinks it is elsewhere
 };
+/** The race a racer belongs to (set by lone()). */
+const sims = new WeakMap<Racer, RaceSimulation>();
 
 describe('mushroom', () => {
   it('shrinks whoever was ahead, speeds up whoever was behind, and keeps the user as a crate magnet', () => {
@@ -606,8 +613,10 @@ describe('karcher', () => {
   it('leaves boats out of reach alone, and the jets stop after their duration', () => {
     const sim = lone([0, 1]);
     const [user, far] = sim.racers;
-    placeBeside(far, user, 600, 60); // well ahead of the nozzles
-    far.vx = far.vy = 0;
+    // Well ahead of the nozzles, on the water (the canal bends: straight ahead may be the bank).
+    const pt = sim.track.pointAt(sim.track.alongOf(user.progress) + 600, 0);
+    place(far, pt.x, pt.y);
+    far.nearestIndex = sim.track.nearest(pt.x, pt.y, -1).index;
     sim.items.give(user, 'karcher');
     sim.items.use(user, 0, 'forward');
     const { x, y } = far;

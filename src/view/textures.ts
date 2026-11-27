@@ -3,6 +3,8 @@ import { BOATS, type BoatDef } from '../data/boats';
 import { generateItemIcons } from './itemIcons';
 import { BOAT_ART_PAD, drawBoatArt, hasBoatArt } from './boatArt';
 import { drawPeniche, drawPenicheAccent } from './peniche';
+import { drawBarge } from './bargeArt';
+import { TUNING } from '../data/items';
 import { drawCheesePuddle, drawCheeseScreen, drawCrate, drawDrill, drawGlueBlob, drawGluePuddle, drawHam, drawPotato, drawSaw, drawToxicSmoke, drawVolunteer, drawWaterTile } from './worldArt';
 
 type G = Phaser.GameObjects.Graphics;
@@ -79,6 +81,9 @@ export function generateTextures(scene: Phaser.Scene): void {
   world('cheese', 160, 160, drawCheesePuddle, 1);
   world('smoke', 220, 220, drawToxicSmoke, 1);
   world('cheeseScreen', 1280, 900, drawCheeseScreen, 1);
+  // Traffic barges, with a little margin round the hull
+  const T = TUNING.traffic;
+  for (let k = 0; k < 3; k++) world(`barge_${k}`, T.length + 4, T.width + 4, (c) => (c.translate(2, 2), drawBarge(c, k, T.length, T.width)), 2.5);
   world('water', 256, 256, drawWaterTile, 1);
   // A tree crown seen from above, in greys so a tint colours it: darker rim, lighter top-left.
   gen(scene, 'crown', 64, 64, (g) => {

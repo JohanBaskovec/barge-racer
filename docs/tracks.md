@@ -132,6 +132,16 @@ Islands and piers inside the channel are separate static obstacles
 
 ## Zones and hazards
 
+**Traffic** is on every track: barges going both ways along the centre line, keeping to
+their side (`src/race/traffic.ts`). Where each one is depends only on the time since the
+race was set up, so every screen of an online race works them out for itself. A track
+can set how far apart barges going the same way are (`traffic` in the track definition,
+in pixels; 4000 by default, 6000 on the Reims canal). None is on the starting grid at the
+start; on a point-to-point track they fade out at one end of the canal and back in at the
+other. See [Game design](game-design.md#traffic-wakes-and-slipstream).
+
+Planned, not built yet:
+
 | Type | Effect |
 | --- | --- |
 | `shallow` | Top speed x 0.6 (not for Hovercraft or boosted boats) |

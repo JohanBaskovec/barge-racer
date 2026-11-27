@@ -4,7 +4,9 @@ import { type ItemId, TUNING } from '../data/items';
 import { addEffect, hasEffect, removeEffect, tickEffects } from '../effects/effects';
 import { ItemSystem } from '../items/ItemSystem';
 import { setRacerSize, stepBoat } from '../physics/BoatPhysics';
-import { resolveBank, resolveBoatPair } from '../physics/collisions';
+import { resolveBank, resolveBoatPair, resolveStatic } from '../physics/collisions';
+import { type BargePose, Traffic, bargeCapsule } from './traffic';
+import { applyWater } from './water';
 import { AIController } from '../control/AIController';
 import { Rng } from '../physics/math';
 import type { Track } from '../track/Track';
@@ -67,6 +69,12 @@ export class RaceSimulation {
   readonly forcedItem: ItemId | null;
   player: Racer | null = null;
 
+  /** Barges going up and down the canal. */
+  readonly traffic: Traffic;
+  /** Where they are this step. */
+  trafficPoses: BargePose[] = [];
+  /** Simulation steps since the race was set up (countdown included): the traffic's clock. */
+  steps = 0;
   phase: 'countdown' | 'racing' | 'over' = 'countdown';
   countdownT = 3.2;
   /** Seconds since GO. */
@@ -104,6 +112,9 @@ export class RaceSimulation {
       this.controllers.set(r.id, own ?? new AIController(this.rng, diff, b.isPlayer ? 0 : this.rng.range(-0.25, 0.25)));
     });
     if (setup.roster && !this.player) this.player = this.racers.find((r) => r.human) ?? null;
+    // Its own random numbers, so the traffic is the same on every screen whatever else happens.
+    this.traffic = new Traffic(this.track, (setup.seed ^ 0x5eed) >>> 0);
+    this.trafficPoses = this.traffic.poses(0);
     this.items = new ItemSystem(this);
     this.updateRanking();
   }
@@ -147,7 +158,7 @@ export class RaceSimulation {
     const stats = deriveStats(boat);
     const near = this.track.nearest(x, y, -1);
     return {
-      id, name, isPlayer, human: isPlayer, boat, stats, baseStats: stats, size: 1, soakedBy: null, color: RACER_COLORS[id % RACER_COLORS.length],
+      id, name, isPlayer, human: isPlayer, boat, stats, baseStats: stats, size: 1, soakedBy: null, draftT: 0, color: RACER_COLORS[id % RACER_COLORS.length],
       x, y, vx: 0, vy: 0, heading, spin: 0,
       hull: stats.maxHull, effects: [], inGlue: false, sinceHit: 99, sinkTimer: 0,
       slots: [null, null], rouletteT: 0, rouletteItem: null, recentItems: [], jigsawHit: new Set(),
@@ -174,6 +185,8 @@ export class RaceSimulation {
 
   step(dt: number): void {
     if (this.phase === 'over') return;
+    this.steps++;
+    this.trafficPoses = this.traffic.poses(this.steps * STEP);
     this.stepClock(dt);
     const canDrive = this.phase === 'racing';
 
@@ -226,22 +239,20 @@ export class RaceSimulation {
       stepBoat(r, intent, dt, canDrive);
       if (canDrive && intent.fire && !hasEffect(r, 'spinOut') && !hasEffect(r, 'blackout')) this.items.use(r, intent.fire.slot, intent.fire.dir);
     }
+    // Wakes push light boats around; a slipstream speeds a boat up.
+    if (canDrive) applyWater(this, dt);
 
     // 4. Collisions
     for (const r of this.racers) {
       if (r.sinkTimer > 0) continue;
       const impact = resolveBank(r, this.track);
-      if (impact > 0) {
-        this.emit({ type: 'bank', racer: r.id, strength: impact });
-        if (hasEffect(r, 'soaked') && impact > r.stats.topSpeed * 0.2 && r.bankHitCooldown <= 0) {
-          // Pushed into the bank by a Kärcher: a proper crash, and a spin-out.
-          r.bankHitCooldown = 1;
-          removeEffect(r, 'soaked');
-          this.hit(r, TUNING.karcher.crashDamage, r.soakedBy, 'karcher');
-        } else if (impact > r.stats.topSpeed * 0.55 && r.bankHitCooldown <= 0) {
-          r.bankHitCooldown = 1;
-          this.hit(r, TUNING.bankHitDamage, null, 'bank', false);
-        }
+      if (impact > 0) this.crash(r, impact, TUNING.bankHitDamage);
+      // Barges are as solid as the bank, and they move.
+      if (this.isGhost(r)) continue;
+      for (const p of this.trafficPoses) {
+        if (!p.solid) continue;
+        const hit = resolveStatic(r, bargeCapsule(p), p.vx, p.vy, { x: p.mx, y: p.my });
+        if (hit > 0) this.crash(r, hit, TUNING.traffic.bumpDamage);
       }
     }
     for (let i = 0; i < this.racers.length; i++) {
@@ -302,6 +313,21 @@ export class RaceSimulation {
     this.emit({ type: 'hit', racer: r.id, by, source, damage });
     if (r.hull <= 0) this.sink(r);
     return true;
+  }
+
+  /** A boat ran into the bank or a barge at `impact` px/s. */
+  private crash(r: Racer, impact: number, damage: number): void {
+    this.emit({ type: 'bank', racer: r.id, strength: impact });
+    if (r.bankHitCooldown > 0) return;
+    if (hasEffect(r, 'soaked') && impact > r.stats.topSpeed * 0.2) {
+      // Pushed into it by a Kärcher: a proper crash, and a spin-out.
+      r.bankHitCooldown = 1;
+      removeEffect(r, 'soaked');
+      this.hit(r, TUNING.karcher.crashDamage, r.soakedBy, 'karcher');
+    } else if (impact > r.stats.topSpeed * 0.55) {
+      r.bankHitCooldown = 1;
+      this.hit(r, damage, null, 'bank', false);
+    }
   }
 
   /**

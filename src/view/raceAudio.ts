@@ -111,6 +111,9 @@ export class RaceAudio {
         if (s) this.at(s, r.x, r.y);
         break;
       }
+      case 'drop':
+        this.at('drop', racers[e.racer].x, racers[e.racer].y, 0.8);
+        break;
       case 'heal':
         this.at('beer', racers[e.racer].x, racers[e.racer].y);
         break;

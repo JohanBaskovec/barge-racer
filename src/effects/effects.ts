@@ -15,7 +15,11 @@ export type EffectKind =
   /** Kärcher, on the user: spraying water to both sides. */
   | 'karcher'
   /** Kärcher, on the victims: wet, so reaching the bank is a crash. */
-  | 'soaked';
+  | 'soaked'
+  /** In another boat's slipstream: a little faster. */
+  | 'draft'
+  /** Rocked by a wake (for the view). */
+  | 'rocked';
 
 export interface Effect {
   kind: EffectKind;
@@ -86,6 +90,10 @@ export function computeMods(holder: EffectHolder): Mods {
         break;
       case 'shrunk':
         m.topSpeed *= TUNING.mushroom.shrunkSpeed;
+        break;
+      case 'draft':
+        m.topSpeed *= TUNING.draft.topSpeed;
+        m.accel *= TUNING.draft.accel;
         break;
       case 'soaked':
         m.turnRate *= TUNING.karcher.soakedTurnMult;
