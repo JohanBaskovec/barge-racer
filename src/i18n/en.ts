@@ -7,7 +7,7 @@ export const en = {
   rotate: 'Please rotate your device to landscape',
 
   'title.subtitle': 'Race, shove, saw and glue your way to the finish',
-  'title.tap': 'Tap or click to start',
+  'title.play': 'Play',
   'title.hint': 'Hold to steer · tap an item button to fire (mouse: right and middle click)',
 
   'common.back': 'Back',

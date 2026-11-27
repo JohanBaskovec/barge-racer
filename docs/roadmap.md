@@ -80,8 +80,8 @@ hazards, cup mode, save data (unlocks, best times, options).
 - Deployed to Cloudflare on every update of `main` (done).
 - Web app manifest and icons, fullscreen, home-screen install (done); offline
   caching (not yet).
-- Basic credits and version number on the title screen (not yet; the IGN map
-  credit is on the track select screen).
+- Version number on the title screen (done). Credits (not yet; the IGN map credit
+  is on the track select screen).
 
 ## Later / ideas
 

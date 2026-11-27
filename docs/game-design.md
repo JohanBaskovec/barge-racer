@@ -135,7 +135,9 @@ No accounts, no server, no purchases.
 
 ## Screens
 
-1. **Title**: logo, "Tap to start". Unlocks audio on mobile (first user gesture).
+1. **Title**: logo, **Play**, **Play online** and **Options** buttons, language and fullscreen
+   buttons, the version number, and boats racing along a canal at the bottom. The first press
+   unlocks audio on mobile and, on phones and tablets, goes fullscreen.
 2. **Main menu**: Single Race, Cup, Options.
 3. **Boat select**: carousel of boats with a stat chart, locked boats shown as
    silhouettes.
