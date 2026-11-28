@@ -157,7 +157,7 @@ export class AIController implements Controller {
       }
     }
     // Dodge incoming drill bits, raclette shots, nails and police bullets (sometimes).
-    const incoming = [...sim.items.drills, ...sim.items.shots].filter((x) => x.owner !== r.id && !('wait' in x && x.wait > 0)) as { id: number; x: number; y: number; heading: number }[];
+    const incoming = [...sim.items.drills.filter((d) => d.mounted <= 0), ...sim.items.shots.filter((x) => x.wait <= 0)].filter((x) => x.owner !== r.id) as { id: number; x: number; y: number; heading: number }[];
     for (const d of [...incoming, ...sim.hazards.bullets.filter((b) => b.target === r.id)]) {
       const dx = r.x - d.x;
       const dy = r.y - d.y;
@@ -270,10 +270,12 @@ export class AIController implements Controller {
         break;
       }
       case 'jigsaw':
-        // The saws stick out sideways: someone alongside, close.
+        // The saws stick out sideways and ahead: someone alongside, close, or just ahead.
         if (others.some((o) => {
           const q = rel(o);
-          return Math.abs(q.f) < r.boat.size.length * 0.45 && Math.abs(q.p) < r.stats.capRadius + TUNING.jigsaw.reach + o.stats.capRadius;
+          const alongside = Math.abs(q.f) < r.boat.size.length * 0.45 && Math.abs(q.p) < r.stats.capRadius + TUNING.jigsaw.reach + o.stats.capRadius;
+          const ahead = q.f > 0 && q.f < r.boat.size.length * 1.2 + o.stats.radius && Math.abs(q.p) < q.f * 0.5 + o.stats.radius * 0.6;
+          return alongside || ahead;
         })) return 'forward';
         break;
       case 'dildo':
@@ -313,8 +315,9 @@ export class AIController implements Controller {
         break;
       }
       case 'drill':
-        if (inLine(800, false)) return 'forward';
-        if (inLine(600, true)) return 'backward';
+        // On the bow for 3 s, then fired: someone ahead to ram, or in line to shoot.
+        if (inLine(900, false)) return 'forward';
+        if (inLine(500, true)) return 'backward';
         break;
       case 'siliconeGun':
         if (inLine(700, false)) return 'forward';
@@ -360,7 +363,8 @@ export class AIController implements Controller {
         // Someone alongside, close enough for the jet to push them.
         if (others.some((o) => {
           const q = rel(o);
-          return Math.abs(q.f) < r.boat.size.length / 2 + 120 && Math.abs(q.p) > 20 && Math.abs(q.p) < 220;
+          const out = Math.abs(q.p) - r.stats.capRadius;
+          return out > 0 && out < TUNING.karcher.reach * 0.8 && Math.abs(q.f) < (r.boat.size.length * TUNING.karcher.base) / 2 + TUNING.karcher.spread * out;
         })) return 'forward';
         break;
     }

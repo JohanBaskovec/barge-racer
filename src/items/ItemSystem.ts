@@ -27,6 +27,8 @@ export class ItemSystem {
   private nextId = 1;
   /** When each boat last had a crate tossed to it. */
   private droppedFor = new Map<number, number>();
+  /** Time since each flushing boat dropped its last cloud of smoke. */
+  private flushT = new Map<number, number>();
   /** When each boat last got a "toxic" hit event (the smoke hurts every step, but is announced now and then). */
   private toxicAt = new Map<number, number>();
 
@@ -90,7 +92,8 @@ export class ItemSystem {
         addEffect(r, 'boost', TUNING.powder.duration);
         break;
       case 'drill':
-        this.drills.push({ id: this.nextId++, owner: r.id, x: bx, y: by, heading, travelled: 0, stuckT: 0, age: 0, near: r.nearestIndex, dead: false });
+        // On the bow first (see updateDrills), then fired.
+        this.drills.push({ id: this.nextId++, owner: r.id, x: bx, y: by, heading, travelled: 0, stuckT: 0, age: 0, near: r.nearestIndex, mounted: TUNING.drill.mountTime, back: dir === 'backward', hit: [], dead: false });
         break;
       case 'glue': {
         const back = r.heading + Math.PI;
@@ -140,7 +143,10 @@ export class ItemSystem {
         break;
       }
       case 'toilet':
+        // A trail of smoke behind, for a few seconds (see updateFlushing).
+        addEffect(r, 'flushing', TUNING.toilet.trailTime);
         this.dropCloud(r, 1, TUNING.toilet.radius);
+        this.flushT.set(r.id, 0);
         break;
       case 'karcher':
         addEffect(r, 'karcher', TUNING.karcher.duration);
@@ -187,26 +193,41 @@ export class ItemSystem {
     this.clouds.push({ id: this.nextId++, owner: r.id, kind, x: r.x + Math.cos(back) * dist, y: r.y + Math.sin(back) * dist, age: 0, dead: false });
   }
 
-  /** Dicke Titten: a pair in front of every opponent, on the line it is taking, to dodge. */
+  /**
+   * Dicke Titten: a pair in front of every opponent, on the line it is taking, to dodge. Never a
+   * wall: one pair per stretch of canal (a pair that would land beside another goes further on),
+   * each leaving room to pass on one side, and lying along the canal where it is too narrow.
+   */
   private dropTitten(r: Racer): void {
     const T = TUNING.titten, track = this.sim.track;
-    for (const o of this.sim.racers) {
-      if (o === r || o.finished || o.sinkTimer > 0) continue;
+    const placed: number[] = [];
+    const targets = this.sim.racers.filter((o) => o !== r && !o.finished && o.sinkTimer <= 0).sort((a, b) => a.progress - b.progress);
+    for (const o of targets) {
       const n = track.nearest(o.x, o.y, o.nearestIndex);
-      const along = n.along + T.ahead;
+      let along = n.along + T.ahead;
+      // Not in the same stretch as another pair: further on.
+      for (let tries = 0; tries < 6 && placed.some((a) => Math.abs(a - along) < T.row); tries++) along += T.row;
       if (!track.closed && along > track.length - 60) continue;
-      // Where it is across the canal now, kept inside the water.
-      const room = track.halfWidth(n.index) - T.radius * 2 - 6;
-      const lateral = Math.max(-room, Math.min(room, n.lateral));
-      const p = track.pointAt(along, lateral);
-      this.boobs.push({ id: this.nextId++, owner: r.id, target: o.id, x: p.x, y: p.y, heading: p.heading, age: 0, hit: [], dead: false });
+      if (track.closed) along = ((along % track.length) + track.length) % track.length;
+      const hw = track.sampleAt(along).width / 2;
+      // Across the canal a pair is 4 radii wide; along it, 2. Turn it if across leaves no room.
+      const turned = 2 * hw - 4 * T.radius < T.clear + 12;
+      const half = turned ? T.radius : 2 * T.radius;
+      // On the boat's line, but with `clear` px free on one side at least.
+      let lat = Math.max(-(hw - half - 6), Math.min(hw - half - 6, n.lateral));
+      const left = lat - half + hw, right = hw - lat - half;
+      if (left < T.clear && right < T.clear) lat = left > right ? -hw + T.clear + half : hw - T.clear - half;
+      const p = track.pointAt(along, lat);
+      placed.push(along);
+      this.boobs.push({ id: this.nextId++, owner: r.id, target: o.id, x: p.x, y: p.y, heading: p.heading, turned, age: 0, hit: [], dead: false });
     }
   }
 
   /** The solid shape of a pair: a capsule across the canal through both breasts. */
   boobsCapsule(b: Boobs): Capsule {
     const R = TUNING.titten.radius;
-    const nx = -Math.sin(b.heading), ny = Math.cos(b.heading);
+    // the line through both breasts: across the canal, or along it when turned
+    const nx = b.turned ? Math.cos(b.heading) : -Math.sin(b.heading), ny = b.turned ? Math.sin(b.heading) : Math.cos(b.heading);
     return { ax: b.x - nx * R, ay: b.y - ny * R, bx: b.x + nx * R, by: b.y + ny * R, radius: R };
   }
 
@@ -232,6 +253,7 @@ export class ItemSystem {
     this.updateBoobs(dt);
     this.updateFakeCrates(dt);
     this.updatePuddles(dt);
+    this.updateFlushing(dt);
     this.updateClouds(dt);
     this.updateKarcher(dt);
     this.updateVacuum(dt);
@@ -257,7 +279,7 @@ export class ItemSystem {
   /** Volunteers, drills, glue balls and raclette shots stop against a barge (glue lands on the water beside it). */
   private stopAtBarges(): void {
     for (const v of this.volunteers) if (!v.dead && this.onBarge(v.x, v.y, 8)) v.dead = true;
-    for (const d of this.drills) if (!d.dead && d.stuckT <= 0 && this.onBarge(d.x, d.y, 6)) d.stuckT = 0.001;
+    for (const d of this.drills) if (!d.dead && d.mounted <= 0 && d.stuckT <= 0 && this.onBarge(d.x, d.y, 6)) d.stuckT = 0.001;
     for (const s of this.shots) if (!s.dead && this.onBarge(s.x, s.y, 8)) s.dead = true;
     for (const b of this.blobs) {
       if (b.dead || !this.onBarge(b.x, b.y, 8)) continue;
@@ -412,8 +434,8 @@ export class ItemSystem {
   }
 
   /**
-   * Things fixed to a boat that cut or ram: the jigsaw's two saws, sticking out of each side, cut
-   * boats alongside; the dildo on the bow hurts whoever it rams, and smashes whatever flies into it.
+   * Things fixed to a boat that cut or ram: the jigsaw's saws, out of each side and on the bow, cut
+   * boats alongside and ahead; the dildo on the bow hurts whoever it rams, and smashes whatever flies into it.
    * Each boat is hurt once per use.
    */
   private updateJigsaw(): void {
@@ -441,9 +463,15 @@ export class ItemSystem {
         const q = rel(x, y);
         return q.f > 0 && q.f < reach + slack && Math.abs(q.p) < q.f * tan + slack * 0.8;
       };
+      // ...and the one on the bow: a cone ahead.
+      const sawReach = r.boat.size.length * J.reachMult, sawTan = Math.tan(J.halfAngle);
+      const byBowSaw = (x: number, y: number, slack: number): boolean => {
+        const q = rel(x, y);
+        return q.f > 0 && q.f < sawReach + slack && Math.abs(q.p) < q.f * sawTan + slack * 0.8;
+      };
       for (const o of this.sim.racers) {
         if (o === r || o.sinkTimer > 0 || r.jigsawHit.has(o.id)) continue;
-        if (saw && bySaw(o.x, o.y, o.stats.capRadius)) {
+        if (saw && (bySaw(o.x, o.y, o.stats.capRadius) || byBowSaw(o.x, o.y, o.stats.radius))) {
           r.jigsawHit.add(o.id);
           this.sim.hit(o, J.damage, r.id, 'jigsaw');
         } else if (dildo && byDildo(o.x, o.y, o.stats.radius)) {
@@ -453,7 +481,7 @@ export class ItemSystem {
       }
       if (!dildo) continue;
       for (const v of this.volunteers) if (v.owner !== r.id && byDildo(v.x, v.y, 12)) v.dead = true;
-      for (const d of this.drills) if (d.owner !== r.id && byDildo(d.x, d.y, 12)) d.dead = true;
+      for (const d of this.drills) if (d.owner !== r.id && d.mounted <= 0 && byDildo(d.x, d.y, 12)) d.dead = true;
       for (const b of this.blobs) if (b.owner !== r.id && byDildo(b.x, b.y, 12)) b.dead = true;
       for (const s of this.shots) if (s.owner !== r.id && s.wait <= 0 && byDildo(s.x, s.y, 12)) s.dead = true;
       for (const f of this.fakeCrates) if (f.owner !== r.id && byDildo(f.x, f.y, TUNING.fakeCrate.radius)) f.dead = true;
@@ -501,9 +529,38 @@ export class ItemSystem {
   }
 
   private updateDrills(dt: number): void {
-    const speed = FASTEST_TOP_SPEED * TUNING.drill.speedMult;
+    const D = TUNING.drill;
+    const speed = FASTEST_TOP_SPEED * D.speedMult;
     for (const d of this.drills) {
       if (d.dead) continue;
+      if (d.mounted > 0) {
+        // On the bow (or stern), spinning: it goes where the boat goes and hurts whoever it rams.
+        const o = this.sim.racers[d.owner];
+        if (!o || o.sinkTimer > 0) {
+          d.dead = true;
+          continue;
+        }
+        d.heading = d.back ? o.heading + Math.PI : o.heading;
+        const out = o.boat.size.length / 2 + D.length * 0.5 - 6;
+        d.x = o.x + Math.cos(d.heading) * out;
+        d.y = o.y + Math.sin(d.heading) * out;
+        d.near = o.nearestIndex;
+        const tipX = d.x + Math.cos(d.heading) * D.length * 0.4, tipY = d.y + Math.sin(d.heading) * D.length * 0.4;
+        for (const r of this.sim.racers) {
+          if (r === o || r.sinkTimer > 0 || d.hit.includes(r.id)) continue;
+          if (isTouching(r, tipX, tipY, D.radius) || isTouching(r, d.x, d.y, D.radius)) {
+            d.hit.push(r.id);
+            this.sim.hit(r, D.mountDamage, d.owner, 'drill');
+          }
+        }
+        d.mounted -= dt;
+        if (d.mounted <= 0) {
+          // Off it goes, straight ahead, from where it is.
+          d.mounted = 0;
+          d.age = 0;
+        }
+        continue;
+      }
       d.age += dt;
       if (d.stuckT > 0) {
         d.stuckT += dt;
@@ -516,8 +573,8 @@ export class ItemSystem {
       if (d.travelled > TUNING.drill.range) d.dead = true;
       for (const r of this.sim.racers) {
         if (r.sinkTimer > 0 || (r.id === d.owner && d.age < 0.5)) continue;
-        if (isTouching(r, d.x, d.y, 10)) {
-          this.sim.hit(r, TUNING.drill.damage, d.owner, 'drill');
+        if (isTouching(r, d.x, d.y, D.radius)) {
+          this.sim.hit(r, D.damage, d.owner, 'drill');
           d.dead = true;
           break;
         }
@@ -635,14 +692,29 @@ export class ItemSystem {
       }
       // Things flying into them stop there.
       for (const v of this.volunteers) if (!v.dead && touchesCapsule(v.x, v.y, 8, cap)) v.dead = true;
-      for (const d of this.drills) if (!d.dead && d.stuckT <= 0 && touchesCapsule(d.x, d.y, 6, cap)) d.stuckT = 0.001;
+      for (const d of this.drills) if (!d.dead && d.mounted <= 0 && d.stuckT <= 0 && touchesCapsule(d.x, d.y, 6, cap)) d.stuckT = 0.001;
       for (const s of this.shots) if (!s.dead && s.wait <= 0 && touchesCapsule(s.x, s.y, 6, cap)) s.dead = true;
+    }
+  }
+
+  /** A clogged toilet keeps going: a cloud of smoke every `every` s behind the boat, a trail. */
+  private updateFlushing(dt: number): void {
+    const T = TUNING.toilet;
+    for (const r of this.sim.racers) {
+      if (!hasEffect(r, 'flushing') || r.sinkTimer > 0) continue;
+      const t = (this.flushT.get(r.id) ?? 0) + dt;
+      if (t >= T.every) {
+        this.dropCloud(r, 1, T.radius);
+        this.flushT.set(r.id, t - T.every);
+      } else this.flushT.set(r.id, t);
     }
   }
 
   /** Melted cheese covers whoever drives through it; toxic smoke hurts them, the owner too after a moment. */
   private updateClouds(dt: number): void {
     const R = TUNING.raclette, T = TUNING.toilet;
+    // Smoke hurts once per step, however many clouds of a trail a boat is in.
+    const smoked = new Set<number>();
     for (const c of this.clouds) {
       c.age += dt;
       const [radius, life, immunity] = c.kind === 0 ? [R.cheeseRadius, R.cheeseLife, R.cheeseOwnerImmunity] : [T.radius, T.life, T.ownerImmunity];
@@ -653,12 +725,15 @@ export class ItemSystem {
         if (r.sinkTimer > 0 || this.sim.isGhost(r) || (r.id === c.owner && c.age < immunity)) continue;
         const rr = radius * grow + r.stats.radius * 0.4;
         if ((r.x - c.x) ** 2 + (r.y - c.y) ** 2 > rr * rr) continue;
-        if (c.kind === 0) addEffect(r, 'cheesed', R.cheeseTime);
-        else if (this.sim.poison(r, T.dps * dt)) {
-          if (this.sim.time - (this.toxicAt.get(r.id) ?? -99) >= T.feedbackEvery) {
-            this.toxicAt.set(r.id, this.sim.time);
-            this.sim.emit({ type: 'hit', racer: r.id, by: c.owner, source: 'toilet', damage: T.dps * T.feedbackEvery });
-          }
+        if (c.kind === 0) {
+          addEffect(r, 'cheesed', R.cheeseTime);
+          continue;
+        }
+        if (smoked.has(r.id)) continue;
+        smoked.add(r.id);
+        if (this.sim.poison(r, T.dps * dt) && this.sim.time - (this.toxicAt.get(r.id) ?? -99) >= T.feedbackEvery) {
+          this.toxicAt.set(r.id, this.sim.time);
+          this.sim.emit({ type: 'hit', racer: r.id, by: c.owner, source: 'toilet', damage: T.dps * T.feedbackEvery });
         }
       }
     }
@@ -671,14 +746,15 @@ export class ItemSystem {
       if (!hasEffect(r, 'karcher') || r.sinkTimer > 0) continue;
       const hx = Math.cos(r.heading), hy = Math.sin(r.heading);
       const nx = -hy, ny = hx;
-      const halfLen = r.boat.size.length / 2 + 160;
+      const base = (r.boat.size.length * K.base) / 2;
       for (const o of this.sim.racers) {
         if (o === r || o.sinkTimer > 0 || o.finished || this.sim.isGhost(o)) continue;
         const dx = o.x - r.x, dy = o.y - r.y;
         const f = dx * hx + dy * hy;
         const p = dx * nx + dy * ny;
         const gap = Math.abs(p) - r.stats.capRadius - o.stats.capRadius;
-        if (Math.abs(f) > halfLen || gap > K.reach) continue;
+        // In the fan: alongside the middle of the boat, a little wider further out.
+        if (gap > K.reach || Math.abs(f) > base + K.spread * Math.max(0, gap) + o.stats.capRadius) continue;
         const side = p >= 0 ? 1 : -1;
         const strength = 1 - Math.max(0, gap) / K.reach; // closer to the nozzle, harder the push
         const away = (o.vx * nx + o.vy * ny) * side;

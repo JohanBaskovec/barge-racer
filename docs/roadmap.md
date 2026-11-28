@@ -37,7 +37,7 @@ This is the most important milestone: steering feel decides the game.
 
 - Crates, roulette, item slot button, firing forward and backward.
 - Hull, damage, spin-out, invulnerability, sinking and respawn.
-- The items: Volunteers, Jigsaw, White Powder, Electric Drill, Glue, then Silicone
+- The items: Volunteers, Jigsaw, Flour, Electric Drill, Glue, then Silicone
   Gun, Fake Crate, Beer Crate and Magic Mushrooms, held two at a time; later the
   Electrical Failure, Ultimate Raclette, Clogged Toilet and Kärcher (13 items in all,
   plus the squad and the big bag, since replaced by the x3 version of every item).

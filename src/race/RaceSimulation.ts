@@ -357,7 +357,8 @@ export class RaceSimulation {
     if (this.hazards.hookedCrash(r, impact)) {
       // Dragged into the bank by an angler's line.
       r.bankHitCooldown = 1;
-    } else if (hasEffect(r, 'soaked') && impact > r.stats.topSpeed * 0.2) {
+    } else if (hasEffect(r, 'soaked') && impact > r.stats.topSpeed * 0.06) {
+      // (even shoved from close by: the jets keep it pinned there)
       // Pushed into it by a Kärcher: a proper crash, and a spin-out.
       r.bankHitCooldown = 1;
       removeEffect(r, 'soaked');

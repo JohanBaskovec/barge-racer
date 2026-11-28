@@ -41,7 +41,7 @@ describe('the new items cross the network', () => {
     expect(ib.shots.map((s) => [s.id, s.kind, Math.round(s.x), Math.round(s.y)])).toEqual(ia.shots.map((s) => [s.id, s.kind, Math.round(s.x), Math.round(s.y)]));
     expect(ib.shots.length).toBe(3);
     expect(ib.clouds.map((x) => [x.id, x.kind, x.owner])).toEqual(ia.clouds.map((x) => [x.id, x.kind, x.owner]));
-    expect(ib.clouds.map((x) => x.kind).sort()).toEqual([0, 1]);
+    expect([...new Set(ib.clouds.map((x) => x.kind))].sort()).toEqual([0, 1]);
     expect(screen.racers[1].size).toBeCloseTo(TUNING.mushroom.shrink, 2);
     expect(screen.racers[1].stats.mass).toBeLessThan(screen.racers[1].baseStats.mass);
     for (const kind of ['shrunk', 'blackout', 'cheesed'] as const) expect(hasEffect(screen.racers[1], kind), kind).toBe(true);

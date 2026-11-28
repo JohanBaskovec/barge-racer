@@ -67,7 +67,7 @@ sinking boat, without the 2 s delay.
 | Nail Gun | A boat in line ahead within 700 px (behind within 450 px: backwards) |
 | Dicke Titten, Gas Siphoning | Not leading, with a boat ahead within 1800 px |
 | Tugboat | Whenever it isn't leading, or just after a hit |
-| White Powder | On a long straight, or right after a spin-out to catch up |
+| Flour | On a long straight, or right after a spin-out to catch up |
 | Electric Drill | When a boat is in a narrow cone in front (±6°) within 800 px, or backwards if someone is right behind |
 | Glue | When it is 1st or 2nd and someone is within 400 px behind, preferably in a narrow section |
 

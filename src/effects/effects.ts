@@ -26,6 +26,8 @@ export type EffectKind =
   | 'siphoned'
   /** Towed by a tugboat: steered along the canal, fast, through glue. */
   | 'towed'
+  /** Clogged toilet, on the user: leaving a trail of toxic smoke. */
+  | 'flushing'
   /** Beer dispenser: a head of foam that takes the next hit. */
   | 'shielded'
   /** Vacuum cleaner, on the user: sucking the boats ahead in. */

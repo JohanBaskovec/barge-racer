@@ -130,6 +130,7 @@ describe('traffic', () => {
     sim.items.give(r, 'drill');
     sim.items.use(r, 0, 'forward');
     const d = sim.items.drills[0];
+    d.mounted = 0.001; // fired straight away (it sits on the bow for a while first)
     step(sim, 0.5);
     expect(d.stuckT > 0 || d.dead).toBe(true);
     expect(d.travelled).toBeLessThan(400);

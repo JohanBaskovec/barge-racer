@@ -48,21 +48,22 @@ It works like a **homing missile**.
 
 *"Health and safety has left the chat."*
 
-A big electric jigsaw blade folds out of **each side** of the boat.
+Big electric jigsaw blades fold out of **each side** of the boat and the **bow**.
 
 - **Duration**: 4 s after activation.
 - **Hitbox**: beside the hull, along its middle 60 %, out to 62 px past its side, on
-  both sides. Boats alongside are cut; boats ahead or behind are not.
+  both sides; and a cone ahead of the bow, 50 degrees wide, reaching 1.2 x the boat's
+  length. Boats alongside or ahead are cut; boats behind are not.
 - **Damage**: 30 hull plus a spin-out to each opponent touched. Each opponent can
   be hit once per activation.
 - **Side effects**: the owner gets +5 % top speed while active.
-- **Visuals and sound**: two saw blades sticking out sideways, sparks, a buzzing loop.
+- **Visuals and sound**: three saw blades, sideways and ahead, sparks, a buzzing loop.
 
-### 3. White Powder
+### 3. Flour
 
 *"Don't ask. Just go."*
 
-An unlabelled bag of white powder. Using it gives a speed boost.
+An unlabelled bag of flour. Using it gives a speed boost.
 
 - **Duration**: 2.5 s.
 - **Effect**: top speed x 1.5, acceleration x 2, and the boat ignores the
@@ -77,7 +78,10 @@ An unlabelled bag of white powder. Using it gives a speed boost.
 
 *"Lefty loosey, righty... fire."*
 
-The racer fires a spinning drill bit **straight ahead**. It does not home.
+Only the bit (a big one, 72 px; the drill itself is never shown, and that's the joke):
+it sits **on the bow, spinning, for 3 s**, and whoever it rams takes **28 hull** and a
+spin-out (once each). Then it **shoots off straight ahead**, from wherever the boat is
+pointing. It does not home.
 
 - **Speed**: 1.6 x the fastest boat's top speed.
 - **Range**: travels until it has gone 1400 px, or hits something.
@@ -86,7 +90,7 @@ The racer fires a spinning drill bit **straight ahead**. It does not home.
 - **Damage**: 42 hull and a spin-out to the first boat hit.
 - **Aim assist**: a dotted aim line from the bow shows where it will go while
   the item is held. Just a line, no auto-aim.
-- **Backwards fire**: fires straight back, useful against someone right behind.
+- **Backwards fire**: swiped down, the bit sits on the stern and fires straight back.
 - **Blocks**: hitting a Volunteer cancels both.
 
 ### 5. Glue
@@ -105,7 +109,7 @@ The racer drops a puddle of glue behind them.
 - **More annoying than a hit**: being hit costs about 2 s (the spin-out and the speed
   it kills). Crossing a puddle costs about **1.6 to 2.2 times that**, more for heavy
   boats that are slow to get going again, so glue is worse than a hit even though
-  it does no damage. A test checks this for light and heavy boats. White Powder
+  it does no damage. A test checks this for light and heavy boats. Flour
   still ignores it, and the Fire Boat washes it away.
 - **The owner** is affected too if they drive back into it, after the first
   1 s.
@@ -220,10 +224,12 @@ Power 10, given only to the **back two positions**.
 
 *"Do not flush."*
 
-A **cloud of toxic smoke** is left behind the boat, like glue: radius 95 px, 12 s.
+A **trail of toxic smoke** is left behind the boat for 3 s: a cloud every 0.25 s
+(radius 70 px, each lasting 9 s), so a long smelly line along the way you went.
 
-- Every boat in it takes **38 hull damage per second** (about 24 for a boat driving
-  straight through). It is damage over time, not a hit: no spin-out and no blinking,
+- Every boat in it takes **10 hull damage per second**, once however many clouds of the
+  trail it is in: about 30 for a boat that follows the whole trail, less for one that
+  steers out of it. It is damage over time, not a hit: no spin-out and no blinking,
   and it can sink a boat. A boat that is blinking after a hit is spared.
 - **It hurts its owner too**, after the first second, so don't turn back into it.
 - The boats announce it now and then with a green puff, a cough and "Toxic!", not every
@@ -237,12 +243,14 @@ A defensive trap (power 4), so the leader gets it most.
 *"Karchérisé."*
 
 A pressure washer. For **3.5 s**, jets of water on **both sides** of the boat push every
-boat alongside **away from you, sideways**: the nearer the nozzle, the harder, up to
-300 px away and from a bit in front of the bow to a bit behind the stern. Heavy boats
-are pushed less than light ones.
+boat alongside **away from you, sideways**: the nearer the nozzle, the harder. The jets
+fan out of the middle 60 % of each side, widening by 0.45 px per px out, up to 280 px
+away: only boats inside that fan are pushed (not those level with your stern or bow),
+and the spray drawn on screen is exactly that fan. Heavy boats are pushed less than
+light ones.
 
 - **They crash.** A boat the jets hit is soaked for 1.4 s after, and a soaked boat that
-  reaches the bank is not just bumped: it takes **24 hull damage** and a spin-out, and the
+  reaches the bank (even pinned against it from close by) is not just bumped: it takes **24 hull damage** and a spin-out, and the
   message "Washed out!". In practice a boat beside you in a normal canal ends up in the
   bank. They can steer against the push, but a soaked boat turns at 60 % of its rate.
 - Nothing happens to boats out of reach, and nothing to you.
@@ -251,7 +259,10 @@ are pushed less than light ones.
 ### 14. Dicke Titten
 
 *Strong.* A giant pair of breasts drops onto the water in front of **every opponent**,
-420 px ahead on the line it is taking. They fall for 0.55 s (a shadow grows where they
+420 px ahead on the line it is taking. There is **always a way round**: one pair per
+330 px of canal (a pair that would land beside another goes further on), each leaving at
+least 100 px free on one side, and where the canal is too narrow for that the pair lies
+along the canal instead of across it. They fall for 0.55 s (a shadow grows where they
 will land), then lie on the water for 9 s, solid: running into them bounces the boat
 off, costs 40 hull and a spin-out (once per boat). Their owner passes through. They
 also stop volunteers, drills and shots. The AI steers round them (the better the AI,
@@ -311,17 +322,17 @@ orange ring round its button and its uses left.
 | Item | Type | Damage | Duration / lifetime | Counters |
 | --- | --- | --- | --- | --- |
 | Volunteers | Homing projectile | 35 | 6 s | Dildo, Drill, Glue, sharp turn |
-| Jigsaw | Melee buff (both sides) | 30 per target | 4 s | Don't ride alongside |
-| White Powder | Self boost | 0 | 2.5 s | - |
-| Electric Drill | Straight projectile | 42 | 1400 px | Dodge sideways, Dildo |
-| Glue | Area trap | 0, slows a lot | 15 s / 3 boats | Drive around it, White Powder |
+| Jigsaw | Melee buff (both sides and ahead) | 30 per target | 4 s | Don't ride alongside or just ahead |
+| Flour | Self boost | 0 | 2.5 s | - |
+| Electric Drill | Bit on the bow 3 s, then a straight projectile | 28 rammed, 42 shot | 3 s + 1400 px | Keep off its bow, dodge sideways, Dildo |
+| Glue | Area trap | 0, slows a lot | 15 s / 3 boats | Drive around it, Flour |
 | Silicone Gun | Straight projectile, makes glue | 0, slows a lot | 900 px, 2 shots | Dodge sideways, Dildo |
 | Fake Crate | Hidden trap | 30 | 40 s | Spot it, Drill, Dildo |
 | Beer Crate | Heal | heals 50 % hull | on use | - |
 | Magic Mushrooms | Shrinks and slows those ahead, speeds up those behind, pulls crates | 0 | 10 s | - |
 | Electrical Failure | Opponents' controls stuck | 0 (a crash costs) | 3.2 s | - |
 | Ultimate Raclette | 3 straight shots + a trap, cheese on the screen | 45 + 2 x 26 | 1300 px, cheese 12 s | Dodge, Dildo, drive round the cheese |
-| Clogged Toilet | Area trap, damage over time | 38 per second | 12 s | Drive round it |
+| Clogged Toilet | Trail of smoke, damage over time | 10 per second | 3 s trail, 9 s each cloud | Drive round it |
 | Kärcher | Sideways push on both sides | 24 (when they hit the bank) | 3.5 s | Stay out of reach, steer away |
 | Dicke Titten | Solid obstacle in front of every opponent | 40 | 0.55 s fall + 9 s | Dodge |
 | Giant Black Dildo | Melee buff (front) | 16 per target | 5 s | Stay out of its way |
@@ -346,7 +357,7 @@ the toilet), which is how they kept the lead: they get half as many now.
 | --- | --- | --- | --- | --- |
 | Volunteers | 4 | 16 | 21 | 22 |
 | Jigsaw | 8 | 12 | 11 | 8 |
-| White Powder | 4 | 10 | 17 | 23 |
+| Flour | 4 | 10 | 17 | 23 |
 | Electric Drill | 14 | 15 | 12 | 8 |
 | Glue | 11 | 9 | 5 | 2 |
 | Silicone Gun | 5 | 10 | 10 | 8 |

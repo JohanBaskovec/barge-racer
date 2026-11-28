@@ -121,9 +121,9 @@ the strongest. The full item list and the luck rules are in [Items](items.md):
 | Item | In one line |
 | --- | --- |
 | Volunteers | Little people thrown at the racer ahead; they home in on it |
-| Jigsaw | A saw blade out of each side for a few seconds; cuts whoever rides alongside |
-| White Powder | A short, strong speed boost |
-| Electric Drill | A drill bit fired straight ahead |
+| Jigsaw | Saw blades out of each side and the bow for a few seconds; cuts whoever is alongside or just ahead |
+| Flour | A short, strong speed boost |
+| Electric Drill | A big drill bit on your bow for 3 s (ram with it), then fired straight ahead |
 | Glue | A puddle dropped behind you that nearly stops anyone driving through it: worse than a hit |
 | Silicone Gun | Shoots glue ahead of you: it lands on the boat it hits |
 | Fake Crate | A trap that looks like a real crate and hurts whoever hits it |
@@ -131,7 +131,7 @@ the strongest. The full item list and the luck rules are in [Items](items.md):
 | Magic Mushrooms | Everyone ahead shrinks and slows right down, everyone behind speeds up, crates fly to you; the rarest item |
 | Electrical Failure | Every opponent loses their controls for a few seconds |
 | Ultimate Raclette | A potato and two slices of ham ahead, melted cheese behind, cheese over the victims' screens |
-| Clogged Toilet | A cloud of toxic smoke behind you that hurts everyone in it, you too |
+| Clogged Toilet | A trail of toxic smoke behind you that hurts everyone in it, you too |
 | Kärcher | Water jets on both sides push boats alongside into the bank |
 | Dicke Titten | A giant pair drops in front of every opponent: dodge or crash into them |
 | Giant Black Dildo | On your bow for a few seconds: ram boats to hurt them (a little) |
@@ -264,6 +264,6 @@ screen shake** (also turns off hit pauses). There is no steering assist.
 
 The game is cartoonish and non-violent in presentation. The volunteers are
 cheerful, wear life vests, and after hitting a boat they bob in the water and
-wave, or swim back to shore. The White Powder is a cartoon gag, presented as an
-unlabelled bag of white powder with sparkles; the boost is the joke, and the
+wave, or swim back to shore. The Flour is a cartoon gag, presented as an
+unlabelled bag of flour with sparkles; the boost is the joke, and the
 game never shows it being consumed.

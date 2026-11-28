@@ -119,7 +119,7 @@ export const fr: Record<TranslationKey, string> = {
 
   'item.volunteer': 'Bénévoles',
   'item.jigsaw': 'Scie sauteuse',
-  'item.whitePowder': 'Poudre blanche',
+  'item.whitePowder': 'Farine',
   'item.drill': 'Perceuse électrique',
   'item.glue': 'Colle',
   'item.siliconeGun': 'Pistolet à silicone',

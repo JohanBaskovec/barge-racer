@@ -41,22 +41,35 @@ const disarm = (sim: RaceSimulation, keep: Racer | null = null): void => {
   for (const r of sim.racers) if (r !== keep) r.slots = [null, null];
 };
 
-describe('jigsaw: a saw out of each side', () => {
-  it('cuts a boat alongside, on either side, but not one straight ahead', () => {
-    const sim = lone();
-    const [me, left, right, ahead] = sim.racers;
-    const a = sim.track.alongOf(me.progress) + 200;
-    put(sim, me, a);
-    put(sim, left, a, -(me.stats.capRadius + left.stats.capRadius + 25));
-    put(sim, right, a, me.stats.capRadius + right.stats.capRadius + 25);
-    put(sim, ahead, a + me.boat.size.length / 2 + ahead.boat.size.length / 2 + 15);
-    sim.items.give(me, 'jigsaw');
-    sim.items.use(me, 0, 'forward');
-    const hull = sim.racers.map((r) => r.hull);
-    sim.step(STEP);
-    expect(left.hull).toBeLessThan(hull[1]);
-    expect(right.hull).toBeLessThan(hull[2]);
-    expect(ahead.hull).toBe(hull[3]);
+describe('jigsaw: a saw out of each side and one on the bow', () => {
+  it('cuts boats alongside, on either side, and straight ahead; not behind', () => {
+    for (const where of ['sides', 'ahead/behind'] as const) {
+      const sim = lone();
+      const [me, b, c, d] = sim.racers;
+      const a = sim.track.alongOf(me.progress) + 400;
+      put(sim, me, a);
+      const gap = (o: Racer): number => me.boat.size.length / 2 + o.boat.size.length / 2 + 15;
+      if (where === 'sides') {
+        put(sim, b, a, -(me.stats.capRadius + b.stats.capRadius + 25));
+        put(sim, c, a, me.stats.capRadius + c.stats.capRadius + 25);
+        put(sim, d, a - 2000);
+      } else {
+        put(sim, b, a + gap(b));
+        put(sim, c, a - gap(c) - 10);
+        put(sim, d, a - 2000, 60);
+      }
+      sim.items.give(me, 'jigsaw');
+      sim.items.use(me, 0, 'forward');
+      const hull = sim.racers.map((r) => r.hull);
+      sim.step(STEP);
+      if (where === 'sides') {
+        expect(b.hull).toBeLessThan(hull[1]);
+        expect(c.hull).toBeLessThan(hull[2]);
+      } else {
+        expect(b.hull).toBeLessThan(hull[1]); // ahead
+        expect(c.hull).toBe(hull[2]); // behind
+      }
+    }
   });
 });
 
@@ -298,5 +311,125 @@ describe('balance: boats', () => {
     expect(b.catchUp).toBe(1);
     expect(c.catchUp).toBeGreaterThan(1);
     expect(d.catchUp).toBeCloseTo(1 + TUNING.catchUp.max, 5);
+  });
+});
+
+describe('clogged toilet: a trail of smoke', () => {
+  it('leaves clouds behind for a few seconds, and a boat in several is hurt once per step', () => {
+    const sim = lone();
+    const [me, victim] = sim.racers;
+    const a = sim.track.alongOf(me.progress) + 200;
+    put(sim, me, a, 0, 300);
+    sim.items.give(me, 'toilet');
+    sim.items.use(me, 0, 'forward');
+    run(sim, TUNING.toilet.trailTime + 0.5, () => disarm(sim));
+    const clouds = sim.items.clouds.filter((c) => c.kind === 1);
+    expect(clouds.length).toBeGreaterThan(8);
+    // spread out along the way it went
+    const xs = clouds.map((c) => c.x), ys = clouds.map((c) => c.y);
+    expect(Math.hypot(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys))).toBeGreaterThan(500);
+    // in the middle of two overlapping clouds: hurt once
+    const [c1, c2] = clouds;
+    victim.x = (c1.x + c2.x) / 2;
+    victim.y = (c1.y + c2.y) / 2;
+    victim.vx = victim.vy = 0;
+    const hull = victim.hull;
+    sim.step(STEP);
+    expect(hull - victim.hull).toBeCloseTo(TUNING.toilet.dps * STEP, 5);
+  });
+});
+
+describe('drill: the bit on the bow, then fired', () => {
+  it('sits on the bow for 3 s hurting what it rams, then flies straight ahead', () => {
+    const sim = lone();
+    const [me, rammed, target, d] = sim.racers;
+    const a = sim.track.alongOf(me.progress) + 300;
+    put(sim, me, a);
+    put(sim, d, a - 2000, 60);
+    sim.items.give(me, 'drill');
+    sim.items.use(me, 0, 'forward');
+    const drill = sim.items.drills[0];
+    expect(drill.mounted).toBeGreaterThan(0);
+    // a boat right on the bit
+    put(sim, rammed, a + me.boat.size.length / 2 + TUNING.drill.length * 0.8, 0);
+    put(sim, target, a - 1800, -60);
+    const hull = rammed.hull;
+    run(sim, 0.3, () => {
+      disarm(sim);
+      put(sim, me, a);
+    });
+    expect(hull - rammed.hull).toBe(TUNING.drill.mountDamage);
+    expect(drill.travelled).toBe(0); // still on the bow
+    // after its time it leaves, straight ahead
+    put(sim, rammed, a - 1500, 60);
+    run(sim, TUNING.drill.mountTime, () => {
+      disarm(sim);
+      put(sim, me, a);
+    });
+    expect(drill.mounted).toBe(0);
+    expect(drill.travelled).toBeGreaterThan(50);
+    // and hurts the first boat it meets
+    const along = sim.track.nearest(drill.x, drill.y, -1).along;
+    put(sim, target, along + 200, sim.track.nearest(drill.x, drill.y, -1).lateral);
+    const th = target.hull;
+    run(sim, 0.6, () => disarm(sim));
+    expect(th - target.hull).toBe(TUNING.drill.damage);
+  });
+});
+
+describe('Dicke Titten leave a way through', () => {
+  it('never two pairs side by side, always a clear gap, and turned along a narrow canal', () => {
+    for (const trackId of ['lockAndLoad', 'bayouBends', 'industrialEstuary', 'reimsCanal']) {
+      for (let seed = 1; seed <= 6; seed++) {
+        const sim = new RaceSimulation({ track: loadTrack(trackId), playerBoat: null, difficulty: 'river', seed });
+        sim.hazards.enabled = false;
+        for (let i = 0; i < 4 * 60; i++) sim.step(STEP);
+        const [me, ...others] = sim.racers;
+        const a = sim.track.alongOf(me.progress) + 800 + seed * 700;
+        put(sim, me, a - 600);
+        // the three others bunched up, abreast
+        others.forEach((o, i) => put(sim, o, a + i * 20, (i - 1) * 55, 300));
+        sim.items.give(me, 'titten');
+        sim.items.use(me, 0, 'forward');
+        const T = TUNING.titten, track = sim.track;
+        const pairs = sim.items.boobs.map((b) => {
+          const n = track.nearest(b.x, b.y, -1);
+          return { along: n.along, lat: n.lateral, hw: track.halfWidth(n.index), half: b.turned ? T.radius : 2 * T.radius, b };
+        });
+        for (const p of pairs) {
+          // room to pass on one side at least
+          expect(Math.max(p.lat - p.half + p.hw, p.hw - p.lat - p.half), `${trackId} ${seed}`).toBeGreaterThan(T.clear - 8);
+          for (const q of pairs) if (q !== p) expect(Math.abs(q.along - p.along), `${trackId} ${seed}`).toBeGreaterThan(T.row - 30);
+          if (2 * p.hw - 4 * T.radius < T.clear + 12) expect(p.b.turned).toBe(true);
+        }
+      }
+    }
+  });
+});
+
+describe('Kärcher: only the fan alongside', () => {
+  it('pushes a boat alongside the middle, not one level with the stern or behind', () => {
+    const push = (along: number): number => {
+      const sim = lone();
+      const [me, o, c, d] = sim.racers;
+      const a = sim.track.alongOf(me.progress) + 300;
+      put(sim, me, a, -50);
+      put(sim, o, a + along, 30);
+      put(sim, c, a - 2000, 60);
+      put(sim, d, a - 2000, -60);
+      sim.setController(o.id, { update: () => ({ desiredHeading: null, throttle: 0, fire: null }) }); // sits there
+      sim.items.give(me, 'karcher');
+      sim.items.use(me, 0, 'forward');
+      const lat0 = sim.track.nearest(o.x, o.y, o.nearestIndex).lateral;
+      run(sim, 0.4, () => {
+        disarm(sim);
+        put(sim, me, a, -50);
+      });
+      return sim.track.nearest(o.x, o.y, o.nearestIndex).lateral - lat0;
+    };
+    const L = BOATS[0].size.length; // Cabourg
+    expect(push(0)).toBeGreaterThan(15);
+    expect(push(-L * 0.5 - 60)).toBeLessThan(3);
+    expect(push(-L - 120)).toBeLessThan(3);
   });
 });

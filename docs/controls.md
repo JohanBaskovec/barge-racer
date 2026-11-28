@@ -107,7 +107,7 @@ people who steer with the left hand. Rules that keep the buttons out of the way:
 - Backwards fire: Volunteers are thrown backwards in a straight line (no homing),
   and the Drill and the Silicone Gun are fired backwards. Glue and Fake Crates are
   always dropped behind, and so are the cheese of the Raclette and the smoke of the
-  Clogged Toilet; swiping makes no difference for them, nor for Jigsaw, White Powder,
+  Clogged Toilet; swiping makes no difference for them, nor for Jigsaw, Flour,
   Mushrooms, Beer, Electrical Failure or the Kärcher. The Raclette always shoots ahead.
 
 ## Fullscreen on phones and tablets

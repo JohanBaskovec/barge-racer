@@ -107,6 +107,7 @@ export interface Volunteer {
   dead: boolean;
 }
 
+/** The electric drill's bit: `mounted` > 0, s left on its owner's bow (or stern, `back`); then it flies. */
 export interface Drill {
   id: number;
   owner: number;
@@ -117,6 +118,10 @@ export interface Drill {
   stuckT: number;
   near: number;
   age: number;
+  mounted: number;
+  back: boolean;
+  /** Boats already hurt while it was on the bow. */
+  hit: number[];
   dead: boolean;
 }
 
@@ -172,7 +177,10 @@ export interface Shot {
   dead: boolean;
 }
 
-/** Dicke Titten: a giant pair dropped in front of a boat. `heading` is the way across the pair (along the canal). */
+/**
+ * Dicke Titten: a giant pair dropped in front of a boat. `heading` is the canal's direction there;
+ * the pair lies across it, or along it (`turned`) where the canal is too narrow to leave room.
+ */
 export interface Boobs {
   id: number;
   owner: number;
@@ -181,6 +189,7 @@ export interface Boobs {
   x: number;
   y: number;
   heading: number;
+  turned: boolean;
   age: number;
   /** Boats already hurt by it (it stays solid for the others). */
   hit: number[];

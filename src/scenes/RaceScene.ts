@@ -328,8 +328,9 @@ export class RaceScene extends Phaser.Scene {
       this.raceAudio.at('splash', s.x, s.y, 0.6);
       this.retire(s, 'wave');
     });
-    this.syncGroup(this.drillSprites, items.drills, (d) => this.add.image(d.x, d.y, 'drill').setDepth(14).setScale(WORLD_ART_SCALE), (s, d) => {
-      s.setPosition(d.x, d.y).setRotation(d.heading);
+    // The drill bit: on the bow, then flying; spinning all the while.
+    this.syncGroup(this.drillSprites, items.drills, (d) => this.add.image(d.x, d.y, 'drillBit_0').setDepth(14).setDisplaySize(TUNING.drill.length, 16), (s, d) => {
+      s.setPosition(d.x, d.y).setRotation(d.heading).setTexture(`drillBit_${Math.floor(time / 45) % 2}`);
     }, (s) => this.retire(s, 'fade'));
     // Fake crates are drawn exactly like real ones (same sprite, same bobbing).
     this.syncGroup(this.fakeSprites, items.fakeCrates, (f) => this.makeCrateSprite(f.x, f.y), (s, f) => {
@@ -358,8 +359,10 @@ export class RaceScene extends Phaser.Scene {
     // Dicke Titten: a shadow grows on the water while they fall, they land with a splash and jiggle.
     const TT = TUNING.titten;
     this.syncGroup(this.boobSprites, items.boobs, (b) => {
-      const shadow = this.add.ellipse(b.x, b.y, 80, 150, 0x000000, 0.25).setDepth(4).setRotation(b.heading);
-      return this.add.image(b.x, b.y, 'boobs').setDepth(13).setRotation(b.heading).setData('shadow', shadow).setData('landed', false);
+      // (the drawing has the pair along its y axis: across the canal, or turned along it)
+      const rot = b.heading + (b.turned ? Math.PI / 2 : 0);
+      const shadow = this.add.ellipse(b.x, b.y, 80, 150, 0x000000, 0.25).setDepth(4).setRotation(rot);
+      return this.add.image(b.x, b.y, 'boobs').setDepth(13).setRotation(rot).setData('shadow', shadow).setData('landed', false);
     }, (sp, b) => {
       const shadow = sp.getData('shadow') as Phaser.GameObjects.Ellipse;
       const fall = Math.min(1, b.age / TT.warn);
@@ -383,7 +386,7 @@ export class RaceScene extends Phaser.Scene {
     });
     // Melted cheese and toxic smoke lying on the water.
     this.syncGroup(this.cloudSprites, items.clouds, (c) => {
-      this.raceAudio.at(c.kind === 0 ? 'glue' : 'drop', c.x, c.y, 0.7);
+      if (c.kind === 0) this.raceAudio.at('glue', c.x, c.y, 0.7); // (a toilet's trail: the flush is heard once)
       if (c.kind === 0) this.fx.cheese(c.x, c.y);
       return this.add.image(c.x, c.y, c.kind === 0 ? 'cheese' : 'smoke').setDepth(c.kind === 0 ? 4 : 12);
     }, (sp, c) => {

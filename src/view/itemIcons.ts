@@ -35,7 +35,7 @@ const ICONS: Record<string, (g: G) => void> = {
     g.fillStyle(0xffffff, 0.7).fillRect(48, 40, 4, 10);
   },
 
-  // A tied-off bag of white powder with sparkles.
+  // A tied-off bag of flour with a wheat ear on it, and a puff of flour.
   icon_powder: (g) => {
     g.fillStyle(0xffffff).fillPoints([V(34, 30), V(62, 30), V(80, 58), V(76, 82), V(20, 82), V(16, 58)], true);
     g.fillStyle(0xf2f2f2).fillEllipse(48, 72, 62, 22);
@@ -43,6 +43,13 @@ const ICONS: Record<string, (g: G) => void> = {
     g.fillStyle(0xe8eef2).fillRect(32, 22, 32, 10); // gathered neck
     g.lineStyle(3, OUTLINE).strokeRect(32, 22, 32, 10);
     g.fillStyle(0xd23b3b).fillRect(30, 26, 36, 5); // tie
+    // a wheat ear printed on the bag
+    g.lineStyle(2.5, 0xc9962e).lineBetween(48, 78, 48, 46);
+    g.fillStyle(0xe0b04a);
+    for (let k = 0; k < 4; k++) {
+      g.fillEllipse(43, 50 + k * 6, 7, 4.5).fillEllipse(53, 50 + k * 6, 7, 4.5);
+    }
+    g.fillEllipse(48, 45, 4.5, 7);
     g.fillStyle(0xffffff).fillTriangle(30, 12, 36, 12, 33, 2).fillTriangle(60, 10, 66, 10, 63, 0);
     // sparkles
     g.fillStyle(0xfff8c0);

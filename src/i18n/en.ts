@@ -121,7 +121,7 @@ export const en = {
 
   'item.volunteer': 'Volunteers',
   'item.jigsaw': 'Jigsaw',
-  'item.whitePowder': 'White Powder',
+  'item.whitePowder': 'Flour',
   'item.drill': 'Electric Drill',
   'item.glue': 'Glue',
   'item.siliconeGun': 'Silicone Gun',

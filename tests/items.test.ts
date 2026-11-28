@@ -547,6 +547,7 @@ describe('clogged toilet', () => {
     place(owner, cloud.x, cloud.y);
     sim.step(STEP);
     expect(owner.hull).toBe(owner.stats.maxHull); // grace
+    owner.effects = owner.effects.filter((e) => e.kind !== 'flushing'); // one cloud is enough here
     step(sim, TUNING.toilet.ownerImmunity + 0.5, () => place(owner, cloud.x, cloud.y));
     expect(owner.stats.maxHull - owner.hull).toBeGreaterThan(TUNING.toilet.dps * 0.3);
     place(owner, cloud.x + 5000, cloud.y);
@@ -565,9 +566,9 @@ describe('clogged toilet', () => {
     const hits = sim.takeEvents().filter((e) => e.type === 'hit' && e.source === 'toilet' && e.racer === other.id);
     expect(hits.length).toBeGreaterThanOrEqual(1);
     expect(hits.length).toBeLessThanOrEqual(2);
-    other.hull = 5;
+    other.hull = 3;
     step(sim, 0.5, () => place(other, cloud.x, cloud.y));
-    expect(other.sinkTimer > 0 || other.hull > 5).toBe(true); // it went under (and may already be back)
+    expect(other.sinkTimer > 0 || other.hull > 3).toBe(true); // it went under (and may already be back)
     expect(sim.takeEvents().some((e) => e.type === 'sunk' && e.racer === other.id)).toBe(true);
   });
 
@@ -591,18 +592,26 @@ describe('karcher', () => {
       const [user, victim] = sim.racers;
       sim.setController(user.id, driver);
       sim.setController(victim.id, driver);
-      const a = sim.track.pointAt(sim.track.alongOf(user.progress + 400));
+      // The user a little off-centre, the victim alongside, between it and the bank.
+      const a = sim.track.pointAt(sim.track.alongOf(user.progress + 400), -40);
       Object.assign(user, { x: a.x, y: a.y, heading: a.heading, vx: Math.cos(a.heading) * 300, vy: Math.sin(a.heading) * 300 });
       placeBeside(victim, user, 0, 80);
       step(sim, 1);
+      // alongside, where the jets are, with room to be pushed before the bank
+      const b = sim.track.pointAt(sim.track.alongOf(user.progress), -50);
+      Object.assign(user, { x: b.x, y: b.y, heading: b.heading });
+      placeBeside(victim, user, 0, 75);
+      victim.vx = user.vx;
+      victim.vy = user.vy;
       sim.items.give(user, 'karcher');
       sim.items.use(user, 0, 'forward');
       expect(hasEffect(user, 'karcher')).toBe(true);
       sim.takeEvents();
-      const side0 = (victim.x - user.x) * -Math.sin(user.heading) + (victim.y - user.y) * Math.cos(user.heading);
+      // Across the canal (the user drives back to the middle meanwhile, so measure from the canal).
+      const lat = (): number => sim.track.nearest(victim.x, victim.y, victim.nearestIndex).lateral;
+      const lat0 = lat();
       step(sim, 1, () => {});
-      const side1 = (victim.x - user.x) * -Math.sin(user.heading) + (victim.y - user.y) * Math.cos(user.heading);
-      expect(side1, trackId).toBeGreaterThan(side0 + 20); // pushed away from the user
+      expect(lat(), trackId).toBeGreaterThan(lat0 + 20); // pushed away from the user, towards the bank
       expect(hasEffect(victim, 'soaked')).toBe(true);
       let crash = false;
       for (let i = 0; i < 3 / STEP; i++) {

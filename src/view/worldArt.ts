@@ -188,89 +188,6 @@ export function drawVolunteer(c: Ctx): void {
   c.fill();
 }
 
-/** A cordless drill flying bit first, 54 x 22. */
-export function drawDrill(c: Ctx): void {
-  shadowed(c, 1.5, 0.45, () => {
-    // battery and grip (seen from above they stick out below the body)
-    rr(c, 2, 9, 9, 11, 2);
-    c.fillStyle = '#2a2d33';
-    c.fill();
-    // body
-    rr(c, 1, 3, 24, 13, 4.5);
-    const g = c.createLinearGradient(0, 3, 0, 16);
-    g.addColorStop(0, '#ff6b5e');
-    g.addColorStop(0.5, '#e0362b');
-    g.addColorStop(1, '#a51f17');
-    c.fillStyle = g;
-    c.fill();
-  });
-  c.strokeStyle = 'rgba(60,8,4,0.85)';
-  c.lineWidth = 0.9;
-  rr(c, 1, 3, 24, 13, 4.5);
-  c.stroke();
-  // vents and a grip pad
-  c.strokeStyle = 'rgba(40,6,2,0.6)';
-  c.lineWidth = 1;
-  for (let x = 5; x < 12; x += 2.4) {
-    c.beginPath();
-    c.moveTo(x, 6);
-    c.lineTo(x, 10);
-    c.stroke();
-  }
-  rr(c, 14, 6.4, 8, 6, 2);
-  c.fillStyle = '#2a2d33';
-  c.fill();
-  c.fillStyle = 'rgba(255,255,255,0.35)';
-  c.fillRect(4, 4.4, 17, 1.2);
-  // chuck: knurled steel
-  const cg = c.createLinearGradient(0, 4.5, 0, 14.5);
-  cg.addColorStop(0, '#f1f3f5');
-  cg.addColorStop(0.5, '#9aa2ab');
-  cg.addColorStop(1, '#5c636c');
-  c.fillStyle = cg;
-  c.beginPath();
-  c.moveTo(25, 4.5);
-  c.lineTo(32, 6);
-  c.lineTo(32, 13);
-  c.lineTo(25, 14.5);
-  c.closePath();
-  c.fill();
-  c.strokeStyle = 'rgba(0,0,0,0.5)';
-  c.lineWidth = 0.6;
-  c.stroke();
-  for (let x = 26.5; x < 32; x += 1.6) {
-    c.beginPath();
-    c.moveTo(x, 5.2);
-    c.lineTo(x, 13.8);
-    c.stroke();
-  }
-  // the bit: a steel spiral coming to a point
-  c.beginPath();
-  c.moveTo(32, 7.4);
-  c.lineTo(48, 8);
-  c.lineTo(53.5, 9.5);
-  c.lineTo(48, 11);
-  c.lineTo(32, 11.6);
-  c.closePath();
-  const bg = c.createLinearGradient(0, 7, 0, 12);
-  bg.addColorStop(0, '#ffffff');
-  bg.addColorStop(0.5, '#c2c8cf');
-  bg.addColorStop(1, '#6b727b');
-  c.fillStyle = bg;
-  c.fill();
-  c.strokeStyle = 'rgba(20,24,30,0.8)';
-  c.lineWidth = 0.6;
-  c.stroke();
-  c.strokeStyle = 'rgba(40,46,54,0.85)';
-  c.lineWidth = 0.9;
-  for (let x = 33.5; x < 49; x += 3.1) {
-    c.beginPath();
-    c.moveTo(x, 11.4);
-    c.lineTo(x + 2.2, 7.7);
-    c.stroke();
-  }
-}
-
 /** A puddle of glue spreading on the water, 128 x 128: an uneven splat, glossy, with strings and bubbles. */
 export function drawGluePuddle(c: Ctx): void {
   const splat = (scale: number): void => {
@@ -1044,4 +961,69 @@ export function drawNozzle(c: Ctx): void {
   c.fillRect(43, 2, 2, 22); // the mouth
   c.fillStyle = 'rgba(255,255,255,0.35)';
   c.fillRect(27, 9, 12, 2);
+}
+
+/**
+ * A drill bit alone, pointing right, 72 x 16: a steel shank, a twisted fluted body and a sharp
+ * point. `frame` shifts the spiral, so swapping frames makes it spin.
+ */
+export function drawDrillBit(c: Ctx, frame: number): void {
+  const cy = 8;
+  shadowed(c, 1.5, 0.45, () => {
+    c.beginPath();
+    c.moveTo(0, cy - 3.2);
+    c.lineTo(18, cy - 3.2);
+    c.lineTo(20, cy - 5.5);
+    c.lineTo(60, cy - 5.5);
+    c.lineTo(71.5, cy);
+    c.lineTo(60, cy + 5.5);
+    c.lineTo(20, cy + 5.5);
+    c.lineTo(18, cy + 3.2);
+    c.lineTo(0, cy + 3.2);
+    c.closePath();
+    const g = c.createLinearGradient(0, cy - 5.5, 0, cy + 5.5);
+    g.addColorStop(0, '#f4f6f8');
+    g.addColorStop(0.45, '#aeb5bd');
+    g.addColorStop(1, '#5c636c');
+    c.fillStyle = g;
+    c.fill();
+  });
+  c.strokeStyle = 'rgba(30,34,40,0.8)';
+  c.lineWidth = 0.7;
+  c.stroke();
+  // the flutes: dark diagonal grooves twisting along the body
+  c.save();
+  c.beginPath();
+  c.moveTo(20, cy - 5.5);
+  c.lineTo(60, cy - 5.5);
+  c.lineTo(71.5, cy);
+  c.lineTo(60, cy + 5.5);
+  c.lineTo(20, cy + 5.5);
+  c.closePath();
+  c.clip();
+  c.strokeStyle = 'rgba(40,46,54,0.75)';
+  c.lineWidth = 2.2;
+  for (let x = 14 + frame * 3; x < 76; x += 6) {
+    c.beginPath();
+    c.moveTo(x, cy - 6);
+    c.lineTo(x + 5, cy + 6);
+    c.stroke();
+  }
+  c.strokeStyle = 'rgba(255,255,255,0.55)';
+  c.lineWidth = 0.8;
+  for (let x = 16 + frame * 3; x < 76; x += 6) {
+    c.beginPath();
+    c.moveTo(x, cy - 6);
+    c.lineTo(x + 5, cy + 6);
+    c.stroke();
+  }
+  c.restore();
+  // a gold tip coating, like a real HSS bit
+  c.fillStyle = 'rgba(214,170,60,0.55)';
+  c.beginPath();
+  c.moveTo(60, cy - 5.5);
+  c.lineTo(71.5, cy);
+  c.lineTo(60, cy + 5.5);
+  c.closePath();
+  c.fill();
 }

@@ -18,12 +18,12 @@ export interface SimState {
   /** Crates a mushroom has pulled away from home: id, x, y (the others sit at home). */
   cpos: [number, number, number][];
   vols: [number, number, number | null, number, number, number, number, number][]; // id, owner, target, x, y, heading, age, near
-  drills: [number, number, number, number, number, number, number, number, number][]; // id, owner, x, y, heading, travelled, stuck, age, near
+  drills: [number, number, number, number, number, number, number, number, number, number, number][]; // id, owner, x, y, heading, travelled, stuck, age, near, mounted, back
   puddles: [number, number, number, number, number][]; // id, owner, x, y, age
   fakes: [number, number, number, number, number][]; // id, owner, x, y, age
   blobs: [number, number, number, number, number, number, number, number][]; // id, owner, x, y, heading, travelled, age, near
   shots: [number, number, number, number, number, number, number, number, number, number][]; // id, owner, kind, x, y, heading, travelled, age, near, wait
-  boobs: [number, number, number, number, number, number, number, number[]][]; // id, owner, target, x, y, heading, age, hit
+  boobs: [number, number, number, number, number, number, number, number[], number][]; // id, owner, target, x, y, heading, age, hit, turned
   clouds: [number, number, number, number, number, number][]; // id, owner, kind, x, y, age
   drops: [number, number, number, number, number, number, number][]; // id, x, y, fromX, fromY, age, target
   /** Hazards: the police boat (phase index, target, t, x, y, heading, side, fireT), bullets, anglers, critters. */
@@ -79,12 +79,12 @@ export function encodeState(sim: RaceSimulation): SimState {
     crates: it.crates.map((c) => r3(c.respawn)),
     cpos: it.crates.filter((c) => c.x !== c.homeX || c.y !== c.homeY).map((c) => [c.id, r1(c.x), r1(c.y)]),
     vols: it.volunteers.map((v) => [v.id, v.owner, v.targetId, r1(v.x), r1(v.y), r3(v.heading), r3(v.age), v.near]),
-    drills: it.drills.map((d) => [d.id, d.owner, r1(d.x), r1(d.y), r3(d.heading), r1(d.travelled), r3(d.stuckT), r3(d.age), d.near]),
+    drills: it.drills.map((d) => [d.id, d.owner, r1(d.x), r1(d.y), r3(d.heading), r1(d.travelled), r3(d.stuckT), r3(d.age), d.near, r3(d.mounted), d.back ? 1 : 0]),
     puddles: it.puddles.map((p) => [p.id, p.owner, r1(p.x), r1(p.y), r3(p.age)]),
     fakes: it.fakeCrates.map((f) => [f.id, f.owner, r1(f.x), r1(f.y), r3(f.age)]),
     blobs: it.blobs.map((b) => [b.id, b.owner, r1(b.x), r1(b.y), r3(b.heading), r1(b.travelled), r3(b.age), b.near]),
     shots: it.shots.map((s) => [s.id, s.owner, s.kind, r1(s.x), r1(s.y), r3(s.heading), r1(s.travelled), r3(s.age), s.near, r3(s.wait)]),
-    boobs: it.boobs.map((b) => [b.id, b.owner, b.target, r1(b.x), r1(b.y), r3(b.heading), r3(b.age), [...b.hit]]),
+    boobs: it.boobs.map((b) => [b.id, b.owner, b.target, r1(b.x), r1(b.y), r3(b.heading), r3(b.age), [...b.hit], b.turned ? 1 : 0]),
     clouds: it.clouds.map((c) => [c.id, c.owner, c.kind, r1(c.x), r1(c.y), r3(c.age)]),
     drops: it.drops.map((d) => [d.id, r1(d.x), r1(d.y), r1(d.fromX), r1(d.fromY), r3(d.age), d.target]),
     pol: hz.police && [POLICE_PHASES.indexOf(hz.police.phase), hz.police.target, r3(hz.police.t), r1(hz.police.x), r1(hz.police.y), r3(hz.police.heading), hz.police.side, r3(hz.police.fireT)],
@@ -146,12 +146,12 @@ export function applyState(sim: RaceSimulation, s: SimState, except = -1): void 
     }
   }
   it.volunteers = s.vols.map(([id, owner, targetId, x, y, heading, age, near]) => ({ id, owner, targetId, x, y, heading, age, near, locked: false, dead: false }));
-  it.drills = s.drills.map(([id, owner, x, y, heading, travelled, stuckT, age, near]) => ({ id, owner, x, y, heading, travelled, stuckT, age, near, dead: false }));
+  it.drills = s.drills.map(([id, owner, x, y, heading, travelled, stuckT, age, near, mounted, back]) => ({ id, owner, x, y, heading, travelled, stuckT, age, near, mounted: mounted ?? 0, back: back === 1, hit: [], dead: false }));
   it.puddles = s.puddles.map(([id, owner, x, y, age]) => ({ id, owner, x, y, age, boatsStuck: new Set<number>(), dead: false }));
   it.fakeCrates = s.fakes.map(([id, owner, x, y, age]) => ({ id, owner, x, y, age, dead: false }));
   it.blobs = s.blobs.map(([id, owner, x, y, heading, travelled, age, near]) => ({ id, owner, x, y, heading, travelled, age, near, dead: false }));
   it.shots = s.shots.map(([id, owner, kind, x, y, heading, travelled, age, near, wait]) => ({ id, owner, kind: kind as 0 | 1 | 2, x, y, heading, travelled, age, near, wait: wait ?? 0, dead: false }));
-  it.boobs = (s.boobs ?? []).map(([id, owner, target, x, y, heading, age, hit]) => ({ id, owner, target, x, y, heading, age, hit: [...hit], dead: false }));
+  it.boobs = (s.boobs ?? []).map(([id, owner, target, x, y, heading, age, hit, turned]) => ({ id, owner, target, x, y, heading, turned: turned === 1, age, hit: [...hit], dead: false }));
   it.clouds = s.clouds.map(([id, owner, kind, x, y, age]) => ({ id, owner, kind: kind as 0 | 1, x, y, age, dead: false }));
   it.drops = s.drops.map(([id, x, y, fromX, fromY, age, target]) => ({ id, x, y, fromX, fromY, age, target, dead: false }));
   const hz = sim.hazards;

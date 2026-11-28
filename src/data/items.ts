@@ -118,8 +118,11 @@ export const TUNING = {
   spinOutBase: 1.2,
 
   volunteer: { speedMult: 1.4, life: 6, damage: 35, lockRange: 250, turnRate: 4.5, straightTime: 0.35 },
-  /** A saw sticking out of each side: boats alongside, within `reach` px of the hull, are cut. */
-  jigsaw: { duration: 4, damage: 30, reach: 62, speedMult: 1.05 },
+  /**
+   * Three saws: one sticking out of each side (boats alongside, within `reach` px of the hull, are
+   * cut) and one on the bow (a cone of `halfAngle`, reaching `reachMult` x the boat's length).
+   */
+  jigsaw: { duration: 4, damage: 30, reach: 62, halfAngle: (25 * Math.PI) / 180, reachMult: 1.2, speedMult: 1.05 },
   /** Giant dildo on the bow: ram boats to hurt them (a little). Also smashes things flying at it. */
   dildo: { duration: 5, damage: 16, halfAngle: (24 * Math.PI) / 180, reachMult: 1.15, speedMult: 1.05 },
   /** Nail gun: three nails in quick succession, straight. Each one hurts (no blinking in between), none spins. */
@@ -128,8 +131,10 @@ export const TUNING = {
    * Dicke Titten: a giant pair drops onto the water `ahead` px in front of every opponent (on its
    * current line), `warn` s to see them coming before they are solid. Solid for `life` s; running
    * into them hurts, a lot. Each one is a pair of breasts of `radius`, side by side across the canal.
+   * There is always a way round: one pair per `row` px of canal, each leaving at least `clear` px
+   * free on one side; where the canal is too narrow for that, the pair lies along it instead.
    */
-  titten: { damage: 40, life: 9, radius: 32, ahead: 420, warn: 0.55, ownerImmunity: 99 },
+  titten: { damage: 40, life: 9, radius: 32, ahead: 420, warn: 0.55, ownerImmunity: 99, row: 330, clear: 100 },
   /** Gas siphoning: every opponent's tank is empty for `duration` s: no thrust, and they stop. */
   siphon: { duration: 3, drag: 4 },
   /** Beer dispenser: the hull is repaired in full, and a head of foam takes the next hit (not bank bumps or smoke), within `shieldTime` s. */
@@ -170,7 +175,12 @@ export const TUNING = {
   /** Tugboat: tows its owner along the canal for `duration` s: steered for you, faster, and through glue. */
   tugboat: { duration: 4, topSpeed: 1.45, accel: 3, mass: 2 },
   powder: { duration: 2.5, topSpeedMult: 1.5, accelMult: 2, massMult: 2 },
-  drill: { speedMult: 1.6, range: 1400, damage: 42, stuckTime: 1 },
+  /**
+   * Electric drill: only the bit. It sits on the bow (or the stern, swiped down) for `mountTime` s,
+   * spinning, and hurts whoever it rams (`mountDamage`, once each); then it shoots off straight
+   * ahead and hurts the first boat it meets (`damage`). `length` and `radius`: its size.
+   */
+  drill: { speedMult: 1.6, range: 1400, damage: 42, stuckTime: 1, mountTime: 3, mountDamage: 28, length: 72, radius: 9 },
   /**
    * Glue is meant to cost more than a hit does: a hit is 1.2 s spun out (and the boat loses most
    * of its speed), so a puddle nearly stops a boat, makes it crawl for a while after, and wears
@@ -207,13 +217,18 @@ export const TUNING = {
     cheeseRadius: 75, cheeseLife: 12, cheeseOwnerImmunity: 1,
     cheeseTime: 4.5, splashTime: 3.5,
   },
-  /** Clogged toilet: a cloud of toxic smoke left behind. Damage per second to every boat inside, the owner too. */
-  toilet: { radius: 95, life: 12, dps: 38, ownerImmunity: 1, feedbackEvery: 0.8 },
+  /**
+   * Clogged toilet: for `trailTime` s a trail of toxic smoke is left behind, a cloud every `every`
+   * s. Damage per second to every boat inside (once, however many clouds it is in), the owner too.
+   */
+  toilet: { radius: 70, life: 9, dps: 10, ownerImmunity: 1, feedbackEvery: 0.8, trailTime: 3, every: 0.25 },
   /**
    * Kärcher: for `duration` seconds, jets of water on both sides push every boat alongside away,
    * sideways. A boat that is still wet (`soakTime`) when it reaches the bank crashes into it.
+   * The jets fan out from the middle half of each side (`base` x the boat's length), widening by
+   * `spread` px per px out, as far as `reach`: the view draws exactly that.
    */
-  karcher: { duration: 3.5, reach: 300, push: 5200, maxSideSpeed: 420, crashDamage: 24, soakTime: 1.4, soakedTurnMult: 0.6 },
+  karcher: { duration: 3.5, reach: 280, base: 0.6, spread: 0.45, push: 8500, maxSideSpeed: 480, crashDamage: 24, soakTime: 1.4, soakedTurnMult: 0.6 },
 
   /**
    * Traffic: working barges going both ways, each keeping to its own side. They are immovable

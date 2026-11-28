@@ -6,7 +6,7 @@ import { drawPeniche, drawPenicheAccent } from './peniche';
 import { drawBarge } from './bargeArt';
 import { CAR, CAR_COLORS, SHIRTS, STREET_ART_SCALE, drawAngler, drawCar, drawCyclist, drawDog, drawWalker } from './streetArt';
 import { TUNING } from '../data/items';
-import { drawBloodSplat, drawBullet, drawDuck, drawFeather, drawGib, drawNozzle, drawPolice, drawRowboat, drawSwimmer, drawBoobs, drawCheesePuddle, drawCheeseScreen, drawCrate, drawDildo, drawDrill, drawGlueBlob, drawGluePuddle, drawHam, drawNail, drawPotato, drawSaw, drawToxicSmoke, drawVolunteer, drawWaterTile } from './worldArt';
+import { drawDrillBit, drawBloodSplat, drawBullet, drawDuck, drawFeather, drawGib, drawNozzle, drawPolice, drawRowboat, drawSwimmer, drawBoobs, drawCheesePuddle, drawCheeseScreen, drawCrate, drawDildo, drawGlueBlob, drawGluePuddle, drawHam, drawNail, drawPotato, drawSaw, drawToxicSmoke, drawVolunteer, drawWaterTile } from './worldArt';
 
 type G = Phaser.GameObjects.Graphics;
 
@@ -73,7 +73,6 @@ export function generateTextures(scene: Phaser.Scene): void {
   };
   world('crate', 44, 44, drawCrate);
   world('volunteer', 28, 28, drawVolunteer);
-  world('drill', 54, 22, drawDrill);
   world('glue', 128, 128, drawGluePuddle, 1); // big and soft: its game size is enough
   world('blob', 30, 30, drawGlueBlob);
   world('saw', 56, 40, drawSaw);
@@ -82,6 +81,7 @@ export function generateTextures(scene: Phaser.Scene): void {
   world('boobs', 72, 136, drawBoobs);
   world('dildo', 82, 24, drawDildo);
   world('nail', 24, 8, drawNail, 4);
+  for (let k = 0; k < 2; k++) world(`drillBit_${k}`, 72, 16, (c) => drawDrillBit(c, k), 3);
   // Hazards (hazards.ts) and the vacuum cleaner
   world('police', 96, 34, drawPolice, 2.5);
   world('bullet', 16, 4, drawBullet, 4);

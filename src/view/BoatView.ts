@@ -12,7 +12,7 @@ import type { Racer } from '../race/types';
 export class BoatView {
   readonly container: Phaser.GameObjects.Container;
   private shadow: Phaser.GameObjects.Image;
-  /** The jigsaw's two saws, one sticking out of each side. */
+  /** The jigsaw's three saws, one sticking out of each side and one on the bow. */
   private saws: Phaser.GameObjects.Image[];
   private dildo: Phaser.GameObjects.Image;
   private nozzle: Phaser.GameObjects.Image;
@@ -46,7 +46,9 @@ export class BoatView {
     const { length: L, width: W } = r.boat.size;
     this.shadow = scene.add.image(3, 5, 'shadow').setDisplaySize(L * 1.05, W * 1.1);
     const hull = createBoatSprite(scene, r.boat, r.color);
+    // The jigsaw's three saws: out of each side, and on the bow.
     this.saws = [-1, 1].map((side) => scene.add.image(0, side * (W / 2 + 2), 'saw').setOrigin(0, 0.5).setRotation((side * Math.PI) / 2).setScale(WORLD_ART_SCALE).setVisible(false));
+    this.saws.push(scene.add.image(L / 2 + 6, 0, 'saw').setOrigin(0, 0.5).setScale(WORLD_ART_SCALE).setVisible(false));
     this.dildo = scene.add.image(L / 2 - 4, 0, 'dildo').setOrigin(0, 0.5).setScale(WORLD_ART_SCALE).setVisible(false);
     this.nozzle = scene.add.image(L / 2 - 8, 0, 'nozzle').setOrigin(0, 0.5).setDisplaySize(46, 26).setVisible(false);
     const tugDef = getBoat('tugboat');
@@ -243,21 +245,29 @@ export class BoatView {
       }
     }
     if (hasEffect(r, 'karcher')) {
-      // A fan of water to each side, from the middle of the boat: streaks and drops.
+      // A fan of water out of the middle of each side, widening as it goes: where it pushes boats.
+      const K = TUNING.karcher;
+      const x0 = (-L * K.base) / 2, x1 = (L * K.base) / 2;
       for (const side of [-1, 1]) {
-        // a soft fan of spray under the streaks
-        const x0 = -L * 0.2, x1 = L * 0.2, reach = 250 + Math.sin(time / 45) * 25;
-        g.fillStyle(0xbfe6ff, 0.22).fillTriangle(x0, side * (W / 2), x1, side * (W / 2), 0, side * (W / 2 + reach));
-        g.fillStyle(0xffffff, 0.2).fillTriangle(x0 * 0.5, side * (W / 2), x1 * 0.5, side * (W / 2), 0, side * (W / 2 + reach * 0.8));
+        const y0 = side * (W / 2), reach = K.reach * (0.94 + Math.sin(time / 45) * 0.06);
+        const y1 = side * (W / 2 + reach), wide = K.spread * reach;
+        g.fillStyle(0xbfe6ff, 0.2).fillPoints([{ x: x0, y: y0 }, { x: x1, y: y0 }, { x: x1 + wide, y: y1 }, { x: x0 - wide, y: y1 }] as Phaser.Math.Vector2[], true);
+        g.fillStyle(0xffffff, 0.14).fillPoints([{ x: x0 * 0.6, y: y0 }, { x: x1 * 0.6, y: y0 }, { x: x1 * 0.6 + wide * 0.5, y: side * (W / 2 + reach * 0.8) }, { x: x0 * 0.6 - wide * 0.5, y: side * (W / 2 + reach * 0.8) }] as Phaser.Math.Vector2[], true);
+        // streaks from nozzles along the middle of the side, fanning out
         for (let k = 0; k < 7; k++) {
-          const a = (k - 3) * 0.1 + Math.sin(time / 40 + k * 2 + side) * 0.03;
-          const reach = 150 + ((k * 53 + Math.floor(time / 30)) % 7) * 18;
-          const x0 = ((k - 3) * L) / 14, y0 = side * (W / 2);
+          const t = k / 6;
+          const sx = x0 + (x1 - x0) * t;
+          const a = (t - 0.5) * 2 * Math.atan(K.spread) + Math.sin(time / 40 + k * 2 + side) * 0.03;
+          const len = reach * (0.55 + ((k * 53 + Math.floor(time / 30)) % 7) * 0.065);
           g.lineStyle(5 - Math.abs(k - 3) * 0.6, k % 2 ? 0xffffff : 0xbfe6ff, 0.9)
-            .lineBetween(x0, y0, x0 + Math.sin(a) * reach, y0 + side * Math.cos(a) * reach);
+            .lineBetween(sx, y0, sx + Math.sin(a) * len, y0 + side * Math.cos(a) * len);
         }
         g.fillStyle(0xffffff, 0.85);
-        for (let k = 0; k < 7; k++) g.fillCircle(((k - 3) * L) / 9 + Math.sin(time / 50 + k) * 8, side * (W / 2 + 120 + ((k * 37 + Math.floor(time / 35)) % 7) * 22), 3.2);
+        for (let k = 0; k < 7; k++) {
+          const d = reach * (0.45 + ((k * 37 + Math.floor(time / 35)) % 7) * 0.08);
+          const t = ((k * 0.37) % 1) - 0.5;
+          g.fillCircle(t * (x1 - x0 + 2 * K.spread * d), side * (W / 2 + d), 3.2);
+        }
       }
     }
     if (hasEffect(r, 'blackout')) {
