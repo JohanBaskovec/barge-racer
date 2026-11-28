@@ -327,13 +327,14 @@ export class StreetLife {
 
   /** How fast it may go behind the next car ahead going the same way: slower when close, stopped when very close. */
   private followSpeed(m: Mover): number {
-    const c = Math.cos(m.heading), s = Math.sin(m.heading);
     let speed = m.speed;
+    if (Number.isNaN(m.heading)) return speed; // just placed: no heading yet
+    const c = Math.cos(m.heading), s = Math.sin(m.heading);
     for (const o of this.movers) {
       if (o === m || o.kind !== 'car' || !o.sprite.visible) continue;
       const dx = o.sprite.x - m.sprite.x, dy = o.sprite.y - m.sprite.y;
       const f = dx * c + dy * s, p = -dx * s + dy * c;
-      if (f <= 0 || f > CAR.length + 50 || Math.abs(p) > 12 || Math.cos(o.heading - m.heading) < 0.5) continue;
+      if (!(f > 0 && f <= CAR.length + 50 && Math.abs(p) <= 12 && Math.cos(o.heading - m.heading) >= 0.5)) continue;
       const gap = f - CAR.length;
       speed = Math.min(speed, gap < 8 ? 0 : Math.min(o.cur + 20, (m.speed * (gap - 8)) / 42));
     }

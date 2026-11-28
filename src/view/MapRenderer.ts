@@ -50,7 +50,7 @@ interface ChunkIndex {
   pads: number[];
 }
 
-type Layer = 'ground' | 'shadow' | 'deck';
+type Layer = 'ground' | 'canopy' | 'shadow' | 'deck';
 /** A chunk of map: its tiles, and the drawing steps left until it's done. */
 interface Chunk {
   cell: [number, number];
@@ -58,7 +58,8 @@ interface Chunk {
   steps: Generator<void, void, void>;
   done: boolean;
 }
-const DEPTH: Record<Layer, number> = { ground: 1, shadow: 9.5, deck: 20 };
+/** canopy: tree crowns, above the cars and people in the streets (streetLife.ts, depth 1.62), below the boats. */
+const DEPTH: Record<Layer, number> = { ground: 1, canopy: 1.7, shadow: 9.5, deck: 20 };
 const BRIDGE_SHADOW = 25;
 /** How much of a street on land is laid over the end of a bridge deck that leads to it (px). */
 const DECK_JOIN = 120;
@@ -75,7 +76,7 @@ export class MapRenderer {
   private active = new Map<string, Chunk>();
   /** Drawn chunks gone out of range, oldest first: shown again at once if the camera comes back. */
   private cache = new Map<string, Chunk>();
-  private pools: Record<Layer, Phaser.GameObjects.RenderTexture[]> = { ground: [], shadow: [], deck: [] };
+  private pools: Record<Layer, Phaser.GameObjects.RenderTexture[]> = { ground: [], canopy: [], shadow: [], deck: [] };
   private g: Phaser.GameObjects.Graphics;
   private eraser: Phaser.GameObjects.Graphics;
   private water: Phaser.GameObjects.TileSprite;
@@ -368,15 +369,19 @@ export class MapRenderer {
     }
     // Tree crowns are textures stamped in one batch: far cheaper than drawing thousands of circles.
     // In batches (a wood has hundreds per tile): all the shadows, then all the crowns.
+    // The shadows on the ground; the crowns on a layer of their own, over the street life.
+    const canopy = trees.length ? this.tile('canopy', x, y) : null;
+    if (canopy) tiles.push(canopy);
     for (const crowns of [false, true]) {
+      const into = crowns ? canopy! : rt;
       for (let k = 0; k < trees.length; k += TREE_BATCH) {
         yield;
-        rt.beginDraw();
+        into.beginDraw();
         for (const p of trees.slice(k, k + TREE_BATCH)) {
-          if (crowns) rt.stamp('crown', undefined, p.x + ox, p.y + oy, { scale: p.r / 30, tint: p.color, skipBatch: true });
-          else rt.stamp('crownShadow', undefined, p.x + p.r * 0.35 + ox, p.y + p.r * 0.45 + oy, { scale: p.r / 30, alpha: 0.22, skipBatch: true });
+          if (crowns) into.stamp('crown', undefined, p.x + ox, p.y + oy, { scale: p.r / 30, tint: p.color, skipBatch: true });
+          else into.stamp('crownShadow', undefined, p.x + p.r * 0.35 + ox, p.y + p.r * 0.45 + oy, { scale: p.r / 30, alpha: 0.22, skipBatch: true });
         }
-        rt.endDraw();
+        into.endDraw();
       }
     }
 
@@ -390,6 +395,7 @@ export class MapRenderer {
       }
       for (const i of e.channel) this.channelQuad(er, i, 0);
       rt.erase(er, ox, oy);
+      canopy?.erase(er, ox, oy); // crowns stop at the bank, as they did on the ground
       yield;
       // On the water just cut out: a pale band along each bank (shallows and the wash against the
       // quay), a thin bright line at the very edge, and any lily pads.

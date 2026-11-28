@@ -200,7 +200,8 @@ make the game stutter on a phone:
   their rods over the water. About seventy of them live in a ring round the camera:
   one that drifts too far away is put back somewhere just out of sight. Each screen
   animates its own with plain random numbers: nothing is simulated or sent online,
-  and none of it gets in the boats' way.
+  and none of it gets in the boats' way. Tree crowns are drawn on a layer of their
+  own above them (`canopy` in MapRenderer), so cars and people pass under the trees.
 
 ## Making a new track
 
