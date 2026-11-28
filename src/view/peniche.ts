@@ -8,7 +8,7 @@ type Pt = { x: number; y: number };
  * Cabourg: a real péniche moored on the canal, redrawn from an aerial photo, seen from
  * above with the bow to the right (the photo's left side is the top edge here).
  *
- * From bow to stern: a blunt rounded bow with a blue tarp over the side, a long lavender-grey roof
+ * From bow to stern: a blunt rounded bow, a long lavender-grey roof
  * over the first hold (vents, a red parasol at its end), a lawn with a pergola, a second, bluer roof
  * with a glazed band and plants, the white wheelhouse roof (off-centre, towards the top edge), the
  * wooden stern deck with blue-grey furniture, and a shield-shaped stern. Dark navy hull with a pale
@@ -67,15 +67,11 @@ export function drawPeniche(g: G, def: BoatDef): void {
   g.lineStyle(0.9, GUNWALE, 0.9).strokePoints(outer as Phaser.Math.Vector2[], true, true);
   g.fillStyle(WALKWAY, 1).fillPoints(hullOutline(L, W, 1.7) as Phaser.Math.Vector2[], true);
 
-  // --- Bow deck: hatch, winch, a white chest, and a blue tarp hanging over the side
+  // --- Bow deck: hatch, winch, a white chest
   fill(0x3a4356, 0.03, 0.068, 0.3, 0.56);
   g.lineStyle(0.5, 0x161b26, 1).strokeRect(...box(0.03, 0.068, 0.3, 0.56));
   dot(0x8d95a3, 0.022, 0.5, 1.2);
   fill(0xe6e9ee, 0.03, 0.055, 0.6, 0.78);
-  g.fillStyle(0x2f6fd8, 1).fillPoints([
-    { x: X(0.075), y: Y(0.84) }, { x: X(0.018), y: Y(0.8) }, { x: X(0.012), y: Y(0.9) }, { x: X(0.04), y: W - 0.3 }, { x: X(0.075), y: W - 0.3 },
-  ] as Phaser.Math.Vector2[], true);
-  g.lineStyle(0.4, 0x5d93e8, 1).lineBetween(X(0.06), Y(0.86), X(0.03), Y(0.93));
 
   // --- A long corrugated roof over a hold
   const roof = (t0: number, t1: number, base: number, shade: number, seam: number): void => {
@@ -142,14 +138,12 @@ export function drawPeniche(g: G, def: BoatDef): void {
   dot(0xeeeeee, 0.905, 0.4, 0.6);
 }
 
-/** The layer that takes the racer's colour: a stripe along each gunwale and a flag at the stern. */
+/** The layer that takes the racer's colour: a flag at the stern (the hull keeps its own colours). */
 export function drawPenicheAccent(g: G, def: BoatDef): void {
   const L = def.size.length;
   const W = def.size.width;
   const X = (t: number): number => L * (1 - t);
   g.fillStyle(0xffffff, 1);
-  g.fillRect(X(0.9), 0.35, X(0.06) - X(0.9), 0.9);
-  g.fillRect(X(0.9), W - 1.25, X(0.06) - X(0.9), 0.9);
   // stern flag: a short pole and a pennant streaming aft
   g.fillRect(X(0.968) - 0.3, W / 2 - 2.6, 0.6, 2.6);
   g.fillTriangle(X(0.968), W / 2 - 2.6, X(0.968), W / 2 - 0.4, X(0.995), W / 2 - 1.5);

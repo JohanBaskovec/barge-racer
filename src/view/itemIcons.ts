@@ -1,371 +1,1046 @@
 import Phaser from 'phaser';
 
-type G = Phaser.GameObjects.Graphics;
-const V = (x: number, y: number): Phaser.Math.Vector2 => new Phaser.Math.Vector2(x, y);
-const OUTLINE = 0x2b2b2b;
+/**
+ * HUD icons for the items, drawn in code with the Canvas 2D API in a 96 x 96 box and rendered at
+ * three times that, so they stay sharp on a phone. One style for all: a dark outline, light from
+ * the top left (gradients, a highlight), and a soft shadow under the whole icon so it stands out
+ * on the item buttons.
+ */
 
-/** HUD icons for the items, 96x96, drawn in code (replace with sprites when real art exists). */
-const ICONS: Record<string, (g: G) => void> = {
-  // A cheerful volunteer in an orange life vest, waving both arms.
-  icon_volunteer: (g) => {
-    g.lineStyle(5, 0xffd2a8).lineBetween(30, 56, 16, 30).lineBetween(66, 56, 80, 30); // arms
-    g.fillStyle(0xffd2a8).fillCircle(16, 28, 6).fillCircle(80, 28, 6); // hands
-    g.fillStyle(0x3b6ea8).fillRoundedRect(32, 62, 12, 26, 4).fillRoundedRect(52, 62, 12, 26, 4); // legs
-    g.fillStyle(0xff8a1f).fillRoundedRect(26, 44, 44, 28, 10); // vest
-    g.lineStyle(3, OUTLINE).strokeRoundedRect(26, 44, 44, 28, 10);
-    g.fillStyle(0xf2f2f2).fillRect(34, 44, 6, 28).fillRect(56, 44, 6, 28); // reflective stripes
-    g.fillStyle(0xffd2a8).fillCircle(48, 28, 15); // head
-    g.lineStyle(3, OUTLINE).strokeCircle(48, 28, 15);
-    g.fillStyle(0xffd23f).fillRoundedRect(33, 10, 30, 10, 5); // cap
-    g.fillStyle(OUTLINE).fillCircle(42, 28, 2).fillCircle(54, 28, 2);
-    g.lineStyle(2.5, OUTLINE).beginPath().arc(48, 31, 6, 0.2, Math.PI - 0.2).strokePath(); // smile
+type C = CanvasRenderingContext2D;
+type Fill = string | CanvasGradient;
+
+/** Texture pixels per design unit. */
+const SCALE = 3;
+const OUT = '#17212e';
+const LW = 2.6;
+
+// ---- Small toolkit ---------------------------------------------------------------------
+
+/** A linear gradient with evenly spaced colours. */
+function lg(c: C, x0: number, y0: number, x1: number, y1: number, ...cols: string[]): CanvasGradient {
+  const g = c.createLinearGradient(x0, y0, x1, y1);
+  cols.forEach((col, i) => g.addColorStop(cols.length === 1 ? 0 : i / (cols.length - 1), col));
+  return g;
+}
+
+/** A radial gradient from a centre outwards. */
+function rg(c: C, x: number, y: number, r: number, ...cols: string[]): CanvasGradient {
+  const g = c.createRadialGradient(x, y, 0, x, y, r);
+  cols.forEach((col, i) => g.addColorStop(cols.length === 1 ? 0 : i / (cols.length - 1), col));
+  return g;
+}
+
+/** Fill and outline the current path. */
+function paint(c: C, fill: Fill | null, lw = LW, stroke = OUT): void {
+  if (fill) {
+    c.fillStyle = fill;
+    c.fill();
+  }
+  if (lw > 0) {
+    c.lineWidth = lw;
+    c.strokeStyle = stroke;
+    c.stroke();
+  }
+}
+
+function rr(c: C, x: number, y: number, w: number, h: number, r: number): void {
+  const k = Math.max(0, Math.min(r, w / 2, h / 2));
+  c.beginPath();
+  c.moveTo(x + k, y);
+  c.arcTo(x + w, y, x + w, y + h, k);
+  c.arcTo(x + w, y + h, x, y + h, k);
+  c.arcTo(x, y + h, x, y, k);
+  c.arcTo(x, y, x + w, y, k);
+  c.closePath();
+}
+
+function el(c: C, x: number, y: number, rx: number, ry = rx, rot = 0): void {
+  c.beginPath();
+  c.ellipse(x, y, rx, ry, rot, 0, Math.PI * 2);
+}
+
+/** A polygon (or an open polyline) through flat x, y pairs. */
+function pl(c: C, pts: number[], close = true): void {
+  c.beginPath();
+  c.moveTo(pts[0], pts[1]);
+  for (let i = 2; i + 1 < pts.length; i += 2) c.lineTo(pts[i], pts[i + 1]);
+  if (close) c.closePath();
+}
+
+/** A thick line with its own outline: cables, hoses, arms. */
+function tube(c: C, build: () => void, width: number, color: Fill, outline = LW): void {
+  c.save();
+  c.lineCap = 'round';
+  build();
+  c.lineWidth = width + outline * 2;
+  c.strokeStyle = OUT;
+  c.stroke();
+  build();
+  c.lineWidth = width;
+  c.strokeStyle = color;
+  c.stroke();
+  c.restore();
+}
+
+/** Several shapes as one: outlined round their union, then all filled. */
+function union(c: C, shapes: (() => void)[], fill: Fill, lw = LW, stroke = OUT): void {
+  for (const s of shapes) {
+    s();
+    c.lineWidth = lw * 2;
+    c.strokeStyle = stroke;
+    c.stroke();
+  }
+  for (const s of shapes) {
+    s();
+    c.fillStyle = fill;
+    c.fill();
+  }
+}
+
+/** A soft white highlight on the current path. */
+function shine(c: C, alpha = 0.4): void {
+  c.fillStyle = `rgba(255,255,255,${alpha})`;
+  c.fill();
+}
+
+/** A four-pointed sparkle. */
+function spark(c: C, x: number, y: number, s: number, color = '#fff3b0'): void {
+  c.beginPath();
+  c.moveTo(x, y - s * 1.5);
+  c.quadraticCurveTo(x + s * 0.22, y - s * 0.22, x + s, y);
+  c.quadraticCurveTo(x + s * 0.22, y + s * 0.22, x, y + s * 1.5);
+  c.quadraticCurveTo(x - s * 0.22, y + s * 0.22, x - s, y);
+  c.quadraticCurveTo(x - s * 0.22, y - s * 0.22, x, y - s * 1.5);
+  c.closePath();
+  paint(c, color, 1.4, 'rgba(90,60,0,0.75)');
+}
+
+/** A straight line. */
+function line(c: C, x0: number, y0: number, x1: number, y1: number, w: number, color: string): void {
+  c.beginPath();
+  c.moveTo(x0, y0);
+  c.lineTo(x1, y1);
+  c.lineWidth = w;
+  c.strokeStyle = color;
+  c.stroke();
+}
+
+const STEEL = (c: C, x0: number, y0: number, x1: number, y1: number): CanvasGradient => lg(c, x0, y0, x1, y1, '#f6f8fa', '#b3bbc4', '#6f7882');
+const DARK = (c: C, x0: number, y0: number, x1: number, y1: number): CanvasGradient => lg(c, x0, y0, x1, y1, '#59616c', '#2c323b', '#1a1f26');
+
+/** A wooden crate front: planks, a frame, steel corners. */
+function crateFront(c: C, x: number, y: number, s: number): void {
+  rr(c, x, y, s, s, 7);
+  paint(c, lg(c, x, y, x + s, y + s, '#d59a55', '#a86d32'));
+  c.save();
+  rr(c, x, y, s, s, 7);
+  c.clip();
+  c.strokeStyle = 'rgba(70,40,12,0.5)';
+  c.lineWidth = 1.2;
+  for (let k = 1; k < 5; k++) {
+    c.beginPath();
+    c.moveTo(x, y + (s * k) / 5);
+    c.lineTo(x + s, y + (s * k) / 5);
+    c.stroke();
+  }
+  // diagonal braces
+  c.strokeStyle = '#7a4a1e';
+  c.lineWidth = 6;
+  c.beginPath();
+  c.moveTo(x + 4, y + 4);
+  c.lineTo(x + s - 4, y + s - 4);
+  c.moveTo(x + s - 4, y + 4);
+  c.lineTo(x + 4, y + s - 4);
+  c.stroke();
+  c.restore();
+  // frame
+  rr(c, x + 3.5, y + 3.5, s - 7, s - 7, 4);
+  paint(c, null, 3, '#8a5524');
+  // steel corners
+  for (const [cx, cy, sx, sy] of [[x, y, 1, 1], [x + s, y, -1, 1], [x, y + s, 1, -1], [x + s, y + s, -1, -1]]) {
+    pl(c, [cx + sx * 2, cy + sy * 2, cx + sx * 15, cy + sy * 2, cx + sx * 2, cy + sy * 15]);
+    paint(c, STEEL(c, cx, cy, cx + sx * 14, cy + sy * 14), 1.4);
+    el(c, cx + sx * 6, cy + sy * 6, 1.4);
+    paint(c, '#3b434d', 0);
+  }
+  rr(c, x, y, s, s, 7);
+  paint(c, null);
+}
+
+// ---- The icons ---------------------------------------------------------------------------
+
+const ICONS: Record<string, (c: C) => void> = {
+  // A cheerful volunteer in an orange vest and a hard hat, waving both arms.
+  icon_volunteer: (c) => {
+    // arms up
+    for (const [x0, x1] of [[33, 17], [63, 79]]) {
+      tube(c, () => { c.beginPath(); c.moveTo(x0, 52); c.lineTo(x1, 27); }, 6.5, '#f3c59c');
+      el(c, x1, 25, 6);
+      paint(c, rg(c, x1 - 2, 23, 7, '#ffe0c2', '#eab48a'));
+    }
+    // legs and boots
+    for (const x of [36, 50]) {
+      rr(c, x, 66, 10.5, 22, 4);
+      paint(c, lg(c, x, 66, x + 10, 66, '#4f86c6', '#2f5d94'));
+      rr(c, x - 1.5, 84, 13.5, 7.5, 3.5);
+      paint(c, '#2b2f38', 2);
+    }
+    // vest with reflective stripes
+    rr(c, 29.5, 42, 37, 31, 10);
+    paint(c, lg(c, 30, 42, 66, 73, '#ffad45', '#f07a12'));
+    c.save();
+    rr(c, 29.5, 42, 37, 31, 10);
+    c.clip();
+    c.fillStyle = '#f6f8fa';
+    c.fillRect(36.5, 42, 5.5, 31);
+    c.fillRect(54, 42, 5.5, 31);
+    c.fillStyle = '#ffe14a';
+    c.fillRect(29, 60, 38, 4.5);
+    c.restore();
+    rr(c, 29.5, 42, 37, 31, 10);
+    paint(c, null);
+    // head
+    el(c, 48, 29, 14.5);
+    paint(c, rg(c, 44, 25, 17, '#ffe2c6', '#f0bd92'));
+    el(c, 40, 33, 3, 2);
+    c.fillStyle = 'rgba(240,110,110,0.45)';
+    c.fill();
+    el(c, 56, 33, 3, 2);
+    c.fill();
+    el(c, 43, 29, 2);
+    paint(c, OUT, 0);
+    el(c, 53, 29, 2);
+    paint(c, OUT, 0);
+    c.beginPath();
+    c.arc(48, 31.5, 6, 0.2 * Math.PI, 0.8 * Math.PI);
+    paint(c, null, 2.2);
+    // hard hat
+    c.beginPath();
+    c.arc(48, 24, 15.5, Math.PI, Math.PI * 2);
+    c.closePath();
+    paint(c, lg(c, 34, 8, 60, 24, '#fff09a', '#ffd21f', '#e0a000'));
+    rr(c, 29, 21.5, 38, 5.5, 2.7);
+    paint(c, lg(c, 29, 21, 29, 27, '#ffe45c', '#e0a000'));
+    rr(c, 45.5, 9, 5, 12, 2);
+    shine(c, 0.45);
   },
 
-  // A jigsaw: yellow body with a long toothed blade.
-  icon_jigsaw: (g) => {
-    g.fillStyle(0xd7dde2).fillRect(46, 52, 14, 40); // blade
-    g.fillStyle(0x9aa3aa);
-    for (let i = 0; i < 6; i++) g.fillTriangle(46, 56 + i * 6, 46, 62 + i * 6, 40, 59 + i * 6);
-    g.lineStyle(3, OUTLINE).strokeRect(46, 52, 14, 40);
-    g.fillStyle(0xf2b705).fillRoundedRect(18, 14, 62, 40, 10); // motor body
-    g.lineStyle(3, OUTLINE).strokeRoundedRect(18, 14, 62, 40, 10);
-    g.fillStyle(0x333333).fillRoundedRect(36, 4, 30, 14, 6); // handle grip
-    g.fillStyle(0x2b2b2b).fillRoundedRect(26, 24, 18, 22, 4);
-    g.fillStyle(0xe8532f).fillCircle(66, 30, 6); // switch
-    g.fillStyle(0xffffff, 0.7).fillRect(48, 40, 4, 10);
+  // A jigsaw: a yellow body with a black handle, and a long toothed blade.
+  icon_jigsaw: (c) => {
+    // blade, teeth on the left edge
+    c.beginPath();
+    c.moveTo(58, 50);
+    c.lineTo(58, 86);
+    c.lineTo(52, 93);
+    c.lineTo(46, 88);
+    for (let y = 88; y > 56; y -= 6) {
+      c.lineTo(40.5, y - 3);
+      c.lineTo(46, y - 6);
+    }
+    c.lineTo(46, 50);
+    c.closePath();
+    paint(c, STEEL(c, 40, 50, 60, 50));
+    line(c, 54.5, 56, 54.5, 84, 1.4, 'rgba(255,255,255,0.7)');
+    // shoe
+    rr(c, 28, 49, 46, 6.5, 2.5);
+    paint(c, DARK(c, 28, 49, 28, 56));
+    // handle (a loop on top)
+    rr(c, 28, 3, 42, 19, 9);
+    paint(c, DARK(c, 28, 3, 28, 22));
+    c.save();
+    c.globalCompositeOperation = 'destination-out';
+    rr(c, 37, 8.5, 24, 7, 3.5);
+    c.fill();
+    c.restore();
+    rr(c, 37, 8.5, 24, 7, 3.5);
+    paint(c, null, 2);
+    // body
+    rr(c, 16, 16, 62, 35, 11);
+    paint(c, lg(c, 16, 16, 16, 51, '#ffe066', '#f5ae0e', '#c47700'));
+    rr(c, 21, 19.5, 42, 5, 2.5);
+    shine(c, 0.45);
+    rr(c, 38, 28, 30, 12, 4);
+    paint(c, DARK(c, 38, 28, 38, 40), 1.8);
+    for (let x = 43; x < 66; x += 5) line(c, x, 31, x, 37, 1.4, 'rgba(255,255,255,0.35)');
+    rr(c, 22, 27, 10, 15, 3.5);
+    paint(c, lg(c, 22, 27, 32, 42, '#ff7b66', '#c9302a'), 1.8);
   },
 
-  // A tied-off bag of flour with a wheat ear on it, and a puff of flour.
-  icon_powder: (g) => {
-    g.fillStyle(0xffffff).fillPoints([V(34, 30), V(62, 30), V(80, 58), V(76, 82), V(20, 82), V(16, 58)], true);
-    g.fillStyle(0xf2f2f2).fillEllipse(48, 72, 62, 22);
-    g.lineStyle(3, OUTLINE).strokePoints([V(34, 30), V(62, 30), V(80, 58), V(76, 82), V(20, 82), V(16, 58)], true);
-    g.fillStyle(0xe8eef2).fillRect(32, 22, 32, 10); // gathered neck
-    g.lineStyle(3, OUTLINE).strokeRect(32, 22, 32, 10);
-    g.fillStyle(0xd23b3b).fillRect(30, 26, 36, 5); // tie
-    // a wheat ear printed on the bag
-    g.lineStyle(2.5, 0xc9962e).lineBetween(48, 78, 48, 46);
-    g.fillStyle(0xe0b04a);
+  // Flour: a paper sack with a wheat ear on it, in a puff of flour.
+  icon_powder: (c) => {
+    // puffs of flour
+    for (const [x, y, r] of [[13, 84, 9], [24, 89, 6], [83, 83, 9], [73, 89, 6], [6, 72, 4], [91, 70, 4]]) {
+      el(c, x, y, r, r * 0.8);
+      paint(c, 'rgba(255,255,255,0.92)', 1.2, 'rgba(120,130,150,0.6)');
+    }
+    // sack
+    c.beginPath();
+    c.moveTo(27, 32);
+    c.lineTo(69, 32);
+    c.quadraticCurveTo(80, 58, 78, 82);
+    c.quadraticCurveTo(78, 90, 70, 90);
+    c.lineTo(26, 90);
+    c.quadraticCurveTo(18, 90, 18, 82);
+    c.quadraticCurveTo(16, 58, 27, 32);
+    c.closePath();
+    paint(c, lg(c, 18, 32, 78, 90, '#fffaf0', '#f1e4c6', '#d3bf93'));
+    // band and wheat ear
+    c.save();
+    c.clip();
+    c.fillStyle = lg(c, 0, 76, 0, 82, '#4f86c6', '#2f5d94');
+    c.fillRect(10, 76, 76, 6);
+    c.restore();
+    line(c, 48, 74, 48, 48, 2.4, '#b9862a');
     for (let k = 0; k < 4; k++) {
-      g.fillEllipse(43, 50 + k * 6, 7, 4.5).fillEllipse(53, 50 + k * 6, 7, 4.5);
+      for (const side of [-1, 1]) {
+        el(c, 48 + side * 5.5, 51 + k * 6, 5, 2.7, side * -0.7);
+        paint(c, lg(c, 40, 44, 56, 74, '#ffd66b', '#d99a1e'), 1.2, '#8a5d0c');
+      }
     }
-    g.fillEllipse(48, 45, 4.5, 7);
-    g.fillStyle(0xffffff).fillTriangle(30, 12, 36, 12, 33, 2).fillTriangle(60, 10, 66, 10, 63, 0);
-    // sparkles
-    g.fillStyle(0xfff8c0);
-    for (const [x, y, s] of [[12, 22, 7], [84, 34, 9], [86, 76, 6], [10, 80, 6]]) {
-      g.fillTriangle(x - s, y, x, y - s * 1.6, x + s, y).fillTriangle(x - s, y, x, y + s * 1.6, x + s, y);
+    el(c, 48, 44, 2.8, 5);
+    paint(c, '#ffd66b', 1.2, '#8a5d0c');
+    // rolled top and its tie
+    rr(c, 24, 21, 48, 13, 5);
+    paint(c, lg(c, 24, 21, 24, 34, '#fff6e2', '#d9c79c'));
+    line(c, 30, 25.5, 66, 25.5, 1.3, 'rgba(120,95,50,0.5)');
+    rr(c, 22, 30, 52, 5.5, 2.7);
+    paint(c, lg(c, 22, 30, 22, 36, '#ff6b5e', '#c9302a'), 2);
+    spark(c, 84, 22, 6);
+    spark(c, 10, 40, 4.5);
+  },
+
+  // The electric drill: only its bit, big, twisted and gold-tipped, with sparks.
+  icon_drill: (c) => {
+    c.save();
+    c.translate(46, 50);
+    c.rotate(-0.7);
+    const body = (): void => {
+      c.beginPath();
+      c.moveTo(-42, -5.5);
+      c.lineTo(-22, -5.5);
+      c.lineTo(-19, -10);
+      c.lineTo(26, -10);
+      c.lineTo(44, 0);
+      c.lineTo(26, 10);
+      c.lineTo(-19, 10);
+      c.lineTo(-22, 5.5);
+      c.lineTo(-42, 5.5);
+      c.closePath();
+    };
+    body();
+    paint(c, lg(c, 0, -10, 0, 10, '#fbfcfd', '#b3bbc4', '#5f6873'));
+    // twisted flutes on the fluted part
+    c.save();
+    pl(c, [-19, -10, 26, -10, 44, 0, 26, 10, -19, 10]);
+    c.clip();
+    for (let x = -26; x < 48; x += 11) {
+      line(c, x, -11, x + 9, 11, 5, 'rgba(34,40,50,0.8)');
+      line(c, x + 4.2, -11, x + 13.2, 11, 1.5, 'rgba(255,255,255,0.75)');
     }
+    // gold tip
+    pl(c, [26, -10, 44, 0, 26, 10]);
+    c.fillStyle = 'rgba(232,180,50,0.75)';
+    c.fill();
+    c.restore();
+    body();
+    paint(c, null);
+    line(c, -40, -2.5, -24, -2.5, 1.5, 'rgba(255,255,255,0.8)');
+    c.restore();
+    // sparks at the tip, and a curl to show it spinning
+    spark(c, 86, 12, 6.5);
+    spark(c, 70, 8, 3.5);
+    spark(c, 90, 32, 3.5);
+    c.beginPath();
+    c.arc(22, 70, 15, 0.9, 2.6);
+    paint(c, null, 2.2, 'rgba(255,255,255,0.75)');
+    c.beginPath();
+    c.arc(22, 70, 21, 1.1, 2.3);
+    paint(c, null, 2, 'rgba(255,255,255,0.5)');
   },
 
-  // An electric drill: red body, trigger, grey chuck and a spiral bit.
-  icon_drill: (g) => {
-    g.fillStyle(0xd62f2f).fillRoundedRect(8, 22, 54, 30, 10); // body
-    g.lineStyle(3, OUTLINE).strokeRoundedRect(8, 22, 54, 30, 10);
-    g.fillStyle(0x2f2f2f).fillRoundedRect(20, 48, 22, 40, 6); // handle
-    g.lineStyle(3, OUTLINE).strokeRoundedRect(20, 48, 22, 40, 6);
-    g.fillStyle(0xffc933).fillRect(12, 28, 8, 18); // battery band
-    g.fillStyle(0x9aa3aa).fillRect(62, 28, 12, 18); // chuck
-    g.lineStyle(2, OUTLINE).strokeRect(62, 28, 12, 18);
-    g.fillStyle(0xdde3e8).fillTriangle(74, 30, 74, 44, 94, 37); // bit
-    g.lineStyle(2, 0x777f86).lineBetween(78, 32, 80, 42).lineBetween(84, 33, 86, 41).lineBetween(89, 35, 90, 39);
-    g.lineStyle(3, OUTLINE).strokeTriangle(74, 30, 74, 44, 94, 37);
-    g.fillStyle(0xffffff, 0.35).fillRoundedRect(14, 25, 38, 6, 3);
-  },
-
-  // A wooden crate of beer: bottles with gold caps poking out, foam on one of them.
-  icon_beer: (g) => {
-    g.fillStyle(0x7a4a1c).fillRoundedRect(6, 44, 84, 44, 6); // crate
-    g.fillStyle(0x9a6a3a).fillRect(10, 48, 76, 14).fillRect(10, 68, 76, 16);
-    g.lineStyle(3, OUTLINE).strokeRoundedRect(6, 44, 84, 44, 6);
-    g.lineStyle(2, 0x5b3b1c).lineBetween(10, 66, 86, 66);
-    for (let i = 0; i < 4; i++) {
-      const x = 18 + i * 20;
-      g.fillStyle(0xd68a1a).fillRoundedRect(x - 7, 12, 14, 38, 5); // bottle
-      g.fillStyle(0xf2b24a).fillRect(x - 3, 16, 3, 28); // shine
-      g.fillStyle(0x8c5a10).fillRect(x - 4, 4, 8, 12); // neck
-      g.fillStyle(0xf5d76e).fillRoundedRect(x - 6, 0, 12, 7, 2); // cap
-      g.lineStyle(2, OUTLINE).strokeRoundedRect(x - 7, 12, 14, 38, 5);
+  // A crate of beer: brown bottles with gold caps in a wooden crate.
+  icon_beer: (c) => {
+    for (const x of [28, 48, 68]) {
+      rr(c, x - 9, 24, 18, 30, 6);
+      paint(c, lg(c, x - 9, 24, x + 9, 24, '#e39a2a', '#a85c06', '#7a3f02'));
+      rr(c, x - 4.2, 8, 8.4, 20, 3);
+      paint(c, lg(c, x - 4, 8, x + 4, 8, '#e39a2a', '#a85c06'));
+      rr(c, x - 6, 3.5, 12, 6.5, 2.2);
+      paint(c, lg(c, x - 6, 3, x - 6, 10, '#fff09a', '#e0a000'), 1.8);
+      rr(c, x - 6.5, 27, 2.6, 16, 1.3);
+      shine(c, 0.55);
     }
-    g.fillStyle(0xffffff).fillCircle(58, 4, 6).fillCircle(66, 6, 5).fillCircle(52, 8, 4); // foam
+    rr(c, 10, 44, 76, 46, 6);
+    paint(c, lg(c, 10, 44, 86, 90, '#d59a55', '#a06a30'));
+    c.save();
+    rr(c, 10, 44, 76, 46, 6);
+    c.clip();
+    line(c, 10, 59, 86, 59, 1.6, 'rgba(70,40,12,0.55)');
+    line(c, 10, 75, 86, 75, 1.6, 'rgba(70,40,12,0.55)');
+    c.fillStyle = 'rgba(255,255,255,0.22)';
+    c.fillRect(10, 44, 76, 5);
+    c.restore();
+    rr(c, 34, 62, 28, 9.5, 4.7);
+    paint(c, '#4a2b0e', 2);
+    for (const [x, y] of [[16, 51], [80, 51], [16, 83], [80, 83]]) {
+      el(c, x, y, 1.8);
+      paint(c, '#5a3714', 0);
+    }
+    rr(c, 10, 44, 76, 46, 6);
+    paint(c, null);
   },
 
-  // The fake crate: the very same crate as in the world, with a sly red badge so the owner knows.
-  icon_fakeCrate: (g) => {
-    g.fillStyle(0x9a6a3a).fillRoundedRect(10, 10, 76, 76, 8);
-    g.lineStyle(5, 0x5b3b1c).strokeRoundedRect(10, 10, 76, 76, 8);
-    g.lineStyle(5, 0x5b3b1c).lineBetween(10, 10, 86, 86).lineBetween(86, 10, 10, 86);
-    g.fillStyle(0xffe08a).fillCircle(48, 48, 18);
-    g.fillStyle(0x5b3b1c).fillCircle(48, 48, 5);
-    g.fillStyle(0xd62f2f).fillCircle(76, 76, 17).lineStyle(3, OUTLINE).strokeCircle(76, 76, 17);
-    g.fillStyle(0xffffff).fillRect(74, 66, 5, 13).fillCircle(76.5, 84, 3);
+  // A fake crate: an item crate like any other, with a warning badge.
+  icon_fakeCrate: (c) => {
+    crateFront(c, 8, 10, 72);
+    el(c, 44, 46, 18);
+    paint(c, rg(c, 39, 40, 22, '#fff09a', '#ffd21f', '#e0a000'), 2.2);
+    c.fillStyle = '#3a2a08';
+    c.font = 'bold 27px "Trebuchet MS", Verdana, sans-serif';
+    c.textAlign = 'center';
+    c.textBaseline = 'middle';
+    c.fillText('?', 44, 47.5);
+    // the badge
+    el(c, 74, 74, 16);
+    paint(c, rg(c, 69, 68, 20, '#ff8a7a', '#e23b2f', '#a81f18'));
+    rr(c, 71, 62.5, 6, 14, 3);
+    paint(c, '#ffffff', 0);
+    el(c, 74, 82.5, 3.3);
+    paint(c, '#ffffff', 0);
   },
 
-  // A silicone (caulking) gun: grey frame, orange cartridge, nozzle dripping glue.
-  icon_silicone: (g) => {
-    g.fillStyle(0xe87a1f).fillRoundedRect(22, 14, 54, 22, 8); // cartridge
-    g.lineStyle(3, OUTLINE).strokeRoundedRect(22, 14, 54, 22, 8);
-    g.fillStyle(0xffffff, 0.45).fillRoundedRect(28, 18, 36, 5, 2);
-    g.fillStyle(0xe8e0c8).fillTriangle(76, 18, 76, 32, 92, 25); // nozzle
-    g.lineStyle(3, OUTLINE).strokeTriangle(76, 18, 76, 32, 92, 25);
-    g.fillStyle(0x6f7880).fillRoundedRect(8, 30, 66, 10, 3); // frame
-    g.lineStyle(3, OUTLINE).strokeRoundedRect(8, 30, 66, 10, 3);
-    g.fillStyle(0x3a3f44).fillRoundedRect(14, 38, 20, 40, 7); // grip
-    g.lineStyle(3, OUTLINE).strokeRoundedRect(14, 38, 20, 40, 7);
-    g.fillStyle(0xc9ced3).fillRoundedRect(36, 40, 10, 24, 4); // trigger
-    g.lineStyle(2, OUTLINE).strokeRoundedRect(36, 40, 10, 24, 4);
-    g.fillStyle(0xf2e27a).fillCircle(84, 38, 4.5).fillRoundedRect(80.5, 38, 7, 34, 3.5).fillEllipse(84, 82, 22, 8); // glue drip
+  // A silicone gun: a cartridge in its metal frame, squeezing out a bead of glue.
+  icon_silicone: (c) => {
+    // plunger rod
+    line(c, 5, 35, 22, 35, 6.5, OUT);
+    line(c, 5, 35, 22, 35, 2.6, '#b3bbc4');
+    el(c, 6, 35, 4.5);
+    paint(c, STEEL(c, 2, 31, 10, 39), 2);
+    // handle and trigger
+    pl(c, [24, 46, 39, 46, 35, 84, 20, 84]);
+    paint(c, DARK(c, 20, 46, 39, 84));
+    pl(c, [42, 49, 52, 49, 46, 72, 40, 70]);
+    paint(c, STEEL(c, 40, 49, 52, 72), 2);
+    // cartridge
+    rr(c, 17, 24, 50, 22, 6);
+    paint(c, lg(c, 17, 24, 17, 46, '#ffffff', '#e3e8ed', '#aab3bc'));
+    c.save();
+    rr(c, 17, 24, 50, 22, 6);
+    c.clip();
+    c.fillStyle = lg(c, 0, 24, 0, 46, '#5aa2e8', '#2f6fb5');
+    c.fillRect(30, 24, 22, 22);
+    c.fillStyle = 'rgba(255,255,255,0.5)';
+    c.fillRect(17, 27, 50, 3.5);
+    c.restore();
+    rr(c, 17, 24, 50, 22, 6);
+    paint(c, null);
+    // frame, front ring and nozzle
+    rr(c, 14, 44, 56, 5.5, 2.5);
+    paint(c, DARK(c, 14, 44, 14, 50), 2);
+    rr(c, 63, 22, 7, 26, 2.5);
+    paint(c, lg(c, 63, 22, 63, 48, '#ffb066', '#e8742a'), 2);
+    pl(c, [70, 29, 70, 41, 90, 35]);
+    paint(c, lg(c, 70, 29, 70, 41, '#fff6e2', '#e3c98a'));
+    // the bead of glue
+    const bead = (): void => {
+      c.beginPath();
+      c.moveTo(89, 36);
+      c.bezierCurveTo(96, 48, 76, 56, 84, 68);
+      c.bezierCurveTo(88, 75, 80, 80, 84, 88);
+    };
+    tube(c, bead, 5, lg(c, 76, 36, 92, 88, '#fff6a8', '#f2df6a'), 1.8);
   },
 
-  // A magic mushroom: bright, wobbly cap with rainbow spots.
-  icon_mushroom: (g) => {
-    g.fillStyle(0xf5ecd5).fillRoundedRect(36, 46, 24, 40, 10); // stem
-    g.lineStyle(3, OUTLINE).strokeRoundedRect(36, 46, 24, 40, 10);
-    g.fillStyle(0xe7dcc0).fillRect(36, 60, 24, 4);
-    g.fillStyle(0xb02ec7).fillPoints([V(6, 52), V(10, 30), V(24, 14), V(48, 8), V(72, 14), V(86, 30), V(90, 52)], true); // cap
-    g.lineStyle(3, OUTLINE).strokePoints([V(6, 52), V(10, 30), V(24, 14), V(48, 8), V(72, 14), V(86, 30), V(90, 52)], false);
-    g.fillStyle(0x7a1d8f).fillRect(6, 48, 84, 8);
-    const spots: [number, number, number, number][] = [[28, 30, 7, 0xffe066], [52, 22, 6, 0x66e0ff], [70, 36, 8, 0x7dff8a], [44, 40, 5, 0xff7ab8], [18, 44, 4, 0x66e0ff]];
-    for (const [x, y, r, c] of spots) g.fillStyle(c).fillCircle(x, y, r).lineStyle(2, OUTLINE).strokeCircle(x, y, r);
+  // Magic mushrooms: a purple cap with spots of every colour.
+  icon_mushroom: (c) => {
+    // stem
+    c.beginPath();
+    c.moveTo(37, 52);
+    c.quadraticCurveTo(33, 82, 39, 89);
+    c.lineTo(57, 89);
+    c.quadraticCurveTo(63, 82, 59, 52);
+    c.closePath();
+    paint(c, lg(c, 34, 52, 62, 52, '#fffaf0', '#f1e2bf', '#cfbb8e'));
+    // cap
+    const cap = (): void => {
+      c.beginPath();
+      c.moveTo(6, 54);
+      c.bezierCurveTo(6, 16, 90, 16, 90, 54);
+      c.quadraticCurveTo(90, 61, 82, 61);
+      c.lineTo(14, 61);
+      c.quadraticCurveTo(6, 61, 6, 54);
+      c.closePath();
+    };
+    cap();
+    paint(c, rg(c, 38, 30, 56, '#ff8be8', '#c044dc', '#6a1f9a'));
+    c.save();
+    cap();
+    c.clip();
+    c.fillStyle = 'rgba(40,0,70,0.28)';
+    c.fillRect(0, 53, 96, 10);
+    for (const [x, y, r, col] of [[28, 37, 8.5, '#ffe14a'], [52, 30, 6.5, '#5ce1ff'], [72, 42, 7.5, '#7dff7a'], [43, 48, 4.5, '#ff8a3c'], [16, 49, 4.5, '#5ce1ff'], [84, 54, 4, '#ffe14a']] as const) {
+      el(c, x, y, r);
+      paint(c, col, 1.6, 'rgba(60,10,90,0.85)');
+      el(c, x - r * 0.3, y - r * 0.35, r * 0.3);
+      shine(c, 0.8);
+    }
+    el(c, 36, 31, 17, 5, -0.35);
+    shine(c, 0.22);
+    c.restore();
+    cap();
+    paint(c, null);
+    spark(c, 86, 14, 6, '#ffd6ff');
+    spark(c, 10, 22, 4.5, '#d6f6ff');
+    spark(c, 78, 78, 4, '#fff3b0');
   },
 
-  // Electrical failure: a cable cut in two, the copper ends sparking, a bolt between them.
-  icon_blackout: (g) => {
-    g.lineStyle(14, OUTLINE).lineBetween(6, 82, 38, 60).lineBetween(58, 38, 90, 14); // cable outline
-    g.lineStyle(9, 0x3b4048).lineBetween(6, 82, 38, 60).lineBetween(58, 38, 90, 14);
-    g.lineStyle(3, 0x6f7780).lineBetween(8, 78, 36, 58).lineBetween(60, 34, 88, 12);
-    g.fillStyle(0xe8832f).fillCircle(41, 57, 6).fillCircle(55, 41, 6); // copper
-    g.lineStyle(2, 0xffc27a);
-    for (const [x, y, dx, dy] of [[41, 57, 7, 1], [41, 57, 5, -5], [55, 41, -7, -1], [55, 41, -5, 5]]) g.lineBetween(x, y, x + dx, y + dy);
+  // Electrical failure: a lightning bolt between the two ends of a snapped cable.
+  icon_blackout: (c) => {
+    el(c, 48, 48, 40);
+    c.fillStyle = rg(c, 48, 48, 42, 'rgba(255,230,90,0.55)', 'rgba(255,230,90,0)');
+    c.fill();
+    // the two ends of the cable, strands showing
+    for (const [x0, y0, x1, y1] of [[2, 72, 30, 60], [94, 24, 66, 36]]) {
+      tube(c, () => { c.beginPath(); c.moveTo(x0, y0); c.lineTo(x1, y1); }, 8, lg(c, x0, y0 - 5, x0, y0 + 5, '#5b6878', '#2b3440'));
+      const dx = x1 > x0 ? 1 : -1;
+      for (const k of [-1, 0, 1]) line(c, x1, y1, x1 + dx * 7, y1 - dx * 3 + k * 4.5, 2, '#e89a48');
+    }
     // the bolt
-    const bolt = [V(52, 24), V(36, 50), V(48, 50), V(40, 76), V(66, 42), V(53, 42), V(62, 24)];
-    g.fillStyle(0xffe04a).fillPoints(bolt, true);
-    g.lineStyle(3, OUTLINE).strokePoints(bolt, true, true);
-    g.fillStyle(0xffffff, 0.8).fillTriangle(53, 28, 45, 44, 50, 44);
-    // sparks
-    g.fillStyle(0xfff8c0);
-    for (const [x, y, sz] of [[20, 40, 6], [78, 62, 7], [30, 18, 5], [70, 84, 5]]) {
-      g.fillTriangle(x - sz, y, x, y - sz * 1.6, x + sz, y).fillTriangle(x - sz, y, x, y + sz * 1.6, x + sz, y);
-    }
+    pl(c, [58, 3, 24, 53, 44, 53, 34, 93, 74, 39, 53, 39, 66, 3]);
+    paint(c, lg(c, 30, 3, 60, 93, '#fffbc4', '#ffd91f', '#ff9a0a'), 3);
+    pl(c, [57, 9, 35, 46, 47, 46]);
+    shine(c, 0.5);
+    spark(c, 82, 62, 6);
+    spark(c, 14, 36, 5);
+    spark(c, 72, 84, 3.5);
   },
 
-  // Ultimate raclette: a half wheel of cheese melting over the heater, a potato and a slice of ham.
-  icon_raclette: (g) => {
-    g.fillStyle(0x3a3f46).fillRoundedRect(6, 66, 84, 20, 6); // base
-    g.lineStyle(3, OUTLINE).strokeRoundedRect(6, 66, 84, 20, 6);
-    g.fillStyle(0x2b2f35).fillRect(14, 84, 10, 8).fillRect(72, 84, 10, 8); // feet
-    g.fillStyle(0xd23b2b).fillRoundedRect(12, 58, 72, 10, 4); // heating element
-    g.lineStyle(2, 0xffb36b).lineBetween(18, 63, 78, 63);
-    g.lineStyle(3, OUTLINE).strokeRoundedRect(12, 58, 72, 10, 4);
-    // the half wheel of cheese, melting
-    const wheel: Phaser.Math.Vector2[] = [];
-    for (let k = 0; k <= 16; k++) {
-      const a = Math.PI + (Math.PI * k) / 16;
-      wheel.push(V(34 + Math.cos(a) * 28, 58 + Math.sin(a) * 28));
+  // Ultimate raclette: a half wheel of cheese melting over a potato and a slice of ham.
+  icon_raclette: (c) => {
+    // ham
+    el(c, 70, 74, 18, 12, 0.2);
+    paint(c, rg(c, 66, 70, 20, '#ffc2cf', '#f58aa2', '#d9607c'));
+    el(c, 70, 74, 14.5, 8.5, 0.2);
+    paint(c, null, 1.6, 'rgba(255,255,255,0.85)');
+    line(c, 62, 76, 76, 71, 1.6, 'rgba(255,255,255,0.7)');
+    // potato
+    el(c, 32, 72, 23, 15.5, -0.15);
+    paint(c, rg(c, 26, 65, 28, '#f0c988', '#c4924a', '#93652a'));
+    for (const [x, y] of [[22, 76], [38, 80], [44, 70]]) {
+      el(c, x, y, 1.6);
+      paint(c, '#6e4718', 0);
     }
-    g.fillStyle(0xffd23f).fillPoints(wheel, true);
-    g.fillStyle(0xf2b705).fillRect(6, 52, 56, 7); // the cut face
-    g.lineStyle(3, OUTLINE).strokePoints(wheel, true, true);
-    g.fillStyle(0xd68f00).fillCircle(24, 40, 4).fillCircle(40, 34, 3).fillCircle(46, 46, 3.5).fillCircle(16, 50, 2.5); // holes
-    g.fillStyle(0xffd23f).fillRoundedRect(14, 56, 12, 30, 5).fillRoundedRect(34, 56, 9, 22, 4).fillRoundedRect(48, 56, 10, 16, 4); // drips
-    g.fillStyle(0xffd23f).fillEllipse(20, 86, 16, 7).fillEllipse(38.5, 78, 12, 6);
-    g.lineStyle(2, 0xc98a00).strokeRoundedRect(14, 56, 12, 30, 5);
-    // a potato and a slice of ham on top
-    g.fillStyle(0xc49a55).fillEllipse(74, 40, 26, 20);
-    g.lineStyle(3, OUTLINE).strokeEllipse(74, 40, 26, 20);
-    g.fillStyle(0x8a6532).fillCircle(69, 38, 2).fillCircle(79, 43, 2);
-    g.fillStyle(0xf09aa3).fillRoundedRect(58, 14, 32, 18, 8);
-    g.lineStyle(3, OUTLINE).strokeRoundedRect(58, 14, 32, 18, 8);
-    g.lineStyle(2, 0xfde3e0).lineBetween(64, 22, 78, 20).lineBetween(70, 27, 84, 25);
+    el(c, 23, 65, 6, 3, -0.4);
+    shine(c, 0.4);
+    // the half wheel, flat side down
+    c.beginPath();
+    c.arc(48, 38, 37, Math.PI, Math.PI * 2);
+    c.closePath();
+    paint(c, lg(c, 12, 4, 80, 40, '#fff09a', '#ffd21f', '#f0a312'));
+    c.save();
+    c.beginPath();
+    c.arc(48, 38, 37, Math.PI, Math.PI * 2);
+    c.closePath();
+    c.clip();
+    c.beginPath();
+    c.arc(48, 38, 34.5, Math.PI, Math.PI * 2);
+    paint(c, null, 5, '#d9801a');
+    for (const [x, y, r] of [[30, 26, 5], [50, 14, 4], [64, 27, 6], [44, 30, 3], [20, 34, 3]]) {
+      el(c, x, y, r, r * 0.8);
+      paint(c, '#e09a12', 1.2, 'rgba(140,80,0,0.7)');
+    }
+    c.restore();
+    c.beginPath();
+    c.arc(48, 38, 37, Math.PI, Math.PI * 2);
+    c.closePath();
+    paint(c, null);
+    // melted cheese running down
+    union(c, [
+      () => rr(c, 12, 34, 72, 9, 4.5),
+      () => rr(c, 20, 36, 10, 26, 5),
+      () => rr(c, 37, 36, 8.5, 16, 4.2),
+      () => rr(c, 52, 36, 11, 31, 5.5),
+      () => rr(c, 70, 36, 8, 14, 4),
+    ], lg(c, 0, 34, 0, 68, '#ffe45c', '#ffc21f'));
+    rr(c, 22, 40, 3, 16, 1.5);
+    shine(c, 0.6);
+    rr(c, 54.5, 40, 3, 20, 1.5);
+    shine(c, 0.6);
   },
 
-  // Clogged toilet: a bowl brimming with green sludge, stink clouds rising.
-  icon_toilet: (g) => {
-    g.fillStyle(0xf2f2f2).fillRoundedRect(22, 52, 52, 34, 10); // bowl base
-    g.lineStyle(3, OUTLINE).strokeRoundedRect(22, 52, 52, 34, 10);
-    g.fillStyle(0xe4e7ea).fillRect(30, 84, 36, 8);
-    g.lineStyle(3, OUTLINE).strokeRect(30, 84, 36, 8);
-    g.fillStyle(0xffffff).fillEllipse(48, 54, 66, 24); // rim
-    g.lineStyle(3, OUTLINE).strokeEllipse(48, 54, 66, 24);
-    g.fillStyle(0x7fa334).fillEllipse(48, 54, 48, 14); // sludge
-    g.fillStyle(0x4f6e1f).fillEllipse(52, 55, 28, 7);
-    g.fillStyle(0xb7d85a).fillCircle(38, 52, 3.5).fillCircle(54, 50, 4.5).fillCircle(61, 56, 3); // bubbles
-    g.fillStyle(0xffffff).fillRoundedRect(24, 38, 48, 12, 4); // tank
-    g.lineStyle(3, OUTLINE).strokeRoundedRect(24, 38, 48, 12, 4);
-    g.fillStyle(0xb8bec4).fillCircle(48, 44, 3);
+  // A clogged toilet, a cloud of stink rising out of it.
+  icon_toilet: (c) => {
+    // tank
+    rr(c, 27, 34, 42, 22, 5);
+    paint(c, lg(c, 27, 34, 69, 56, '#ffffff', '#dfe5ea', '#b4bec8'));
+    rr(c, 24, 30, 48, 8, 4);
+    paint(c, lg(c, 24, 30, 24, 38, '#ffffff', '#cfd7de'));
+    el(c, 48, 46, 3.5);
+    paint(c, STEEL(c, 44, 42, 52, 50), 1.6);
+    // bowl
+    c.beginPath();
+    c.moveTo(17, 57);
+    c.lineTo(79, 57);
+    c.bezierCurveTo(79, 80, 66, 86, 60, 86);
+    c.lineTo(36, 86);
+    c.bezierCurveTo(30, 86, 17, 80, 17, 57);
+    c.closePath();
+    paint(c, lg(c, 17, 57, 79, 86, '#ffffff', '#e3e8ed', '#aeb8c2'));
+    rr(c, 33, 84, 30, 8, 3.5);
+    paint(c, lg(c, 33, 84, 33, 92, '#f4f6f8', '#b4bec8'));
+    // rim and what's in it
+    el(c, 48, 57, 34, 10.5);
+    paint(c, lg(c, 14, 47, 82, 67, '#ffffff', '#d5dce3'));
+    el(c, 48, 57.5, 25.5, 6.5);
+    paint(c, lg(c, 22, 51, 74, 64, '#a9cc48', '#5f7f1f'), 2);
+    for (const [x, y, r] of [[38, 56, 3], [52, 59, 3.8], [62, 56, 2.6]]) {
+      el(c, x, y, r);
+      paint(c, '#c8e070', 1.2, '#4f6e1f');
+    }
     // the stink
-    g.fillStyle(0x9bbd3c, 0.9).fillCircle(32, 26, 11).fillCircle(48, 18, 13).fillCircle(64, 26, 11).fillCircle(42, 30, 9).fillCircle(56, 31, 9);
-    g.fillStyle(0xc8e070, 0.9).fillCircle(44, 14, 6).fillCircle(30, 22, 4);
-    g.lineStyle(3, 0x4f6e1f).beginPath().arc(48, 18, 13, Math.PI * 1.05, Math.PI * 1.95).strokePath();
-    g.lineStyle(2.5, 0x4f6e1f);
-    for (const x of [20, 76]) g.beginPath().moveTo(x, 40).lineTo(x - 5, 32).lineTo(x + 3, 26).lineTo(x - 2, 18).strokePath(); // stink lines
-  },
-
-  // A Kärcher-style pressure washer: yellow body, black grip, a long lance and a fan of water.
-  icon_karcher: (g) => {
-    g.lineStyle(7, OUTLINE).beginPath().moveTo(18, 62).lineTo(18, 84).lineTo(34, 90).strokePath(); // hose
-    g.lineStyle(4, 0x2f3338).beginPath().moveTo(18, 62).lineTo(18, 84).lineTo(34, 90).strokePath();
-    g.fillStyle(0x2f3338).fillRoundedRect(16, 54, 14, 26, 6); // grip
-    g.lineStyle(3, OUTLINE).strokeRoundedRect(16, 54, 14, 26, 6);
-    g.fillStyle(0xf5c518).fillRoundedRect(4, 30, 46, 28, 10); // body
-    g.lineStyle(3, OUTLINE).strokeRoundedRect(4, 30, 46, 28, 10);
-    g.fillStyle(0xffffff, 0.45).fillRoundedRect(10, 34, 28, 6, 3);
-    g.fillStyle(0x8f969d).fillRoundedRect(32, 56, 8, 14, 3); // trigger guard
-    g.lineStyle(2, OUTLINE).strokeRoundedRect(32, 56, 8, 14, 3);
-    g.fillStyle(0xb8bec4).fillRect(50, 40, 28, 8); // lance
-    g.lineStyle(3, OUTLINE).strokeRect(50, 40, 28, 8);
-    g.fillStyle(0x3b6ea8).fillRect(74, 38, 8, 12); // nozzle
-    g.lineStyle(2, OUTLINE).strokeRect(74, 38, 8, 12);
-    // the jet
-    g.lineStyle(4, 0xbfe6ff);
-    for (const [dy, w] of [[-26, 3], [-13, 4], [0, 5], [13, 4], [26, 3]]) g.lineStyle(w, 0xbfe6ff, 0.9).lineBetween(82, 44, 94, 44 + dy * 0.9);
-    g.fillStyle(0xffffff, 0.95).fillCircle(90, 20, 3).fillCircle(93, 30, 2.5).fillCircle(92, 58, 3).fillCircle(90, 70, 2.5).fillCircle(86, 44, 3);
-  },
-
-  // A tipped glue bottle with a long drip and a puddle.
-  icon_glue: (g) => {
-    g.fillStyle(0xf2e27a).fillEllipse(48, 84, 70, 18); // puddle
-    g.lineStyle(3, 0xc9b44a).strokeEllipse(48, 84, 70, 18);
-    g.fillStyle(0xf2e27a).fillRoundedRect(44, 52, 8, 26, 4).fillCircle(48, 78, 6); // drip
-    g.fillStyle(0xffffff).fillRoundedRect(24, 6, 48, 40, 10); // bottle
-    g.lineStyle(3, OUTLINE).strokeRoundedRect(24, 6, 48, 40, 10);
-    g.fillStyle(0x2f7fb5).fillRect(24, 18, 48, 16); // label
-    g.fillStyle(0xffffff).fillCircle(40, 26, 3).fillCircle(48, 26, 3).fillCircle(56, 26, 3);
-    g.fillStyle(0xe8832f).fillTriangle(38, 46, 58, 46, 48, 58); // nozzle
-    g.lineStyle(3, OUTLINE).strokeTriangle(38, 46, 58, 46, 48, 58);
-  },
-
-  // Dicke Titten: a giant cartoon pair, with a couple of wobble lines.
-  icon_titten: (g) => {
-    g.fillStyle(0x000000, 0.18).fillEllipse(48, 86, 82, 12); // shadow on the water
-    for (const x of [28, 68]) {
-      g.fillStyle(0xf0bf9c).fillCircle(x, 54, 26);
-      g.fillStyle(0xffdcc4).fillCircle(x - 7, 46, 12); // light
-      g.fillStyle(0xd9876f).fillCircle(x + 3, 58, 8.5); // areola
-      g.fillStyle(0xbf5f52).fillCircle(x + 3, 58, 3.6); // nipple
-      g.fillStyle(0xffffff, 0.6).fillCircle(x - 10, 42, 4);
-      g.lineStyle(3, OUTLINE).strokeCircle(x, 54, 26);
-    }
-    g.lineStyle(3, OUTLINE).beginPath().arc(48, 40, 9, Math.PI * 0.15, Math.PI * 0.85).strokePath(); // cleavage
-    g.lineStyle(3, 0xff6fa8);
-    for (const [x, y, d] of [[6, 22, 1], [90, 22, -1]]) g.beginPath().arc(x + d * 6, y, 9, d > 0 ? Math.PI * 0.9 : -Math.PI * 0.1, d > 0 ? Math.PI * 1.4 : Math.PI * 0.4).strokePath();
-    g.fillStyle(0xff6fa8).fillTriangle(40, 10, 48, 20, 56, 10).fillCircle(44, 10, 4.6).fillCircle(52, 10, 4.6); // a little heart
-  },
-
-  // A giant black dildo, diagonal, glossy.
-  icon_dildo: (g) => {
-    const pts = [V(70, 12), V(82, 18), V(86, 30), V(80, 40), V(40, 80), V(30, 82), V(18, 78), V(14, 66), V(18, 56), V(58, 18)];
-    g.fillStyle(0x1d1d22).fillPoints(pts, true);
-    g.lineStyle(3, 0x000000).strokePoints(pts, true);
-    g.fillStyle(0x1d1d22).fillCircle(78, 22, 13); // the tip
-    g.lineStyle(3, 0x000000).strokeCircle(78, 22, 13);
-    g.fillStyle(0x2c2c33).fillCircle(20, 76, 13).fillCircle(32, 84, 10); // the base
-    g.lineStyle(3, 0x000000).strokeCircle(20, 76, 13);
-    g.fillStyle(0xffffff, 0.55).fillPoints([V(66, 20), V(72, 22), V(34, 62), V(28, 60)], true); // shine
-    g.fillStyle(0xffffff, 0.75).fillCircle(74, 16, 3.5);
-    g.lineStyle(2, 0x44444c);
-    for (const t of [0.35, 0.5]) g.lineBetween(14 + 60 * t + 4, 66 - 50 * t - 6, 26 + 60 * t + 4, 78 - 50 * t - 6); // ridges
-  },
-
-  // A nail gun: orange body, black grip, a strip of nails, three nails flying out.
-  icon_nailGun: (g) => {
-    g.fillStyle(0x2f3338).fillRoundedRect(22, 46, 16, 36, 6); // grip
-    g.lineStyle(3, OUTLINE).strokeRoundedRect(22, 46, 16, 36, 6);
-    g.fillStyle(0xe8742a).fillRoundedRect(8, 22, 56, 28, 9); // body
-    g.lineStyle(3, OUTLINE).strokeRoundedRect(8, 22, 56, 28, 9);
-    g.fillStyle(0xffffff, 0.4).fillRoundedRect(14, 26, 30, 6, 3);
-    g.fillStyle(0x8f969d).fillRect(40, 50, 26, 10); // magazine
-    g.lineStyle(2, OUTLINE).strokeRect(40, 50, 26, 10);
-    for (let k = 0; k < 6; k++) g.fillStyle(0xd7dde2).fillRect(42 + k * 4, 52, 2, 6);
-    g.fillStyle(0x3b4048).fillRect(62, 30, 10, 12); // nose
-    g.lineStyle(2, OUTLINE).strokeRect(62, 30, 10, 12);
-    // three nails
-    for (const [x, y] of [[76, 36], [84, 24], [84, 48]]) {
-      g.fillStyle(0xc9ced4).fillRect(x, y - 1.5, 12, 3);
-      g.fillStyle(0x8f969d).fillRect(x, y - 3.5, 2.5, 7);
-      g.fillStyle(0xc9ced4).fillTriangle(x + 12, y - 1.5, x + 12, y + 1.5, x + 15, y);
+    union(c, [
+      () => el(c, 31, 21, 10.5),
+      () => el(c, 47, 13.5, 12.5),
+      () => el(c, 64, 21, 10.5),
+      () => el(c, 40, 25, 9),
+      () => el(c, 56, 26, 9),
+    ], rg(c, 44, 12, 34, '#cfe77a', '#9bbd3c', '#6f8f26'), 2.2, '#3f5a16');
+    el(c, 42, 10, 5, 3, -0.4);
+    shine(c, 0.45);
+    for (const x of [12, 84]) {
+      c.beginPath();
+      c.moveTo(x, 44);
+      c.bezierCurveTo(x - 6, 38, x + 6, 32, x, 24);
+      paint(c, null, 2.4, '#6f8f26');
     }
   },
 
-  // Gas siphoning: a red jerrycan with a hose sucking the last drop out.
-  icon_siphon: (g) => {
-    g.fillStyle(0xd23b2f).fillRoundedRect(14, 30, 48, 58, 8); // can
-    g.lineStyle(3, OUTLINE).strokeRoundedRect(14, 30, 48, 58, 8);
-    g.fillStyle(0xffffff, 0.35).fillRoundedRect(19, 36, 8, 46, 4);
-    g.lineStyle(3, 0x9c2a22).lineBetween(22, 44, 54, 76).lineBetween(54, 44, 22, 76); // the X pressing
-    g.fillStyle(0x2f3338).fillRoundedRect(22, 18, 24, 12, 4); // handle
-    g.lineStyle(3, OUTLINE).strokeRoundedRect(22, 18, 24, 12, 4);
-    g.fillStyle(0xf2c12e).fillRect(50, 20, 10, 12); // spout
-    g.lineStyle(2, OUTLINE).strokeRect(50, 20, 10, 12);
-    // the hose, out of the spout and down
-    g.lineStyle(6, OUTLINE).beginPath().moveTo(56, 20).lineTo(70, 8).lineTo(84, 18).lineTo(84, 70).strokePath();
-    g.lineStyle(3, 0x7fc8a9).beginPath().moveTo(56, 20).lineTo(70, 8).lineTo(84, 18).lineTo(84, 70).strokePath();
-    g.fillStyle(0x6b4e1f).fillCircle(84, 80, 5).fillTriangle(79, 79, 89, 79, 84, 70); // a drop of fuel
-    // an empty gauge
-    g.fillStyle(0xffffff).fillCircle(38, 60, 12);
-    g.lineStyle(2.5, OUTLINE).strokeCircle(38, 60, 12);
-    g.lineStyle(3, 0xd23b2f).lineBetween(38, 60, 30, 54);
-    g.fillStyle(OUTLINE).fillCircle(38, 60, 2.5);
+  // A Kärcher: a yellow pressure washer gun, its lance, and a fan of water.
+  icon_karcher: (c) => {
+    // the spray
+    pl(c, [78, 42, 93, 16, 93, 68]);
+    c.fillStyle = lg(c, 78, 42, 93, 42, 'rgba(190,232,255,0.95)', 'rgba(190,232,255,0.35)');
+    c.fill();
+    for (const dy of [-22, -11, 0, 11, 22]) line(c, 80, 42, 92, 42 + dy, 2.2, 'rgba(255,255,255,0.9)');
+    for (const [x, y, r] of [[88, 11, 2.4], [91, 27, 1.8], [90, 59, 2.2], [87, 73, 2]]) {
+      el(c, x, y, r);
+      paint(c, '#ffffff', 1, 'rgba(60,120,170,0.8)');
+    }
+    // hose
+    tube(c, () => { c.beginPath(); c.moveTo(21, 82); c.bezierCurveTo(21, 94, 36, 92, 44, 93); }, 4.5, '#3a4048');
+    // handle and trigger
+    pl(c, [14, 52, 30, 52, 27, 84, 13, 84]);
+    paint(c, DARK(c, 13, 52, 30, 84));
+    pl(c, [33, 54, 41, 54, 37, 69, 32, 68]);
+    paint(c, STEEL(c, 32, 54, 41, 69), 2);
+    // lance and nozzle
+    rr(c, 48, 38, 26, 8.5, 2.5);
+    paint(c, STEEL(c, 48, 38, 48, 47));
+    rr(c, 71, 34.5, 9, 15, 3);
+    paint(c, lg(c, 71, 34, 71, 50, '#6eb3ef', '#2f6fb5'));
+    // body
+    rr(c, 4, 28, 48, 28, 11);
+    paint(c, lg(c, 4, 28, 4, 56, '#fff09a', '#f8c81c', '#c79200'));
+    rr(c, 10, 31.5, 30, 5, 2.5);
+    shine(c, 0.5);
+    rr(c, 12, 41, 24, 9, 3.5);
+    paint(c, DARK(c, 12, 41, 12, 50), 1.8);
   },
 
-  // A little red tugboat towing on a rope.
-  icon_tugboat: (g) => {
-    g.lineStyle(3, 0xc9a66b).beginPath().moveTo(10, 78).lineTo(24, 60).lineTo(34, 56).strokePath(); // tow rope
-    g.fillStyle(0x2b4f7a).fillPoints([V(30, 50), V(80, 50), V(92, 58), V(80, 70), V(30, 70)], true); // hull
-    g.lineStyle(3, OUTLINE).strokePoints([V(30, 50), V(80, 50), V(92, 58), V(80, 70), V(30, 70)], true);
-    g.fillStyle(0x1f1f24).fillRect(30, 60, 58, 4); // rubber fender
-    g.fillStyle(0xf2f2f2).fillRoundedRect(42, 30, 30, 22, 4); // wheelhouse
-    g.lineStyle(3, OUTLINE).strokeRoundedRect(42, 30, 30, 22, 4);
-    g.fillStyle(0x7fc8f2).fillRect(46, 34, 8, 8).fillRect(58, 34, 8, 8); // windows
-    g.fillStyle(0xd23b2f).fillRect(48, 14, 10, 18); // funnel
-    g.lineStyle(3, OUTLINE).strokeRect(48, 14, 10, 18);
-    g.fillStyle(0x1f1f24).fillRect(48, 14, 10, 4);
-    g.fillStyle(0xcfd4d8, 0.9).fillCircle(56, 8, 5).fillCircle(64, 4, 4); // smoke
-    g.fillStyle(0xff8a1f).fillCircle(36, 56, 4); // life ring
-    g.lineStyle(3, 0x7fc8f2, 0.8);
-    for (const y of [76, 84]) g.beginPath().moveTo(30, y).lineTo(44, y - 3).lineTo(58, y).lineTo(72, y - 3).lineTo(86, y).strokePath(); // waves
+  // Glue: a bottle turned over, a long drip, and a puddle.
+  icon_glue: (c) => {
+    union(c, [
+      () => el(c, 48, 83, 35, 9.5),
+      () => rr(c, 43.5, 50, 9, 32, 4.5),
+    ], lg(c, 14, 74, 82, 92, '#fff8b0', '#f2e06a', '#c9b440'), 2.4, '#7a6818');
+    el(c, 38, 80, 12, 2.6);
+    shine(c, 0.65);
+    rr(c, 45.5, 54, 2.4, 18, 1.2);
+    shine(c, 0.7);
+    // nozzle
+    pl(c, [37, 43, 59, 43, 52, 57, 44, 57]);
+    paint(c, lg(c, 37, 43, 59, 57, '#ffb066', '#e06a1c'));
+    // bottle
+    rr(c, 25, 5, 46, 40, 10);
+    paint(c, lg(c, 25, 5, 71, 45, '#ffffff', '#e3e8ed', '#aab3bc'));
+    c.save();
+    rr(c, 25, 5, 46, 40, 10);
+    c.clip();
+    c.fillStyle = lg(c, 0, 15, 0, 33, '#5aa2e8', '#2f6fb5');
+    c.fillRect(25, 15, 46, 18);
+    c.fillStyle = '#ffffff';
+    for (const x of [40, 48, 56]) {
+      c.beginPath();
+      c.arc(x, 24, 2.8, 0, Math.PI * 2);
+      c.fill();
+    }
+    c.fillStyle = 'rgba(255,255,255,0.5)';
+    c.fillRect(29, 5, 5, 40);
+    c.restore();
+    rr(c, 25, 5, 46, 40, 10);
+    paint(c, null);
   },
 
-  // A bar's beer tap pouring into a foaming glass.
-  icon_beerDispenser: (g) => {
-    g.fillStyle(0xb8bec4).fillRoundedRect(10, 10, 52, 16, 6); // the tap's bar
-    g.lineStyle(3, OUTLINE).strokeRoundedRect(10, 10, 52, 16, 6);
-    g.fillStyle(0x2f3338).fillRoundedRect(28, 0, 12, 14, 4); // handle
-    g.fillStyle(0xf2c12e).fillRoundedRect(26, 2, 16, 6, 3);
-    g.fillStyle(0xb8bec4).fillRect(50, 24, 8, 12); // spout
-    g.lineStyle(2, OUTLINE).strokeRect(50, 24, 8, 12);
-    g.fillStyle(0xf2b02e).fillRect(52, 36, 4, 14); // the pour
-    // the glass
-    g.fillStyle(0xf2b02e).fillPoints([V(36, 52), V(78, 52), V(74, 92), V(40, 92)], true);
-    g.fillStyle(0xffffff, 0.3).fillRect(44, 56, 5, 32);
-    g.fillStyle(0xfff6dc).fillEllipse(57, 50, 48, 16).fillCircle(42, 48, 7).fillCircle(56, 44, 9).fillCircle(70, 47, 7); // foam
-    g.lineStyle(3, OUTLINE).strokePoints([V(36, 52), V(78, 52), V(74, 92), V(40, 92)], true);
-    // a sparkle of protection
-    g.fillStyle(0xfff8c0);
-    for (const [x, y, sz] of [[16, 56, 7], [86, 30, 6], [88, 70, 5]]) g.fillTriangle(x - sz, y, x, y - sz * 1.6, x + sz, y).fillTriangle(x - sz, y, x, y + sz * 1.6, x + sz, y);
+  // Dicke Titten: a giant cartoon pair, wobbling.
+  icon_titten: (c) => {
+    el(c, 48, 86, 38, 5.5);
+    c.fillStyle = 'rgba(0,0,0,0.25)';
+    c.fill();
+    for (const x of [29, 67]) {
+      el(c, x, 54, 26);
+      paint(c, rg(c, x - 9, 44, 34, '#ffe6d4', '#f4c3a2', '#cf8f6c'));
+      el(c, x + 3, 58, 9.5);
+      c.fillStyle = rg(c, x + 3, 58, 9.5, '#c4675a', '#d98a78', 'rgba(217,138,120,0)');
+      c.fill();
+      el(c, x + 3, 58, 3.8);
+      paint(c, '#a8483e', 0);
+      el(c, x + 2, 56.8, 1.2);
+      shine(c, 0.7);
+      el(c, x - 11, 42, 6, 4, -0.6);
+      shine(c, 0.55);
+    }
+    c.beginPath();
+    c.arc(48, 39, 9, Math.PI * 0.18, Math.PI * 0.82);
+    paint(c, null, 2.4);
+    // wobble lines and a heart
+    for (const [x, d] of [[5, 1], [91, -1]] as const) {
+      c.beginPath();
+      c.arc(x + d * 8, 26, 10, d > 0 ? Math.PI * 0.85 : -Math.PI * 0.35, d > 0 ? Math.PI * 1.35 : Math.PI * 0.15);
+      paint(c, null, 2.8, '#ff6fa8');
+    }
+    c.beginPath();
+    c.moveTo(48, 22);
+    c.bezierCurveTo(36, 12, 40, 2, 48, 9);
+    c.bezierCurveTo(56, 2, 60, 12, 48, 22);
+    c.closePath();
+    paint(c, lg(c, 40, 4, 56, 22, '#ff9cc4', '#ff4f93'), 2);
   },
 
-  // A canister vacuum cleaner with its hose and nozzle, and lines being sucked in.
-  icon_vacuum: (g) => {
-    g.lineStyle(7, OUTLINE).beginPath().moveTo(30, 62).lineTo(46, 40).lineTo(62, 30).strokePath(); // hose
-    g.lineStyle(4, 0x5c636c).beginPath().moveTo(30, 62).lineTo(46, 40).lineTo(62, 30).strokePath();
-    g.fillStyle(0xd23b2f).fillRoundedRect(4, 56, 46, 30, 12); // canister
-    g.lineStyle(3, OUTLINE).strokeRoundedRect(4, 56, 46, 30, 12);
-    g.fillStyle(0xffffff, 0.35).fillRoundedRect(10, 60, 26, 6, 3);
-    g.fillStyle(0x2f3338).fillCircle(12, 88, 5).fillCircle(42, 88, 5); // wheels
-    g.fillStyle(0x2f3338).fillPoints([V(60, 26), V(78, 16), V(84, 22), V(66, 36)], true); // nozzle
-    g.lineStyle(2.5, OUTLINE).strokePoints([V(60, 26), V(78, 16), V(84, 22), V(66, 36)], true);
-    g.lineStyle(3, 0x7fc8f2, 0.9);
-    for (const [x0, y0, x1, y1] of [[94, 6, 84, 14], [96, 22, 88, 22], [92, 38, 84, 30], [78, 2, 76, 10]]) g.lineBetween(x0, y0, x1, y1);
+  // A giant black dildo, glossy.
+  icon_dildo: (c) => {
+    c.save();
+    c.translate(48, 50);
+    c.rotate(-0.72);
+    const shaft = (): void => {
+      c.beginPath();
+      c.moveTo(-34, -9);
+      c.lineTo(20, -9.5);
+      c.quadraticCurveTo(23, -13, 29, -13);
+      c.quadraticCurveTo(42, -12, 42, 0);
+      c.quadraticCurveTo(42, 12, 29, 13);
+      c.quadraticCurveTo(23, 13, 20, 9.5);
+      c.lineTo(-34, 9);
+      c.closePath();
+    };
+    shaft();
+    paint(c, lg(c, 0, -13, 0, 13, '#5a5a68', '#22222a', '#08080c'), LW, '#000000');
+    // ridges
+    for (const x of [-16, 0]) {
+      c.beginPath();
+      c.moveTo(x, -8.5);
+      c.quadraticCurveTo(x + 3, 0, x, 8.5);
+      paint(c, null, 1.4, 'rgba(110,110,125,0.9)');
+    }
+    // the base: a flared foot
+    rr(c, -44, -15, 13, 30, 6);
+    paint(c, lg(c, -44, -15, -44, 15, '#4a4a56', '#16161c'), LW, '#000000');
+    // the shine
+    c.lineCap = 'round';
+    line(c, -28, -4.5, 18, -5, 2.6, 'rgba(255,255,255,0.6)');
+    el(c, 31, -6, 3.2, 2.2);
+    shine(c, 0.8);
+    c.restore();
+    spark(c, 84, 14, 5.5, '#ffffff');
+    spark(c, 14, 30, 4, '#ffffff');
+  },
+
+  // A nail gun, firing three nails.
+  icon_nailGun: (c) => {
+    // the magazine, from the nose down to the foot of the handle
+    pl(c, [58, 42, 71, 42, 45, 86, 32, 86]);
+    paint(c, STEEL(c, 32, 42, 71, 86));
+    for (let k = 0; k < 6; k++) line(c, 60 - k * 4.2, 49 + k * 6.2, 65 - k * 4.2, 52 + k * 6.2, 1.5, 'rgba(40,46,54,0.7)');
+    // handle and trigger
+    pl(c, [20, 42, 37, 42, 35, 84, 18, 84]);
+    paint(c, DARK(c, 18, 42, 37, 84));
+    rr(c, 39, 46, 6, 11, 2.5);
+    paint(c, lg(c, 39, 46, 45, 57, '#ff7b66', '#c9302a'), 1.8);
+    // nose
+    rr(c, 60, 24, 13, 16, 3);
+    paint(c, DARK(c, 60, 24, 60, 40));
+    rr(c, 71, 28.5, 6.5, 7, 2);
+    paint(c, STEEL(c, 71, 28, 71, 36), 2);
+    // body
+    rr(c, 6, 18, 58, 28, 10);
+    paint(c, lg(c, 6, 18, 6, 46, '#ffbb6a', '#ee7c2a', '#b5521a'));
+    rr(c, 4, 21, 11, 22, 5);
+    paint(c, DARK(c, 4, 21, 4, 43), 2);
+    rr(c, 18, 21.5, 34, 5, 2.5);
+    shine(c, 0.5);
+    for (let x = 24; x < 50; x += 6) line(c, x, 33, x, 40, 1.6, 'rgba(90,35,5,0.55)');
+    // nails
+    for (const [x, y] of [[80, 16], [82, 32], [80, 48]]) {
+      line(c, x - 9, y, x - 4, y, 1.6, 'rgba(255,255,255,0.7)');
+      pl(c, [x, y - 1.8, x + 10, y - 1.8, x + 14, y, x + 10, y + 1.8, x, y + 1.8]);
+      paint(c, STEEL(c, x, y - 2, x, y + 2), 1.4);
+      rr(c, x - 1.5, y - 4, 3, 8, 1.2);
+      paint(c, '#8f98a2', 1.4);
+    }
+  },
+
+  // Gas siphoning: a jerrycan, a hose, the last drop, and a gauge on empty.
+  icon_siphon: (c) => {
+    // carrying handle
+    rr(c, 18, 15, 30, 17, 6);
+    paint(c, lg(c, 18, 15, 18, 32, '#e2483a', '#9c2a22'));
+    c.save();
+    c.globalCompositeOperation = 'destination-out';
+    rr(c, 25, 20, 16, 7, 3.5);
+    c.fill();
+    c.restore();
+    rr(c, 25, 20, 16, 7, 3.5);
+    paint(c, null, 2);
+    // spout
+    rr(c, 48, 14, 13, 18, 3.5);
+    paint(c, lg(c, 48, 14, 61, 14, '#fff09a', '#e0a000'));
+    // the can
+    rr(c, 10, 30, 54, 60, 9);
+    paint(c, lg(c, 10, 30, 64, 90, '#ff7566', '#d23b2f', '#952620'));
+    c.save();
+    rr(c, 10, 30, 54, 60, 9);
+    c.clip();
+    c.lineCap = 'round';
+    line(c, 18, 40, 56, 82, 4, 'rgba(110,20,15,0.55)');
+    line(c, 56, 40, 18, 82, 4, 'rgba(110,20,15,0.55)');
+    c.fillStyle = 'rgba(255,255,255,0.3)';
+    c.fillRect(14, 30, 6, 60);
+    c.restore();
+    rr(c, 10, 30, 54, 60, 9);
+    paint(c, null);
+    // the hose
+    tube(c, () => { c.beginPath(); c.moveTo(54.5, 15); c.bezierCurveTo(56, 0, 84, 0, 84, 18); c.lineTo(84, 64); }, 4.5, lg(c, 54, 0, 86, 64, '#b6f0d2', '#63c79a'));
+    // the last drop
+    c.beginPath();
+    c.moveTo(84, 67);
+    c.bezierCurveTo(93, 79, 91, 90, 84, 90);
+    c.bezierCurveTo(77, 90, 75, 79, 84, 67);
+    c.closePath();
+    paint(c, lg(c, 78, 68, 90, 90, '#ffd66b', '#c9801a'), 2);
+    el(c, 81.5, 82, 1.6, 2.6);
+    shine(c, 0.7);
+    // the gauge
+    el(c, 37, 60, 14);
+    paint(c, rg(c, 33, 55, 18, '#ffffff', '#dfe5ea'), 2.2);
+    c.lineCap = 'round';
+    for (const a of [-2.6, -1.57, -0.54]) line(c, 37 + Math.cos(a) * 9, 60 + Math.sin(a) * 9, 37 + Math.cos(a) * 12, 60 + Math.sin(a) * 12, 1.6, '#3b434d');
+    line(c, 37, 60, 28, 54.5, 2.6, '#d62f2f');
+    el(c, 37, 60, 2.6);
+    paint(c, OUT, 0);
+  },
+
+  // A tugboat steaming to the right, a tow rope trailing behind.
+  icon_tugboat: (c) => {
+    // smoke
+    for (const [x, y, r] of [[68, 9, 6.5], [79, 6, 5], [88, 10, 3.8]]) {
+      el(c, x, y, r);
+      paint(c, rg(c, x - 2, y - 2, r * 1.3, '#ffffff', '#c3ccd5'), 1.4, 'rgba(60,70,85,0.8)');
+    }
+    // funnel
+    rr(c, 49, 9, 14, 24, 3);
+    paint(c, lg(c, 49, 9, 63, 9, '#ff7566', '#c9302a'));
+    c.save();
+    rr(c, 49, 9, 14, 24, 3);
+    c.clip();
+    c.fillStyle = OUT;
+    c.fillRect(49, 9, 14, 6.5);
+    c.fillStyle = '#f6f8fa';
+    c.fillRect(49, 19, 14, 3.5);
+    c.restore();
+    // wheelhouse
+    rr(c, 32, 31, 38, 25, 4);
+    paint(c, lg(c, 32, 31, 32, 56, '#ffffff', '#dbe2e9'));
+    rr(c, 28, 27, 46, 7.5, 3.5);
+    paint(c, lg(c, 28, 27, 28, 35, '#ff7566', '#c9302a'));
+    for (const x of [37, 53]) {
+      rr(c, x, 37.5, 11, 10, 2.5);
+      paint(c, lg(c, x, 37, x + 11, 48, '#bfe6ff', '#5aa2e8'), 1.8);
+      line(c, x + 2.5, 45.5, x + 6, 39.5, 1.5, 'rgba(255,255,255,0.85)');
+    }
+    // tow rope
+    tube(c, () => { c.beginPath(); c.moveTo(11, 57); c.quadraticCurveTo(4, 62, 1, 74); }, 2.4, '#d9b77a', 1.6);
+    // hull
+    const hull = (): void => {
+      c.beginPath();
+      c.moveTo(7, 54);
+      c.lineTo(88, 54);
+      c.lineTo(95, 47);
+      c.lineTo(84, 77);
+      c.lineTo(17, 77);
+      c.closePath();
+    };
+    hull();
+    paint(c, lg(c, 7, 54, 7, 77, '#4f86c6', '#27507f'));
+    c.save();
+    hull();
+    c.clip();
+    c.fillStyle = '#c9302a';
+    c.fillRect(0, 71, 96, 8);
+    c.fillStyle = OUT;
+    c.fillRect(0, 53, 96, 5);
+    c.restore();
+    hull();
+    paint(c, null);
+    for (const x of [28, 46, 64]) {
+      el(c, x, 65, 5.2);
+      paint(c, '#23272e', 1.6);
+      el(c, x, 65, 2);
+      paint(c, '#59616c', 0);
+    }
+    // the water
+    c.beginPath();
+    c.moveTo(0, 82);
+    for (let x = 0; x <= 96; x += 12) c.quadraticCurveTo(x + 6, 76, x + 12, 82);
+    c.lineTo(96, 96);
+    c.lineTo(0, 96);
+    c.closePath();
+    paint(c, lg(c, 0, 78, 0, 96, '#8fd0ff', '#3f8fd0'), 2, '#1f4f80');
+    c.beginPath();
+    c.moveTo(4, 90);
+    for (let x = 4; x <= 88; x += 12) c.quadraticCurveTo(x + 6, 86, x + 12, 90);
+    paint(c, null, 1.8, 'rgba(255,255,255,0.8)');
+  },
+
+  // The beer dispenser: a bar tap filling a glass to the brim, and the shield it gives.
+  icon_beerDispenser: (c) => {
+    // the tap: column, arm, spout and lever
+    tube(c, () => { c.beginPath(); c.moveTo(33, 15); c.lineTo(37, 4); }, 4.5, '#2c323b');
+    el(c, 37.5, 4.5, 4.2);
+    paint(c, lg(c, 34, 1, 41, 8, '#fff09a', '#e0a000'), 1.8);
+    rr(c, 12, 12, 16, 66, 6);
+    paint(c, lg(c, 12, 12, 28, 12, '#f6f8fa', '#b3bbc4', '#6f7882'));
+    rr(c, 12, 12, 42, 13, 6.5);
+    paint(c, lg(c, 12, 12, 12, 25, '#f6f8fa', '#b3bbc4', '#6f7882'));
+    rr(c, 43, 20, 11, 15, 3);
+    paint(c, lg(c, 43, 20, 54, 20, '#f6f8fa', '#8f98a2'));
+    rr(c, 6, 76, 28, 11, 4.5);
+    paint(c, lg(c, 6, 76, 6, 87, '#dfe5ea', '#6f7882'));
+    rr(c, 15, 28, 3, 44, 1.5);
+    shine(c, 0.7);
+    // the pour
+    c.fillStyle = '#f2a71a';
+    c.fillRect(46.5, 35, 4, 12);
+    // the glass: handle, body, foam
+    tube(c, () => { c.beginPath(); c.moveTo(77, 57); c.bezierCurveTo(93, 57, 93, 80, 76, 80); }, 4.5, '#ffe9a8');
+    pl(c, [35, 48, 79, 48, 76, 91, 38, 91]);
+    paint(c, lg(c, 35, 48, 35, 91, '#ffe066', '#f5ae0e', '#c47700'));
+    rr(c, 41, 56, 5, 29, 2.5);
+    shine(c, 0.5);
+    for (const [x, y, r] of [[56, 72, 1.8], [64, 62, 1.4], [68, 80, 2], [52, 84, 1.3]]) {
+      el(c, x, y, r);
+      shine(c, 0.6);
+    }
+    union(c, [
+      () => rr(c, 33, 43, 48, 9, 4.5),
+      () => el(c, 40, 44, 7),
+      () => el(c, 51, 40, 9.5),
+      () => el(c, 64, 41, 9.5),
+      () => el(c, 75, 45, 6.5),
+      () => rr(c, 34.5, 48, 7, 14, 3.5),
+    ], lg(c, 0, 30, 0, 62, '#ffffff', '#fff3d6'), 2.2);
+    // the shield: a head of foam that takes the next hit
+    c.beginPath();
+    c.moveTo(80, 4);
+    c.lineTo(93, 8);
+    c.lineTo(93, 20);
+    c.bezierCurveTo(93, 28, 86, 32, 80, 35);
+    c.bezierCurveTo(74, 32, 67, 28, 67, 20);
+    c.lineTo(67, 8);
+    c.closePath();
+    paint(c, lg(c, 67, 4, 93, 35, '#8fd4ff', '#2f7fd0'), 2.2);
+    rr(c, 77.8, 10, 4.4, 17, 1.5);
+    paint(c, '#ffffff', 0);
+    rr(c, 71.5, 16.3, 17, 4.4, 1.5);
+    paint(c, '#ffffff', 0);
+  },
+
+  // A vacuum cleaner: a red canister, its hose, and everything flying into the nozzle.
+  icon_vacuum: (c) => {
+    // what it sucks in
+    c.save();
+    c.lineCap = 'round';
+    for (const [x0, y0, x1, y1, a] of [[95, 4, 84, 10, 0.9], [96, 20, 85, 19, 0.75], [92, 36, 83, 28, 0.6], [78, 2, 76, 9, 0.6]]) line(c, x0, y0, x1, y1, 3, `rgba(170,225,255,${a})`);
+    c.restore();
+    el(c, 90, 12, 2);
+    paint(c, '#ffe14a', 1, 'rgba(90,60,0,0.8)');
+    el(c, 93, 28, 1.6);
+    paint(c, '#ffffff', 1, 'rgba(60,120,170,0.8)');
+    // hose
+    const hose = (): void => {
+      c.beginPath();
+      c.moveTo(46, 58);
+      c.bezierCurveTo(58, 54, 50, 34, 66, 24);
+    };
+    tube(c, hose, 6, '#8f98a2');
+    c.save();
+    c.setLineDash([2, 3.5]);
+    hose();
+    c.lineWidth = 6;
+    c.strokeStyle = 'rgba(40,46,54,0.5)';
+    c.stroke();
+    c.restore();
+    // nozzle
+    c.save();
+    c.translate(70, 21);
+    c.rotate(-0.55);
+    rr(c, -8, -5.5, 14, 11, 3.5);
+    paint(c, DARK(c, -8, -5, -8, 6));
+    pl(c, [5, -6, 18, -13, 18, 13, 5, 6]);
+    paint(c, DARK(c, 5, -13, 18, 13));
+    line(c, 18, -11, 18, 11, 2, '#8f98a2');
+    c.restore();
+    // wheels
+    el(c, 20, 82, 9.5);
+    paint(c, DARK(c, 10, 72, 30, 92));
+    el(c, 20, 82, 3.6);
+    paint(c, '#aab3bc', 1.4);
+    el(c, 47, 86, 5.5);
+    paint(c, DARK(c, 42, 80, 52, 92));
+    // canister
+    rr(c, 5, 48, 52, 34, 15);
+    paint(c, lg(c, 5, 48, 5, 82, '#ff8273', '#d9392d', '#952620'));
+    rr(c, 12, 52, 30, 6, 3);
+    shine(c, 0.5);
+    for (let x = 14; x < 30; x += 5) line(c, x, 66, x, 74, 1.8, 'rgba(90,15,10,0.55)');
+    el(c, 43, 68, 4);
+    paint(c, rg(c, 42, 67, 5, '#b9ff9a', '#3fbf3a'), 1.6);
+    // carrying handle
+    c.beginPath();
+    c.arc(26, 49, 11, Math.PI * 1.08, Math.PI * 1.92);
+    paint(c, null, 3.4);
   },
 };
 
+/** Draw every icon into its own canvas texture (once). */
 export function generateItemIcons(scene: Phaser.Scene): void {
   for (const [key, draw] of Object.entries(ICONS)) {
     if (scene.textures.exists(key)) continue;
-    const g = scene.make.graphics({ x: 0, y: 0 }, false);
-    draw(g);
-    g.generateTexture(key, 96, 96);
-    g.destroy();
+    const size = 96 * SCALE;
+    // The icon on a layer of its own, then onto the texture with a soft shadow under all of it.
+    const layer = document.createElement('canvas');
+    layer.width = layer.height = size;
+    const c = layer.getContext('2d')!;
+    c.scale(SCALE, SCALE);
+    c.lineJoin = 'round';
+    c.lineCap = 'butt';
+    draw(c);
+    const tex = scene.textures.createCanvas(key, size, size);
+    if (!tex) continue;
+    const out = tex.getContext();
+    out.shadowColor = 'rgba(0,0,0,0.45)';
+    out.shadowBlur = 3 * SCALE;
+    out.shadowOffsetY = 1.5 * SCALE;
+    out.drawImage(layer, 0, 0);
+    tex.refresh();
   }
 }

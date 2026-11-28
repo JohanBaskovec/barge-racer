@@ -6,8 +6,8 @@ import { BOAT_ART_PAD, hasBoatArt } from './boatArt';
  * A boat as seen from above, at its game size, in the racer's colour.
  * - Most boats (boatArt.ts) are two layers: the paint, tinted with the racer's colour (the hull, a
  *   roof or a canopy), under the details in their own colours.
- * - Cabourg keeps its own colours; only a small accent layer on top (gunwale stripes, the stern
- *   flag) takes the racer's colour.
+ * - Cabourg keeps its own colours; only a small accent layer on top (the stern flag) takes the
+ *   racer's colour.
  */
 export function createBoatSprite(scene: Phaser.Scene, def: BoatDef, color: number): Phaser.GameObjects.Container {
   const { length: L, width: W } = def.size;

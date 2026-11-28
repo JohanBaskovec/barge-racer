@@ -68,7 +68,7 @@ Every boat is drawn in code, seen from above, bow to the right. There are no ima
 Play style: steady. First in the list and the default boat: heavy and tough, forgiving for
 beginners. At 150 x 25 px it is by far the longest boat (the real one is about 38 x 5 m), so
 it is hard to get round and its Dildo reaches far. It is drawn in its own colours; only its
-gunwale stripes and stern flag take the racer's colour.
+stern flag takes the racer's colour.
 
 ### Coal Barge
 *A long, black steel barge with a pile of coal. Slow to start and impossible to stop.*

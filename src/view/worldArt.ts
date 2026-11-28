@@ -930,37 +930,65 @@ export function drawFeather(c: Ctx): void {
   c.stroke();
 }
 
-/** A vacuum cleaner's hose and wide nozzle on the bow, pointing right, 46 x 26. */
+/** A vacuum cleaner's ribbed hose and wide nozzle on the bow, pointing right, 46 x 26. */
 export function drawNozzle(c: Ctx): void {
+  // the hose: grey, ribbed
   shadowed(c, 1.5, 0.45, () => {
-    c.fillStyle = '#5c636c';
     rr(c, 0, 9, 26, 8, 4);
+    const g = c.createLinearGradient(0, 9, 0, 17);
+    g.addColorStop(0, '#c9d0d8');
+    g.addColorStop(0.5, '#8f98a2');
+    g.addColorStop(1, '#5c636c');
+    c.fillStyle = g;
     c.fill();
   });
-  c.strokeStyle = 'rgba(255,255,255,0.35)';
-  c.lineWidth = 0.6;
+  c.strokeStyle = 'rgba(30,36,44,0.55)';
+  c.lineWidth = 0.9;
   for (let x = 3; x < 25; x += 3) {
     c.beginPath();
     c.moveTo(x, 9.5);
     c.lineTo(x, 16.5);
     c.stroke();
   }
-  shadowed(c, 1.5, 0.45, () => {
+  c.strokeStyle = 'rgba(20,26,34,0.9)';
+  c.lineWidth = 0.9;
+  rr(c, 0, 9, 26, 8, 4);
+  c.stroke();
+  // the nozzle: dark, flaring to a wide mouth
+  const flare = (): void => {
     c.beginPath();
-    c.moveTo(24, 8);
-    c.lineTo(42, 1);
+    c.moveTo(23, 7.5);
+    c.lineTo(41, 1);
     c.lineTo(45, 1);
     c.lineTo(45, 25);
-    c.lineTo(42, 25);
-    c.lineTo(24, 18);
+    c.lineTo(41, 25);
+    c.lineTo(23, 18.5);
     c.closePath();
-    c.fillStyle = '#d23b2f';
+  };
+  shadowed(c, 1.5, 0.45, () => {
+    flare();
+    const g = c.createLinearGradient(0, 1, 0, 25);
+    g.addColorStop(0, '#6a727d');
+    g.addColorStop(0.45, '#333a44');
+    g.addColorStop(1, '#161a20');
+    c.fillStyle = g;
     c.fill();
   });
-  c.fillStyle = '#2b2f35';
-  c.fillRect(43, 2, 2, 22); // the mouth
-  c.fillStyle = 'rgba(255,255,255,0.35)';
-  c.fillRect(27, 9, 12, 2);
+  flare();
+  c.stroke();
+  c.fillStyle = 'rgba(255,255,255,0.3)';
+  c.beginPath();
+  c.moveTo(26, 8.2);
+  c.lineTo(40, 3.2);
+  c.lineTo(40, 5.4);
+  c.lineTo(26, 10);
+  c.closePath();
+  c.fill();
+  // the mouth, and a red band behind it
+  c.fillStyle = '#d23b2f';
+  c.fillRect(39.5, 1.5, 2.2, 23);
+  c.fillStyle = '#0b0d10';
+  c.fillRect(43, 2, 2, 22);
 }
 
 /**
