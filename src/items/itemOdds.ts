@@ -21,6 +21,8 @@ export interface DrawContext {
   recentItems: ItemId[];
   /** Items that can't come out (the tugboat in a battle: it only makes sense racing one way). */
   excluded?: readonly ItemId[];
+  /** One set of weights for everyone instead of the position tables (battles). */
+  table?: Readonly<Record<ItemId, number>>;
 }
 
 const ITEMS = Object.keys(ITEM_ODDS) as ItemId[];
@@ -28,7 +30,7 @@ const ITEMS = Object.keys(ITEM_ODDS) as ItemId[];
 /** Weighted draw of an item using the position table plus the rules from docs/items.md. */
 export function drawItem(rng: Rng, ctx: DrawContext): ItemId {
   const col = ctx.farBehind ? 3 : oddsColumn(ctx.position, ctx.count);
-  const weight = (id: ItemId): number => (ctx.excluded?.includes(id) ? 0 : ITEM_ODDS[id][col]);
+  const weight = (id: ItemId): number => (ctx.excluded?.includes(id) ? 0 : ctx.table ? ctx.table[id] : ITEM_ODDS[id][col]);
   for (let attempt = 0; attempt < 20; attempt++) {
     let total = 0;
     for (const id of ITEMS) total += weight(id);

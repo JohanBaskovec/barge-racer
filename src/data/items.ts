@@ -118,6 +118,28 @@ export const ITEM_ODDS: Record<ItemId, [number, number, number, number]> = {
   stairs: [0, 0, 3, 6],
 };
 
+/**
+ * Battles (deathmatch, capture the flag): one set of draw weights for everyone, whatever the
+ * score: no help for the boats behind. Weighted towards items that hurt or hinder the others
+ * (shots, rams, saws, jets, the items that hit every opponent); fewer of those that only help
+ * you or are dropped behind (heals, shields, boosts, traps, trails). No tugboat (it tows you
+ * along the loop) and none of the useless ones (a race leader's "reward").
+ */
+export const BATTLE_ODDS: Record<ItemId, number> = {
+  // offensive: aimed at the others
+  volunteer: 18, nailGun: 18, drill: 16, jigsaw: 12, siliconeGun: 12, circularSaw: 12,
+  karcher: 10, dildo: 10, vacuum: 8, raclette: 7,
+  // offensive: every opponent at once
+  titten: 6, siphon: 5, sauna: 5, noise: 5, stairs: 5, blackout: 4, mushroom: 1,
+  // defensive, for yourself, or dropped behind
+  whitePowder: 5, beer: 4, beerDispenser: 3, glue: 3, toilet: 3, paint: 3, fakeCrate: 2,
+  lazyVolunteers: 2, enlarge: 2,
+  // never in a battle
+  tugboat: 0, translation: 0, champagne: 0,
+};
+/** Battles: the chance an item comes as its better version (x3), the same for everyone. */
+export const BATTLE_TRIPLE = { normal: 0.15, global: 0.05 };
+
 /** How much an item helps whoever holds it (0-10). Used to check the odds really favour the back. */
 export const ITEM_POWER: Record<ItemId, number> = {
   volunteer: 7, jigsaw: 6, whitePowder: 6, drill: 6,

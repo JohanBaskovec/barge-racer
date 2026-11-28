@@ -391,7 +391,8 @@ export class HazardSystem {
       const pool = sim.racers.filter((r) => !r.finished && r.sinkTimer <= 0);
       if (pool.length && this.critters.length < K.max) {
         let total = 0;
-        const col = (r: Racer): number => oddsColumn(r.position, sim.racers.length);
+        // (a battle: the same for every boat, whatever the score)
+        const col = (r: Racer): number => (sim.battle ? 1 : oddsColumn(r.position, sim.racers.length));
         for (const r of pool) total += K.weights[col(r)];
         let roll = sim.rng.next() * total;
         let pick = pool[0];

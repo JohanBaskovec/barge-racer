@@ -3,6 +3,9 @@ import { ARENA_DEFS, TRACK_DEFS, loadTrack } from '../src/data/tracks';
 import { removeEffect } from '../src/effects/effects';
 import { BATTLE, type GameMode, TEAM_COLORS, winLimit } from '../src/race/battle';
 import { bargeCapsule } from '../src/race/traffic';
+import { BATTLE_ODDS } from '../src/data/items';
+import { drawItem } from '../src/items/itemOdds';
+import { Rng } from '../src/physics/math';
 import { touchesCapsule } from '../src/physics/collisions';
 import { addEffect, hasEffect } from '../src/effects/effects';
 import { RaceSimulation, STEP } from '../src/race/RaceSimulation';
@@ -75,8 +78,8 @@ describe('battle setup', () => {
   it('the points that win go with the number of boats', () => {
     expect(winLimit('deathmatch', 6)).toBe(8);
     expect(winLimit('deathmatch', 4)).toBe(6);
-    expect(winLimit('teamDeathmatch', 6)).toBe(15);
-    expect(winLimit('teamDeathmatch', 4)).toBe(10);
+    expect(winLimit('teamDeathmatch', 6)).toBe(18);
+    expect(winLimit('teamDeathmatch', 4)).toBe(12);
     expect(winLimit('ctf', 8)).toBe(BATTLE.captureLimit);
     expect(battle('deathmatch', 5).b.limit).toBe(7);
   });
@@ -403,17 +406,43 @@ describe('battle items', () => {
     expect(thief.catchUp).toBe(1);
   });
 
-  it('item odds go by the lead on points: level, nobody leads', () => {
-    const { sim, b } = battle('deathmatch', 4);
-    expect(sim.racers.map((r) => b.oddsColumn(r))).toEqual([1, 1, 1, 1]);
-    sinkBy(sim, sim.racers[1], 0);
-    sinkBy(sim, sim.racers[2], 0);
-    sinkBy(sim, sim.racers[3], 0);
-    expect(b.oddsColumn(sim.racers[0])).toBe(0);
-    expect(b.oddsColumn(sim.racers[1])).toBe(3);
-    const t = battle('ctf', 4);
-    t.b.teamScores = [1, 0];
-    expect(t.sim.racers.map((r) => t.b.oddsColumn(r))).toEqual([0, 2, 0, 2]);
+  it('item odds are the same for everyone whatever the score, and lean to offensive items', () => {
+    const OFFENSIVE = ['volunteer', 'nailGun', 'drill', 'jigsaw', 'siliconeGun', 'circularSaw', 'karcher', 'dildo', 'vacuum', 'raclette', 'titten', 'siphon', 'sauna', 'noise', 'stairs', 'blackout', 'mushroom'];
+    const draw = (position: number, table?: Record<string, number>) => {
+      const rng = new Rng(9);
+      const got: Record<string, number> = {};
+      for (let i = 0; i < 6000; i++) {
+        const id = drawItem(rng, { position, count: 6, volunteersInFlight: 0, recentItems: [], table: table as never });
+        got[id] = (got[id] ?? 0) + 1;
+      }
+      return got;
+    };
+    // Leader or last: the very same draws.
+    expect(draw(0, BATTLE_ODDS)).toEqual(draw(5, BATTLE_ODDS));
+    const battleDraws = draw(2, BATTLE_ODDS);
+    for (const id of ['tugboat', 'translation', 'champagne']) expect(battleDraws[id]).toBeUndefined();
+    const share = (got: Record<string, number>) => OFFENSIVE.reduce((n, id) => n + (got[id] ?? 0), 0) / 6000;
+    // More offensive items than anywhere in a race, fewer defensive ones.
+    for (const p of [0, 2, 5]) expect(share(battleDraws)).toBeGreaterThan(share(draw(p)) + 0.08);
+    expect(share(battleDraws)).toBeGreaterThan(0.8);
+    expect((battleDraws.beer ?? 0) + (battleDraws.beerDispenser ?? 0)).toBeLessThan(draw(0).beer + (draw(0).beerDispenser ?? 0));
+  });
+
+  it('in a battle, the crate a boat opens doesn\'t depend on its score', () => {
+    const items = (lead: boolean) => {
+      const { sim } = battle('deathmatch', 4);
+      if (lead) for (const v of [1, 2, 3]) sinkBy(sim, sim.racers[v], 0);
+      const me = sim.racers[0];
+      const got: string[] = [];
+      for (let k = 0; k < 40; k++) {
+        me.slots = [null, null];
+        me.rouletteItem = null;
+        (sim.items as unknown as { openCrate(r: Racer): void }).openCrate(me);
+        got.push(me.rouletteItem!);
+      }
+      return got;
+    };
+    expect(items(true)).toEqual(items(false));
   });
 
   it('golden crates: in the middle of the water, late to turn up, and full of the best (x3)', () => {

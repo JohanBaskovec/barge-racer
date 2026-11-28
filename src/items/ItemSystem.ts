@@ -1,4 +1,4 @@
-import { FASTEST_TOP_SPEED, GLOBAL_ITEMS, ITEM_INFO, TRIPLE_ODDS, TUNING, type ItemId } from '../data/items';
+import { BATTLE_ODDS, BATTLE_TRIPLE, FASTEST_TOP_SPEED, GLOBAL_ITEMS, ITEM_INFO, ITEM_POWER, TRIPLE_ODDS, TUNING, type ItemId } from '../data/items';
 import { addEffect, hasEffect } from '../effects/effects';
 import { isTouching, resolveStatic, touchesCapsule } from '../physics/collisions';
 
@@ -15,6 +15,8 @@ import { drawItem, oddsColumn } from './itemOdds';
 
 /** Items left out of battles: the tugboat tows you along the loop, which is no use in an arena. */
 const BATTLE_EXCLUDED: readonly ItemId[] = ['tugboat'];
+/** A golden crate (battles): only the strongest items (power 8 or more), with the battle weights. */
+const GOLDEN_ODDS = Object.fromEntries(Object.entries(BATTLE_ODDS).map(([id, w]) => [id, ITEM_POWER[id as ItemId] >= 8 ? w : 0])) as Record<ItemId, number>;
 export class ItemSystem {
   crates: Crate[] = [];
   volunteers: Volunteer[] = [];
@@ -482,18 +484,24 @@ export class ItemSystem {
   private openCrate(r: Racer, power = false): void {
     if (this.freeSlot(r) < 0 || r.rouletteItem) return;
     const leader = this.sim.racers.reduce((m, o) => Math.max(m, o.progress), -Infinity);
-    // A battle: the odds go by the lead on points (as four places), not by place.
-    // A golden crate: the last place's column (the strongest), always the better version.
-    const odds = power ? { position: 3, count: 4 } : this.sim.battle ? { position: this.sim.battle.oddsColumn(r), count: 4 } : { position: r.position, count: this.sim.racers.length };
+    const battle = !!this.sim.battle;
+    const farBehind = !battle && leader - r.progress > this.sim.track.lapLength;
+    // A battle: the same odds for everyone whatever the score (BATTLE_ODDS); a golden crate, only
+    // the strongest items. A race: by place.
     const item = drawItem(this.sim.rng, {
-      ...odds,
-      farBehind: !this.sim.battle && leader - r.progress > this.sim.track.lapLength,
+      position: r.position,
+      count: this.sim.racers.length,
+      farBehind,
       volunteersInFlight: this.volunteersInFlight,
       recentItems: r.recentItems,
-      excluded: this.sim.battle ? BATTLE_EXCLUDED : undefined,
+      excluded: battle ? BATTLE_EXCLUDED : undefined,
+      table: battle ? (power ? GOLDEN_ODDS : BATTLE_ODDS) : undefined,
     });
     r.rouletteItem = this.sim.forcedItem ?? item;
-    r.rouletteTriple = (power && ITEM_INFO[r.rouletteItem].uses < 3) || this.rollTriple(r.rouletteItem, odds.position, !this.sim.battle && leader - r.progress > this.sim.track.lapLength);
+    // The better version: always from a golden crate; in a battle, the same chance for everyone.
+    const id = r.rouletteItem;
+    r.rouletteTriple = ITEM_INFO[id].uses < 3 && (power
+      || (battle ? this.sim.rng.next() < (GLOBAL_ITEMS.includes(id) ? BATTLE_TRIPLE.global : BATTLE_TRIPLE.normal) : this.rollTriple(id, r.position, farBehind)));
     r.rouletteT = TUNING.rouletteTime;
     this.sim.emit({ type: 'itemPickup', racer: r.id, item: r.rouletteItem });
   }
@@ -501,8 +509,7 @@ export class ItemSystem {
   /** Whether an item comes as its better version (three uses): likelier further back, never for the leader. */
   private rollTriple(id: ItemId, position: number, farBehind: boolean): boolean {
     if (ITEM_INFO[id].uses >= 3) return false;
-    // (in a battle `position` is already the column)
-    const col = farBehind ? 3 : this.sim.battle ? position : oddsColumn(position, this.sim.racers.length);
+    const col = farBehind ? 3 : oddsColumn(position, this.sim.racers.length);
     const odds = (GLOBAL_ITEMS.includes(id) ? TRIPLE_ODDS.global : TRIPLE_ODDS.normal)[col];
     return odds > 0 && this.sim.rng.next() < odds;
   }

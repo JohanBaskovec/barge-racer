@@ -495,9 +495,9 @@ Rules on top of the table:
 ## In battles
 
 The [battle modes](game-design.md#battle-modes) change a few things: no friendly fire in team
-modes (items never hurt, slow, blind or aim at a team-mate), odds by the lead on points instead
-of by place, items 1.6× as harmful, crates back after 2.5 s, golden crates (the strongest column,
-×3), aim assist for straight shots, "in front of" and "behind" following the way a boat is going
+modes (items never hurt, slow, blind or aim at a team-mate), no balancing (the same odds for
+everyone, `BATTLE_ODDS`, leaning to offensive items), items 1.6× as harmful, crates back after
+2.5 s, golden crates (the strongest items, ×3), aim assist for straight shots, "in front of" and "behind" following the way a boat is going
 round the arena, and no tugboat. The details are in the game design.
 
 ## Item data shape

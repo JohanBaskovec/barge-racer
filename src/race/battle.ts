@@ -32,7 +32,7 @@ export const BATTLE = {
   /** Seconds a match lasts at most (deathmatch, capture the flag). */
   timeLimit: { deathmatch: 240, teamDeathmatch: 240, ctf: 300 },
   /** Captures that win straight away (points in deathmatch: see winLimit). */
-  captureLimit: 4,
+  captureLimit: 3,
   /** The last hit counts for this long when a boat sinks. */
   killCredit: 6,
   /** Touching a flag (px, added to the boat's size). */
@@ -57,15 +57,15 @@ export const BATTLE = {
   powerRespawn: 30,
   powerFirst: 20,
   /** A boat carrying a flag is slower (top speed ×): the others have time to catch it. */
-  carrierSpeed: 0.75,
+  carrierSpeed: 0.85,
 };
 
 /**
  * What wins straight away: in deathmatch, the boats + 2 points (8 for six boats); in team
- * deathmatch 2.5 points a boat (15 for six); in capture the flag, captureLimit captures.
+ * deathmatch 3 points a boat (18 for six); in capture the flag, captureLimit captures.
  */
 export function winLimit(mode: Exclude<GameMode, 'race'>, boats: number): number {
-  return mode === 'deathmatch' ? boats + 2 : mode === 'teamDeathmatch' ? Math.round(boats * 2.5) : BATTLE.captureLimit;
+  return mode === 'deathmatch' ? boats + 2 : mode === 'teamDeathmatch' ? boats * 3 : BATTLE.captureLimit;
 }
 
 export interface Flag {
@@ -322,26 +322,6 @@ export class BattleSystem {
     // Everyone stops shooting: blinking boats can't be hurt any more.
     for (const r of this.sim.racers) addEffect(r, 'invulnerable', BATTLE.endPause + 1);
     this.sim.emit({ type: 'battleOver', team: this.winnerTeam });
-  }
-
-  /**
-   * Which column of the item odds a boat draws from (0: the leader's weak items, 3: the strongest),
-   * by how far it (or its team) is ahead or behind on points, not by place: at 0-0 nobody leads.
-   */
-  oddsColumn(r: Racer): number {
-    let lead: number, steps: number[];
-    if (isTeamMode(this.mode)) {
-      const t = this.teams[r.id];
-      lead = this.teamScores[t] - this.teamScores[1 - t];
-      // a capture is worth a lot more than a sinking
-      steps = this.mode === 'ctf' ? [1, 0, -2] : [3, 0, -3];
-    } else {
-      const s = this.scores;
-      lead = s[r.id] - Math.max(...s.filter((_, i) => i !== r.id));
-      steps = [1, 0, -2];
-    }
-    // ahead by the first step or more: 0; level (or a little ahead): 1; a little behind: 2; far behind: 3
-    return lead >= steps[0] ? 0 : lead >= steps[1] ? 1 : lead > steps[2] ? 2 : 3;
   }
 
   get result(): BattleResult {

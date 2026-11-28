@@ -196,8 +196,8 @@ anglers and barge drops are off. Code: `src/race/battle.ts`; numbers in `BATTLE`
 | Mode | Teams | Wins | Time limit |
 | --- | --- | --- | --- |
 | **Deathmatch** | Every boat for itself | boats + 2 sinkings (8 for six boats), or the most when time runs out (level on points: fewer times sunk) | 4 min |
-| **Team deathmatch** | Corsica against Brittany | 2.5 sinkings a boat for the team (15 for six boats, 10 for four) | 4 min |
-| **Capture the flag** | Corsica against Brittany | 4 captures | 5 min |
+| **Team deathmatch** | Corsica against Brittany | 3 sinkings a boat for the team (18 for six boats, 12 for four) | 4 min |
+| **Capture the flag** | Corsica against Brittany | 3 captures | 5 min |
 
 - **A sinking scores** for the boat that last hit the one that sank, if that hit was less than
   6 s before (sinking on your own scores nothing).
@@ -215,9 +215,13 @@ anglers and barge drops are off. Code: `src/race/battle.ts`; numbers in `BATTLE`
   - There is no "boat ahead": volunteers home in on the nearest opponent in front (within
     1400 px); things that land in front of or behind a boat (Dicke Titten, stairs, lazy
     volunteers, ducks) go by **the way it is going** round the arena.
-  - **Odds by the lead on points**, not by place (at 0-0 nobody leads): ahead (by a point, a
-    capture, or 3 points in team deathmatch): the leader's weak items; level: the second
-    column; a little behind: the third; far behind: the strongest.
+  - **No balancing**: everyone draws from the same odds (`BATTLE_ODDS`) whatever the score or
+    the place: no weak items for the leader, no strong ones to help those behind. Those odds lean
+    to **offensive items** (shots, rams, saws, jets, the items that hit every opponent: over 80 %
+    of the draws) and away from **defensive ones** (heals, the beer dispenser's shield, boosts,
+    traps and trails dropped behind). None of the leader's useless items. The better version (×3)
+    comes 15 % of the time (5 % for the items that hit everyone), for everyone alike. Ducks,
+    rowers and swimmers turn up in front of any boat alike too.
   - Items hurt **1.6×** as much as in a race (fights end in sinkings rather than dents), and
     crates come back after 2.5 s instead of 4.
   - **Aim assist**: a shot (nails, silicone, raclette, the drill when it leaves the bow) fired
@@ -225,8 +229,10 @@ anglers and barge drops are off. Code: `src/race/battle.ts`; numbers in `BATTLE`
   - The **tugboat** never comes out of a crate (it tows you along the loop).
 - **Golden crates**: two spots per arena, in the middle of the water (in the chicanes of the
   Great Basin, in the channels of the Two Lakes). The first turns up after 20 s, the second 15 s
-  later, then each comes back 30 s after it is opened. A golden crate holds an item from the
-  strongest column, always the better version (×3), and only opens for a boat with a free slot.
+  later, then each comes back 30 s after it is opened. A golden crate holds one of the strongest
+  items (power 8 or more: silicone gun, vacuum, sauna, Dicke Titten, stairs, blackout, raclette,
+  siphoning, noise complaint, mushroom), always the better version (×3), and only opens for a
+  boat with a free slot.
   Big, gold, glowing; a star on the minimap, an arrow at the edge of the screen and "A golden
   crate is up!" when one appears.
 - **Respawn**: a boat that sinks comes back with a full hull **at its team's base**, on a random
@@ -234,7 +240,7 @@ anglers and barge drops are off. Code: `src/race/battle.ts`; numbers in `BATTLE`
   Free for all: anywhere on the arena, again the try farthest from any opponent.
 - **Capture the flag**: each team's flag stands at its base. Touch the other team's flag to take
   it (it flies over your boat), bring it to your own base **while your own flag is there**: a
-  capture. The carrier is slower (75 % top speed). **Hit by an opponent, the carrier drops the
+  capture. The carrier is slower (85 % top speed). **Hit by an opponent, the carrier drops the
   flag** (and blinks, so it can't pick it straight back up); so does a carrier that sinks.
   Touched by its own team, a dropped flag goes home at once; touched by the other team it is
   taken again; left alone it goes home after 20 s.
@@ -251,9 +257,9 @@ anglers and barge drops are off. Code: `src/race/battle.ts`; numbers in `BATTLE`
   edge of the screen point to what matters off it: opponents within 1500 px (fading with
   distance), golden crates, and the flags when carried or dropped. The camera is further out
   than in a race (×0.8) to see boats coming from every side.
-- **Pace** (AI-only matches, six boats): about one sinking per boat per minute in deathmatch,
-  a third of the matches won on points before the time limit; capture the flag lasts 3½ to
-  4½ minutes with plenty of flags dropped and brought back. The measurement script is described
+- **Pace** (AI-only matches, six boats): about 1.5 sinkings per boat per minute; deathmatch
+  is usually won on points in about 3 minutes, team deathmatch in 3 to 4; capture the flag lasts
+  4 to 5 minutes with plenty of flags dropped and brought back (sudden death settles the ties). The measurement script is described
   in [AI](ai.md#battles).
 - **AI**: see [AI](ai.md#battles).
 
