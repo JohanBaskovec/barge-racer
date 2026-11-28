@@ -344,6 +344,8 @@ screams) and slows the boat for 1.3 s, no damage. They drift for 25 s; you are i
 For 3 s you leave a **trail of wet paint** (a splash of a random colour every 0.22 s,
 10 s each). Whoever drives through gets **paint all over the screen** for 3.5 s (big
 splats with drips, gaps to peer through), no damage. The AI steers a little blind too.
+Once your screen is covered, more paint changes nothing until it has worn off (it used to
+start the splash again at every spot of the trail).
 
 ### 25. Lost in Translation
 
@@ -359,6 +361,28 @@ Completely useless, for the leader alone: a bottle of champagne, popped before t
 (a cork pop and a spray of foam). It repairs nothing and makes you a little drunker than a
 beer: 5 s instead of 4, weaving 1.3 times as far.
 
+### 27. Enlarge your péniche
+
+(Called that in every language.) Your boat is **twice its size** for 8 s, then shrinks back
+smoothly. Nothing else: no faster, no heavier, no tougher. Bigger is easier to hit and
+harder to squeeze through. Mostly for the front.
+
+### 28. Circular Saw
+
+For 5 s a **saw blade runs round your hull** (16 px out from it, about three-quarters of a
+turn a second), sparks flying. Every boat it touches is hurt (20 hull), then not again for
+0.9 s. Drive alongside or nose up to someone to make it count.
+
+### 29. Motorized Stairs
+
+Every opponent's screen goes behind **retractable stairs unfolding from the ceiling**: a hatch
+opens at the top of the screen and big stairs (silver stringers, dark treads, red handrails)
+come down across it, stay, and fold back up (2.4 s). The AI can't see either. Then **stairs
+come out of a bank** 560 px in front of each of them, a motor housing on the towpath, and
+unfold across 62 % of the canal in 0.7 s: solid for 6 s, then they fold back. Running into
+them hurts (26 hull, once per boat); go round them on the open side. Only the back two
+places get it.
+
 ### The better versions (x 3)
 
 Every item can come as its **better version, with three uses** (this replaced the old
@@ -366,7 +390,7 @@ Volunteer Squad and Big Bag, which were exactly that for the Volunteers and the 
 chance depends on the position when the crate is broken: never for 1st, 8 % for 2nd,
 18 % for 3rd and 30 % for 4th (`TRIPLE_ODDS`). The strongest items, those that hit every
 opponent at once (Mushrooms, Electrical Failure, Gas Siphoning, Dicke Titten, Raclette,
-Sauna, Noise Complaint),
+Sauna, Noise Complaint, Motorized Stairs),
 come as triples only for the last place, 12 % of the time. A triple shows a thicker
 orange ring round its button and its uses left.
 
@@ -400,6 +424,9 @@ orange ring round its button and its uses left.
 | Painting Workshop | Trail of paint, paint on the screen | 0 | 3 s trail, 10 s each splash | Drive round it |
 | Lost in Translation | Opponents' games in another language | 0 | 20 s | Speak languages |
 | Premature Celebration | Nothing (you get drunk) | 0 | 5 s | - |
+| Enlarge your péniche | Twice the size | 0 | 8 s | - |
+| Circular Saw | Blade running round the hull | 20 per touch | 5 s | Keep your distance |
+| Motorized Stairs | Screen hidden, then stairs across the canal in front of every opponent | 26 | 2.4 s + 7.4 s | Go round them |
 
 ## Who gets what: position-based odds
 
@@ -441,6 +468,9 @@ the toilet), which is how they kept the lead: they get half as many now.
 | Painting Workshop | 9 | 9 | 6 | 3 |
 | Lost in Translation | 7 | 0 | 0 | 0 |
 | Premature Celebration | 8 | 0 | 0 | 0 |
+| Enlarge your péniche | 6 | 4 | 2 | 0 |
+| Circular Saw | 3 | 8 | 9 | 7 |
+| Motorized Stairs | 0 | 0 | 3 | 6 |
 
 Every item has a **power** rating (`ITEM_POWER` in `src/data/items.ts`: Electrical
 Failure, Raclette, Gas Siphoning and Noise Complaint 10, Mushrooms, Dicke Titten and Tugboat 9,

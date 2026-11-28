@@ -74,6 +74,10 @@ describe('t()', () => {
     vi.useRealTimers();
   });
 
+  it('"Enlarge your péniche" is called that in every language', () => {
+    for (const l of LANGUAGES) expect(l.strings['item.enlarge']).toBe('Enlarge your péniche');
+  });
+
   it('speaks German and Spanish too, with their own ordinals', () => {
     setLanguage('de');
     expect(t('hud.lap', { n: 2, total: 3 })).toBe('Runde 2/3');

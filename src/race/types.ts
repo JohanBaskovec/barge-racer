@@ -23,6 +23,22 @@ export const NO_INTENT: ControlIntent = { desiredHeading: null, throttle: 0, fir
 /** What hurt a boat: an item, the bank, or a hazard (the police, an angler's line). */
 export type HitSource = ItemId | 'bank' | 'police' | 'angler';
 
+/**
+ * Motorized stairs: they come out of a bank (`side`) at `along` once the warning is over (until
+ * then `along` is -1), in front of `target`, unfold across the canal, stay, and fold back.
+ */
+export interface Stairs {
+  id: number;
+  owner: number;
+  target: number;
+  along: number;
+  side: 1 | -1;
+  age: number;
+  /** Boats already hurt by them (they stay solid). */
+  hit: number[];
+  dead: boolean;
+}
+
 export type Slot = { id: ItemId; uses: number; triple?: boolean } | null;
 
 export interface Racer {

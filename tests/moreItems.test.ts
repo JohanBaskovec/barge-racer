@@ -185,3 +185,99 @@ describe('useless items for the leader', () => {
     }
   });
 });
+
+describe('paint is splashed once', () => {
+  it('more paint while the screen is still covered changes nothing (the splash used to start again at every spot)', () => {
+    const sim = lone();
+    const [me, other] = sim.racers;
+    put(sim, me, 3000, 0, 200);
+    use(sim, me, 'paint');
+    run(sim, TUNING.paint.trailTime + 0.3);
+    const paint = sim.items.clouds.filter((c) => c.kind === 2);
+    let events = 0;
+    let remaining = Infinity;
+    for (const c of paint.slice(2, 8)) {
+      const at = sim.track.nearest(c.x, c.y, -1);
+      put(sim, other, at.along, at.lateral, 0);
+      events += run(sim, STEP * 3).filter((e) => e.type === 'painted' && e.racer === other.id).length;
+      const now = other.effects.find((e) => e.kind === 'painted')!.remaining;
+      expect(now).toBeLessThan(remaining);
+      remaining = now;
+    }
+    expect(events).toBe(1);
+  });
+});
+
+describe('Enlarge your péniche', () => {
+  it('twice the size for a while, no heavier, then back to normal', () => {
+    const sim = lone();
+    const r = sim.racers[0];
+    const { capRadius, halfLen, mass } = r.stats;
+    use(sim, r, 'enlarge');
+    run(sim, 1.5);
+    expect(r.size).toBe(2);
+    expect(r.stats.capRadius).toBeCloseTo(capRadius * 2, 5);
+    expect(r.stats.halfLen).toBeCloseTo(halfLen * 2, 5);
+    expect(r.stats.mass).toBe(mass);
+    run(sim, TUNING.enlarge.duration);
+    expect(r.size).toBe(1);
+  });
+});
+
+describe('circular saw', () => {
+  it('a blade runs round the hull and hurts whoever it touches, each boat again only after a moment', () => {
+    const sim = lone();
+    const [me, other] = sim.racers;
+    put(sim, me, 3000, 0, 0);
+    use(sim, me, 'circularSaw');
+    const p = sim.items.sawPosition(me)!;
+    expect(Math.hypot(p.x - me.x, p.y - me.y)).toBeGreaterThan(me.boat.size.length / 2);
+    const hull = other.hull;
+    let hits = 0;
+    for (let i = 0; i < 1.5 / STEP; i++) {
+      // the other boat keeps sitting where the blade is
+      const q = sim.items.sawPosition(me)!;
+      other.x = q.x;
+      other.y = q.y;
+      other.effects = other.effects.filter((e) => e.kind !== 'invulnerable');
+      sim.step(STEP);
+      hits += sim.takeEvents().filter((e) => e.type === 'hit' && e.racer === other.id && e.source === 'circularSaw').length;
+    }
+    expect(hits).toBe(2); // at 0 s and after 0.9 s
+    expect(other.hull).toBeLessThan(hull);
+    run(sim, TUNING.circularSaw.duration);
+    expect(sim.items.sawPosition(me)).toBeNull();
+  });
+});
+
+describe('motorized stairs', () => {
+  it('the screen hidden, then stairs out of a bank in front of every opponent; solid, and they hurt once', () => {
+    const sim = lone();
+    const [me, other, ...rest] = sim.racers;
+    use(sim, me, 'stairs');
+    for (const o of [other, ...rest]) expect(hasEffect(o, 'stairsDown')).toBe(true);
+    expect(sim.items.stairs.map((s) => s.target).sort()).toEqual([other, ...rest].map((o) => o.id).sort());
+    expect(sim.items.stairs.every((s) => s.along < 0)).toBe(true); // not out yet
+    run(sim, TUNING.stairs.warn + TUNING.stairs.unfold + 0.1);
+    const s = sim.items.stairs.find((k) => k.target === other.id)!;
+    expect(s.along).toBeGreaterThanOrEqual(0);
+    const g = sim.items.stairsGeometry(s)!;
+    expect(g.open).toBe(1);
+    // A boat driving straight into the stairs' middle: stopped, and hurt once.
+    const midAlong = s.along - 140;
+    const n = sim.track.nearest((g.base.x + g.tip.x) / 2, (g.base.y + g.tip.y) / 2, -1);
+    put(sim, me, midAlong, n.lateral, 300);
+    for (const o of sim.racers) o.effects = o.effects.filter((e) => e.kind !== 'invulnerable');
+    const hull = me.hull;
+    const ev = run(sim, 1.2);
+    expect(ev.filter((e) => e.type === 'hit' && e.racer === me.id && e.source === 'stairs')).toHaveLength(1);
+    expect(me.hull).toBeLessThan(hull);
+    expect(sim.track.alongOf(me.progress)).toBeLessThan(s.along); // didn't go through
+    // copied to online clients
+    const copy = lone(2);
+    applyState(copy, JSON.parse(JSON.stringify(encodeState(sim))));
+    expect(encodeState(copy).stairs).toEqual(encodeState(sim).stairs);
+    run(sim, TUNING.stairs.life + TUNING.stairs.unfold + 0.5);
+    expect(sim.items.stairs).toHaveLength(0);
+  });
+});

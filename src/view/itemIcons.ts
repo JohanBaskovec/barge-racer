@@ -1313,6 +1313,116 @@ const ICONS: Record<string, (c: C) => void> = {
     spark(c, 18, 18, 4);
     spark(c, 88, 54, 3.5);
   },
+
+  // Enlarge your péniche: a péniche with arrows pointing out, XXL.
+  icon_enlarge: (c) => {
+    // arrows out to the four corners
+    c.save();
+    c.lineCap = 'round';
+    for (const [x0, y0, x1, y1] of [[24, 30, 8, 14], [72, 30, 88, 14], [24, 70, 8, 86], [72, 70, 88, 86]] as const) {
+      tube(c, () => {
+        c.beginPath();
+        c.moveTo(x0, y0);
+        c.lineTo(x1, y1);
+      }, 4, '#ffd23f');
+      const a = Math.atan2(y1 - y0, x1 - x0);
+      pl(c, [x1 + Math.cos(a) * 3, y1 + Math.sin(a) * 3, x1 + Math.cos(a + 2.4) * 9, y1 + Math.sin(a + 2.4) * 9, x1 + Math.cos(a - 2.4) * 9, y1 + Math.sin(a - 2.4) * 9]);
+      paint(c, '#ffd23f', 2);
+    }
+    c.restore();
+    // the péniche, seen from above: long hull, wheelhouse at the stern
+    rr(c, 10, 38, 76, 24, 11);
+    paint(c, lg(c, 10, 38, 10, 62, '#5a6470', '#2c333c'));
+    rr(c, 22, 42, 42, 16, 3);
+    paint(c, lg(c, 22, 42, 22, 58, '#9aa6b2', '#6d7884'), 1.6);
+    for (let x = 30; x < 64; x += 8) line(c, x, 42, x, 58, 1.2, 'rgba(40,46,54,0.5)');
+    rr(c, 66, 43, 13, 14, 2);
+    paint(c, '#f2f2f2', 1.6);
+    // XXL
+    c.font = 'bold 19px sans-serif';
+    c.textAlign = 'center';
+    c.lineWidth = 4;
+    c.strokeStyle = OUT;
+    c.fillStyle = '#ffffff';
+    c.strokeText('XXL', 48, 92);
+    c.fillText('XXL', 48, 92);
+    c.textAlign = 'start';
+  },
+
+  // A circular saw: a toothed steel blade, spinning, sparks flying.
+  icon_circularSaw: (c) => {
+    const cx = 46, cy = 50, R = 36;
+    c.beginPath();
+    const n = 24;
+    for (let k = 0; k < n; k++) {
+      const a0 = (k / n) * Math.PI * 2, a1 = ((k + 0.65) / n) * Math.PI * 2;
+      c.lineTo(cx + Math.cos(a0) * (R - 6), cy + Math.sin(a0) * (R - 6));
+      c.lineTo(cx + Math.cos(a1) * R, cy + Math.sin(a1) * R);
+    }
+    c.closePath();
+    paint(c, STEEL(c, cx - R, cy - R, cx + R, cy + R));
+    el(c, cx, cy, R - 12);
+    paint(c, rg(c, cx - 8, cy - 8, R, '#f6f8fa', '#b3bbc4', '#7d868f'), 1.6);
+    // motion arcs
+    c.save();
+    c.lineCap = 'round';
+    for (const [r0, a0] of [[R - 18, 0.4], [R - 22, 3.4]] as const) {
+      c.beginPath();
+      c.arc(cx, cy, r0, a0, a0 + 1.6);
+      c.lineWidth = 2.4;
+      c.strokeStyle = 'rgba(60,70,80,0.55)';
+      c.stroke();
+    }
+    c.restore();
+    el(c, cx, cy, 7);
+    paint(c, DARK(c, cx - 7, cy - 7, cx + 7, cy + 7), 2);
+    el(c, cx, cy, 2.5);
+    paint(c, '#c9d0d7', 0);
+    for (const [x, y, s2] of [[86, 18, 4], [90, 34, 3], [78, 8, 3]] as const) spark(c, x, y, s2, '#ffd23f');
+  },
+
+  // Motorized stairs: retractable attic stairs, unfolding from a hatch in the ceiling.
+  icon_stairs: (c) => {
+    // the hatch
+    rr(c, 30, 4, 62, 18, 2);
+    paint(c, '#f4f4f4', 2.2);
+    rr(c, 35, 8, 52, 10, 1);
+    paint(c, lg(c, 35, 8, 35, 18, '#7a4a20', '#2b1a0c'), 1.4);
+    // the stairs, from the hatch down to the floor (bottom left)
+    const sx = 78, sy = 16, ex = 14, ey = 90;
+    const ang = Math.atan2(ey - sy, ex - sx), len = Math.hypot(ex - sx, ey - sy);
+    c.save();
+    c.translate(sx, sy);
+    c.rotate(ang);
+    rr(c, 0, -13, len, 26, 3);
+    paint(c, lg(c, 0, -13, 0, 13, '#f2f4f6', '#b7bec6', '#8a929b'));
+    for (let x = 8; x < len - 4; x += 9) {
+      rr(c, x, -10, 5, 20, 1);
+      paint(c, '#2b3038', 0);
+    }
+    line(c, 0, -13, len, -13, 2.4, OUT);
+    line(c, 0, 13, len, 13, 2.4, OUT);
+    c.restore();
+    // the red handrails
+    c.save();
+    c.lineCap = 'round';
+    for (const off of [-6, 2]) {
+      c.beginPath();
+      c.moveTo(66 + off, 8);
+      c.lineTo(10 + off, 64);
+      c.lineWidth = 6.5;
+      c.strokeStyle = OUT;
+      c.stroke();
+      c.lineWidth = 4;
+      c.strokeStyle = '#e8322b';
+      c.stroke();
+    }
+    c.restore();
+    for (const [x0, y0, x1, y1] of [[44, 32, 54, 44], [26, 50, 36, 62]] as const) line(c, x0, y0, x1, y1, 2.4, '#3a414a');
+    // a little motor
+    rr(c, 4, 82, 18, 12, 3);
+    paint(c, lg(c, 4, 82, 4, 94, '#ffd23f', '#d99a1a'), 1.8);
+  },
 };
 
 /** Draw every icon into its own canvas texture (once). */

@@ -26,6 +26,7 @@ export interface SimState {
   boobs: [number, number, number, number, number, number, number, number[], number][]; // id, owner, target, x, y, heading, age, hit, turned
   clouds: [number, number, number, number, number, number][]; // id, owner, kind, x, y, age
   drops: [number, number, number, number, number, number, number, number][]; // id, x, y, fromX, fromY, age, target, kind
+  stairs?: [number, number, number, number, number, number, number[]][]; // id, owner, target, along, side, age, hit
   /** Hazards: the police boat (phase index, target, t, x, y, heading, side, fireT), bullets, anglers, critters. */
   pol: [number, number, number, number, number, number, number, number] | null;
   /** Police boats sent by a noise complaint, like `pol`. */
@@ -89,6 +90,7 @@ export function encodeState(sim: RaceSimulation): SimState {
     boobs: it.boobs.map((b) => [b.id, b.owner, b.target, r1(b.x), r1(b.y), r3(b.heading), r3(b.age), [...b.hit], b.turned ? 1 : 0]),
     clouds: it.clouds.map((c) => [c.id, c.owner, c.kind, r1(c.x), r1(c.y), r3(c.age)]),
     drops: it.drops.map((d) => [d.id, r1(d.x), r1(d.y), r1(d.fromX), r1(d.fromY), r3(d.age), d.target, d.kind]),
+    stairs: it.stairs.map((s) => [s.id, s.owner, s.target, r1(s.along), s.side, r3(s.age), [...s.hit]]),
     pol: hz.police && encodePolice(hz.police),
     npol: hz.noisePolice.map(encodePolice),
     bul: hz.bullets.map((b) => [b.id, r1(b.x), r1(b.y), r3(b.heading), r1(b.travelled), b.target, b.near]),
@@ -164,6 +166,7 @@ export function applyState(sim: RaceSimulation, s: SimState, except = -1): void 
   it.shots = s.shots.map(([id, owner, kind, x, y, heading, travelled, age, near, wait]) => ({ id, owner, kind: kind as 0 | 1 | 2, x, y, heading, travelled, age, near, wait: wait ?? 0, dead: false }));
   it.boobs = (s.boobs ?? []).map(([id, owner, target, x, y, heading, age, hit, turned]) => ({ id, owner, target, x, y, heading, turned: turned === 1, age, hit: [...hit], dead: false }));
   it.clouds = s.clouds.map(([id, owner, kind, x, y, age]) => ({ id, owner, kind: kind as 0 | 1 | 2, x, y, age, dead: false }));
+  it.stairs = (s.stairs ?? []).map(([id, owner, target, along, side, age, hit]) => ({ id, owner, target, along, side: side as 1 | -1, age, hit: [...hit], dead: false }));
   it.drops = s.drops.map(([id, x, y, fromX, fromY, age, target, kind]) => ({ id, kind: (kind ?? 0) as 0 | 1, x, y, fromX, fromY, age, target, dead: false }));
   const hz = sim.hazards;
   const pol = s.pol ?? null;

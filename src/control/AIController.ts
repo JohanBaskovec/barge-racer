@@ -147,6 +147,13 @@ export class AIController implements Controller {
         if (this.dodge.get(-c.id)) lateralPx += (side >= 0 ? -1 : 1) * (gap - Math.abs(side) + 10);
       }
     }
+    // Motorized stairs coming out of a bank ahead: keep to the other side.
+    for (const s of sim.items.stairs) {
+      if (s.along < 0) continue;
+      let ahead = s.along - along;
+      if (track.closed) ahead = ((ahead % track.length) + track.length) % track.length;
+      if (ahead > 0 && ahead < 600) lateralPx = -s.side * Math.max(Math.abs(lateralPx), hw * 0.55);
+    }
     // An angler's line ahead, cast for this boat: keep to the far side of the canal.
     for (const a of hz.anglers) {
       if (a.target !== r.id || a.hooked) continue;
@@ -174,7 +181,7 @@ export class AIController implements Controller {
     const target = track.pointAt(along + lookAhead, lateralPx);
     let desired = Math.atan2(target.y - r.y, target.x - r.x);
     // Covered in cheese, lost in steam or with paint all over, the AI can't see where it is going: it wanders.
-    const blind = hasEffect(r, 'cheesed') || hasEffect(r, 'steamed');
+    const blind = hasEffect(r, 'cheesed') || hasEffect(r, 'steamed') || hasEffect(r, 'stairsDown');
     const smeared = hasEffect(r, 'painted');
     if (blind) desired += Math.sin(sim.time * 3.1 + this.noisePhase) * 0.45;
     else if (smeared) desired += Math.sin(sim.time * 2.7 + this.noisePhase) * 0.25;
@@ -296,6 +303,18 @@ export class AIController implements Controller {
       case 'titten':
       case 'siphon':
         // They hit every opponent: best from behind, with someone worth passing not too far ahead.
+        if (r.position > 0 && others.some((o) => o.progress > r.progress && o.progress - r.progress < 1800)) return 'forward';
+        break;
+      case 'enlarge':
+        // Nothing to aim at: just use it.
+        if (heldFor > 1.5) return 'forward';
+        break;
+      case 'circularSaw':
+        // Someone close enough for the blade going round the hull.
+        if (others.some((o) => rel(o).d < r.boat.size.length / 2 + TUNING.circularSaw.gap + o.stats.radius + 20)) return 'forward';
+        break;
+      case 'stairs':
+        // In front of every opponent: best from behind, with boats ahead to pass.
         if (r.position > 0 && others.some((o) => o.progress > r.progress && o.progress - r.progress < 1800)) return 'forward';
         break;
       case 'translation':

@@ -204,6 +204,12 @@ export const SFX = {
     noise(c, d, { dur: 0.22, filter: 'lowpass', freq: 900, freqEnd: 300, gain: 0.45 });
     tone(c, d, { type: 'sine', freq: 300, freqEnd: 120, dur: 0.15, gain: 0.2 });
   },
+  /** Motorized stairs: an electric motor whining up, and the steps clanking out one by one */
+  stairs: (c: Ctx, d: AudioNode) => {
+    tone(c, d, { type: 'sawtooth', freq: 180, freqEnd: 420, dur: 1, gain: 0.06, lowpass: 1500, attack: 0.05 });
+    for (let k = 0; k < 6; k++) tone(c, d, { type: 'square', freq: 900 - k * 40, dur: 0.04, gain: 0.05, lowpass: 2500, at: 0.15 + k * 0.13 });
+    noise(c, d, { dur: 0.12, filter: 'bandpass', freq: 600, q: 2, gain: 0.25, at: 0.95 });
+  },
   /** A taunt: two cheeky toots of a car horn */
   honk: (c: Ctx, d: AudioNode) => {
     for (const at of [0, 0.22]) {

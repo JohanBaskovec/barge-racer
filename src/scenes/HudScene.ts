@@ -67,6 +67,8 @@ export class HudScene extends Phaser.Scene {
   private steamHole!: Phaser.GameObjects.Image;
   private steamPuffs: Phaser.GameObjects.Image[] = [];
   private steamLevel = 0;
+  /** Motorized stairs: retractable stairs unfolding from the ceiling over the screen. */
+  private ladderGfx!: Phaser.GameObjects.Graphics;
   private seen = new Set<string>();
   private lastSplatPopup = 0;
   /** Rows taken by messages on screen. */
@@ -109,6 +111,7 @@ export class HudScene extends Phaser.Scene {
     this.paintScreen = this.add.image(this.cx, 360, 'paintScreen').setVisible(false);
     this.steamGfx = this.add.graphics();
     this.steamHole = this.add.image(0, 0, 'steamHole').setVisible(false);
+    this.ladderGfx = this.add.graphics();
     this.steamPuffs = Array.from({ length: 12 }, (_, i) => this.add.image((i * 233) % this.W, (i * 157) % 720, 'steamPuff').setDisplaySize(380, 380).setVisible(false));
     this.steamLevel = 0;
     this.seen.clear();
@@ -312,6 +315,7 @@ export class HudScene extends Phaser.Scene {
     this.drawTrip(time);
     this.drawDrunk(time);
     this.drawSteam(time, p);
+    this.drawLadder(p);
     this.drawStick();
 
     this.drawMap();
@@ -325,7 +329,7 @@ export class HudScene extends Phaser.Scene {
     const now = new Set<string>();
     for (const e of p.effects) if (e.remaining > 0) now.add(e.kind);
     const announce: [EffectKind, string, string][] = [
-      ['blackout', 'hud.blackout', '#ffe04a'], ['cheesed', 'hud.cheese', '#ffd23f'], ['steamed', 'hud.steamed', '#eef6ff'], ['painted', 'hud.painted', '#ff9ad5'], ['sauna', 'hud.sauna', '#ffd9a0'], ['drunk', 'hud.drunk', '#9dff6a'], ['shrunk', 'hud.shrunk', '#bfe1f7'], ['hasty', 'hud.hasty', '#ffb0d9'],
+      ['blackout', 'hud.blackout', '#ffe04a'], ['cheesed', 'hud.cheese', '#ffd23f'], ['steamed', 'hud.steamed', '#eef6ff'], ['stairsDown', 'hud.stairs', '#ffd23f'], ['enlarged', 'hud.enlarged', '#ffe08a'], ['painted', 'hud.painted', '#ff9ad5'], ['sauna', 'hud.sauna', '#ffd9a0'], ['drunk', 'hud.drunk', '#9dff6a'], ['shrunk', 'hud.shrunk', '#bfe1f7'], ['hasty', 'hud.hasty', '#ffb0d9'],
     ];
     for (const [kind, key, color] of announce) if (now.has(kind) && !this.seen.has(kind)) this.popup(t(key as 'hud.blackout'), color);
     // Lost in Translation: the whole game switches to another language for a while, and asks
@@ -397,6 +401,56 @@ export class HudScene extends Phaser.Scene {
       const d = Math.hypot(x - hx, y - hy);
       puff.setPosition(x, y).setAlpha(alpha * 0.8 * Math.max(0, Math.min(1, (d - R) / 200)));
     });
+  }
+
+  /**
+   * Motorized stairs, on the opponents' screens: a hatch opens in the "ceiling" at the top of the
+   * screen and big retractable stairs unfold down across it (silver stringers, dark treads, red
+   * handrails), hiding most of the race; then they fold back up.
+   */
+  private drawLadder(p: Racer): void {
+    const g = this.ladderGfx.clear();
+    const e = p.effects.find((x) => x.kind === 'stairsDown' && x.remaining > 0);
+    if (!e) return;
+    const k = 1 - e.remaining / e.duration; // 0..1 through the show
+    const ease = (x: number): number => 1 - (1 - Math.max(0, Math.min(1, x))) ** 3;
+    const open = k < 0.12 ? k / 0.12 : k > 0.88 ? (1 - k) / 0.12 : 1; // the hatch
+    const out = k < 0.5 ? ease((k - 0.1) / 0.4) : k < 0.78 ? 1 : 1 - ease((k - 0.78) / 0.2); // the stairs
+    const W = this.W;
+    // The race goes dim behind it: a garage ceiling.
+    g.fillStyle(0xbfc3c7, 0.55 * open).fillRect(0, 0, W, 720);
+    // The hatch: a white frame, the dark attic beyond.
+    const hx0 = W * 0.32, hx1 = W * 0.9, hh = 70 * open;
+    g.fillStyle(0xf4f4f4, 1).fillRect(hx0 - 14, 0, hx1 - hx0 + 28, hh + 14);
+    g.fillStyle(0x3a2412, 1).fillRect(hx0, 0, hx1 - hx0, hh);
+    g.fillStyle(0xc9893f, 1).fillRect(hx0, hh - 10, hx1 - hx0, 10 * open);
+    if (out <= 0) return;
+    // The stairs, from the hatch down to the bottom left, unfolding.
+    const sx = W * 0.84, sy = hh * 0.6, ex = W * 0.06, ey = 800;
+    const full = Math.hypot(ex - sx, ey - sy), len = full * out;
+    const dx = (ex - sx) / full, dy = (ey - sy) / full, nx = -dy, ny = dx;
+    const w = 300;
+    const P = (along: number, across: number): Phaser.Math.Vector2 => new Phaser.Math.Vector2(sx + dx * along + nx * across, sy + dy * along + ny * across);
+    g.fillStyle(0x000000, 0.25).fillPoints([P(0, -w / 2 + 30), P(len, -w / 2 + 30), P(len, w / 2 + 30), P(0, w / 2 + 30)], true);
+    g.fillStyle(0xd7dce1, 1).fillPoints([P(0, -w / 2), P(len, -w / 2), P(len, w / 2), P(0, w / 2)], true);
+    g.fillStyle(0x9aa3ad, 1).fillPoints([P(0, -w / 2), P(len, -w / 2), P(len, -w / 2 + 26), P(0, -w / 2 + 26)], true);
+    g.fillPoints([P(0, w / 2 - 26), P(len, w / 2 - 26), P(len, w / 2), P(0, w / 2)], true);
+    g.fillStyle(0x2b3038, 1);
+    for (let a = 30; a < len - 10; a += 58) g.fillPoints([P(a, -w / 2 + 26), P(a + 20, -w / 2 + 26), P(a + 20, w / 2 - 26), P(a, w / 2 - 26)], true);
+    g.fillStyle(0x6d7680, 1);
+    for (let a = 20; a < len; a += 46) g.fillCircle(P(a, -w / 2 + 13).x, P(a, -w / 2 + 13).y, 3).fillCircle(P(a, w / 2 - 13).x, P(a, w / 2 - 13).y, 3);
+    g.lineStyle(4, 0x17212e, 0.9).strokePoints([P(0, -w / 2), P(len, -w / 2), P(len, w / 2), P(0, w / 2)], true, true);
+    // Red handrails on posts, on the upper side.
+    for (const off of [w / 2 + 70, w / 2 + 110]) {
+      const a0 = P(len * 0.08, off), a1 = P(len * 0.92, off);
+      g.lineStyle(16, 0x17212e, 1).lineBetween(a0.x, a0.y, a1.x, a1.y);
+      g.lineStyle(11, 0xe8322b, 1).lineBetween(a0.x, a0.y, a1.x, a1.y);
+    }
+    g.lineStyle(7, 0x3a414a, 1);
+    for (const t of [0.3, 0.65]) {
+      const a = P(len * t, w / 2), b = P(len * t + 40, w / 2 + 110);
+      g.lineBetween(a.x, a.y, b.x, b.y);
+    }
   }
 
   /** Drunk: everything goes green, and soft bands roll across the screen like the floor at a party. */

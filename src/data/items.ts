@@ -23,7 +23,10 @@ export type ItemId =
   | 'lazyVolunteers'
   | 'paint'
   | 'translation'
-  | 'champagne';
+  | 'champagne'
+  | 'enlarge'
+  | 'circularSaw'
+  | 'stairs';
 
 export interface ItemInfo {
   id: ItemId;
@@ -59,10 +62,13 @@ export const ITEM_INFO: Record<ItemId, ItemInfo> = {
   paint: { id: 'paint', uses: 1, icon: 'icon_paint' },
   translation: { id: 'translation', uses: 1, icon: 'icon_translation' },
   champagne: { id: 'champagne', uses: 1, icon: 'icon_champagne' },
+  enlarge: { id: 'enlarge', uses: 1, icon: 'icon_enlarge' },
+  circularSaw: { id: 'circularSaw', uses: 1, icon: 'icon_circularSaw' },
+  stairs: { id: 'stairs', uses: 1, icon: 'icon_stairs' },
 };
 
 /** The strongest items, which hit every opponent at once: as a triple only for the last place, and rarely. */
-export const GLOBAL_ITEMS: ItemId[] = ['mushroom', 'blackout', 'siphon', 'titten', 'raclette', 'sauna', 'noise'];
+export const GLOBAL_ITEMS: ItemId[] = ['mushroom', 'blackout', 'siphon', 'titten', 'raclette', 'sauna', 'noise', 'stairs'];
 /**
  * Chance per position (1st..4th) that an item comes as its better version, with three uses.
  * `global` is for GLOBAL_ITEMS. Never for the leader.
@@ -107,6 +113,9 @@ export const ITEM_ODDS: Record<ItemId, [number, number, number, number]> = {
   // Completely useless, for the leader alone.
   translation: [7, 0, 0, 0],
   champagne: [8, 0, 0, 0],
+  enlarge: [6, 4, 2, 0],
+  circularSaw: [3, 8, 9, 7],
+  stairs: [0, 0, 3, 6],
 };
 
 /** How much an item helps whoever holds it (0-10). Used to check the odds really favour the back. */
@@ -117,7 +126,7 @@ export const ITEM_POWER: Record<ItemId, number> = {
   titten: 9, dildo: 3, nailGun: 6, siphon: 10, tugboat: 9,
   beerDispenser: 7, vacuum: 8,
   sauna: 8, noise: 10, lazyVolunteers: 4, paint: 5,
-  translation: 0, champagne: 0,
+  translation: 0, champagne: 0, enlarge: 2, circularSaw: 6, stairs: 9,
 };
 
 export const TUNING = {
@@ -224,6 +233,20 @@ export const TUNING = {
   translation: { duration: 20 },
   /** Premature Celebration (useless, for the leader): a bottle of champagne: a little drunker than a beer (`sway` x the beer's), no repair. */
   champagne: { drunkTime: 5, sway: 1.3 },
+  /** Enlarge your péniche: the boat is twice its size for `duration` s (no heavier, nothing else). */
+  enlarge: { duration: 8, size: 2 },
+  /**
+   * Circular saw: for `duration` s a saw blade runs round the hull (`gap` px out from it, `spin`
+   * rad/s), hurting every boat it touches (`damage`, then not that boat again for `every` s).
+   */
+  circularSaw: { duration: 5, spin: 4.5, gap: 16, radius: 15, damage: 20, every: 0.9 },
+  /**
+   * Motorized stairs: every opponent's screen is hidden for `warn` s by retractable stairs unfolding
+   * from the ceiling; then stairs come out of a bank `ahead` px in front of each of them and unfold
+   * across `reach` of the canal over `unfold` s: solid for `life` s, a crash into them hurts
+   * (`damage`, once per boat), then they fold back.
+   */
+  stairs: { warn: 2.4, unfold: 0.7, life: 6, ahead: 560, reach: 0.62, radius: 15, damage: 26 },
   /** Tugboat: tows its owner along the canal for `duration` s: steered for you, faster, and through glue. */
   tugboat: { duration: 4, topSpeed: 1.45, accel: 3, mass: 2 },
   powder: { duration: 2.5, topSpeedMult: 1.5, accelMult: 2, massMult: 2 },

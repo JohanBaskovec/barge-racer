@@ -1279,3 +1279,36 @@ export function drawSteamHole(c: Ctx): void {
   c.fillStyle = g;
   c.fillRect(0, 0, 256, 256);
 }
+
+/** A circular saw blade seen from above (40 x 40): steel teeth all round, a hub. */
+export function drawCircularSaw(c: Ctx): void {
+  const cx = 20, cy = 20, R = 19;
+  shadowed(c, 1.5, 0.4, () => {
+    c.beginPath();
+    const n = 18;
+    for (let k = 0; k < n; k++) {
+      const a0 = (k / n) * Math.PI * 2, a1 = ((k + 0.6) / n) * Math.PI * 2;
+      c.lineTo(cx + Math.cos(a0) * (R - 4), cy + Math.sin(a0) * (R - 4));
+      c.lineTo(cx + Math.cos(a1) * R, cy + Math.sin(a1) * R);
+    }
+    c.closePath();
+    c.fillStyle = '#b3bbc4';
+    c.fill();
+  });
+  const g = c.createRadialGradient(cx - 5, cy - 5, 2, cx, cy, R - 4);
+  g.addColorStop(0, '#f6f8fa');
+  g.addColorStop(1, '#8f98a2');
+  c.beginPath();
+  c.arc(cx, cy, R - 5, 0, Math.PI * 2);
+  c.fillStyle = g;
+  c.fill();
+  c.strokeStyle = 'rgba(40,46,54,0.55)';
+  c.lineWidth = 1.2;
+  for (const a0 of [0.3, 2.4, 4.5]) {
+    c.beginPath();
+    c.arc(cx, cy, R - 9, a0, a0 + 1.2);
+    c.stroke();
+  }
+  disc(c, '#2c333c', cx, cy, 4);
+  disc(c, '#c9d0d7', cx, cy, 1.6);
+}

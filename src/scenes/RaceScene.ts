@@ -55,6 +55,9 @@ export class RaceScene extends Phaser.Scene {
   private shotSprites = new Map<number, Sprite>();
   private cloudSprites = new Map<number, Sprite>();
   private boobSprites = new Map<number, Sprite>();
+  /** Circular saw blades (by racer) and motorized stairs (by id). */
+  private sawSprites = new Map<number, Sprite>();
+  private stairsGfx = new Map<number, Phaser.GameObjects.Graphics>();
   private dropSprites = new Map<number, Sprite>();
   /** The barges (the HUD's minimap reads their positions). */
   trafficView: TrafficView | null = null;
@@ -119,6 +122,8 @@ export class RaceScene extends Phaser.Scene {
     this.shotSprites.clear();
     this.cloudSprites.clear();
     this.boobSprites.clear();
+    this.sawSprites.clear();
+    this.stairsGfx.clear();
     this.dropSprites.clear();
     this.trafficView = null;
     this.streetLife = null;
@@ -488,6 +493,7 @@ export class RaceScene extends Phaser.Scene {
       (sp.getData('shadow') as Phaser.GameObjects.Ellipse).destroy();
       this.retire(sp, 'fade');
     });
+    this.syncSawsAndStairs(time);
     // Melted cheese, toxic smoke and wet paint lying on the water.
     this.syncGroup(this.cloudSprites, items.clouds, (c) => {
       if (c.kind === 0) this.raceAudio.at('glue', c.x, c.y, 0.7); // (a toilet's trail: the flush is heard once)
@@ -579,6 +585,77 @@ export class RaceScene extends Phaser.Scene {
         map.delete(id);
         retire(s);
       }
+    }
+  }
+
+  /**
+   * Circular saws: a blade spinning round its boat (drawn where the boat is shown, at the blade's
+   * place relative to it). Motorized stairs: a motor housing on the bank, and aluminium stairs
+   * with red handrails unfolding across the water.
+   */
+  private syncSawsAndStairs(time: number): void {
+    const items = this.sim.items;
+    const live = new Set<number>();
+    for (const r of this.sim.racers) {
+      const p = items.sawPosition(r);
+      if (!p) continue;
+      live.add(r.id);
+      const v = this.views[r.id];
+      let s = this.sawSprites.get(r.id);
+      if (!s) {
+        s = this.add.image(0, 0, 'circSaw').setDisplaySize(TUNING.circularSaw.radius * 2.4, TUNING.circularSaw.radius * 2.4).setDepth(11);
+        this.sawSprites.set(r.id, s);
+        this.raceAudio.at('jigsaw', r.x, r.y, 0.9);
+      }
+      s.setPosition(v.x + (p.x - r.x), v.y + (p.y - r.y)).setRotation(time / 30);
+      if (Math.random() < 0.3) {
+        this.sparks.setParticleTint(0xffe08a);
+        this.sparks.emitParticleAt(s.x, s.y, 1);
+      }
+    }
+    for (const [id, s] of this.sawSprites) {
+      if (live.has(id)) continue;
+      s.destroy();
+      this.sawSprites.delete(id);
+    }
+    const T = TUNING.stairs;
+    const seen = new Set<number>();
+    for (const st of items.stairs) {
+      const geo = items.stairsGeometry(st);
+      if (!geo) continue;
+      seen.add(st.id);
+      let g = this.stairsGfx.get(st.id);
+      if (!g) {
+        g = this.add.graphics().setDepth(9);
+        this.stairsGfx.set(st.id, g);
+        this.raceAudio.at('stairs', geo.base.x, geo.base.y, 1);
+      }
+      const { base, tip } = geo;
+      const len = Math.hypot(tip.x - base.x, tip.y - base.y);
+      const a = Math.atan2(tip.y - base.y, tip.x - base.x);
+      const w = T.radius * 2;
+      g.clear().setPosition(base.x, base.y).setRotation(a);
+      // the motor housing on the bank (behind the base)
+      g.fillStyle(0x000000, 0.25).fillRect(-30, -w / 2 - 6 + 4, 28, w + 12);
+      g.fillStyle(0xf2c12e, 1).fillRect(-32, -w / 2 - 6, 28, w + 12);
+      g.lineStyle(2, 0x5a4410, 1).strokeRect(-32, -w / 2 - 6, 28, w + 12);
+      g.fillStyle(0x2b3038, 1).fillCircle(-18, 0, 6);
+      if (len < 2) continue;
+      // shadow on the water, stringers, treads, handrails
+      g.fillStyle(0x000000, 0.25).fillRect(4, -w / 2 + 6, len, w);
+      g.fillStyle(0xc9d0d7, 1).fillRect(0, -w / 2, len, w);
+      g.fillStyle(0x8f98a2, 1).fillRect(0, -w / 2, len, 4).fillRect(0, w / 2 - 4, len, 4);
+      g.fillStyle(0x2b3038, 1);
+      for (let x = 6; x < len - 3; x += 11) g.fillRect(x, -w / 2 + 4, 5, w - 8);
+      g.lineStyle(3, 0xe8322b, 1).lineBetween(0, -w / 2 - 3, len, -w / 2 - 3).lineBetween(0, w / 2 + 3, len, w / 2 + 3);
+      g.lineStyle(2, 0x17212e, 1).strokeRect(0, -w / 2, len, w);
+      // the foot at the end
+      g.fillStyle(0x6d7680, 1).fillRect(len - 4, -w / 2 - 2, 6, w + 4);
+    }
+    for (const [id, g] of this.stairsGfx) {
+      if (seen.has(id)) continue;
+      g.destroy();
+      this.stairsGfx.delete(id);
     }
   }
 

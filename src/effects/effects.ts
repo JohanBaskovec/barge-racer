@@ -51,7 +51,13 @@ export type EffectKind =
   /** Lost in Translation: this player's game is in another language for a while. */
   | 'translated'
   /** Premature Celebration: champagne on top of being drunk: the boat weaves a little more. */
-  | 'bubbly';
+  | 'bubbly'
+  /** Enlarge your péniche: twice the size. */
+  | 'enlarged'
+  /** Circular saw, on the user: a blade running round the hull. */
+  | 'circularSaw'
+  /** Motorized stairs, on the opponents: the screen hidden by stairs unfolding from the ceiling. */
+  | 'stairsDown';
 
 export interface Effect {
   kind: EffectKind;

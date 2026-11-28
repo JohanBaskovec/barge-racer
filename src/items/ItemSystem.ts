@@ -7,7 +7,7 @@ type Capsule = { ax: number; ay: number; bx: number; by: number; radius: number 
 import { bargeCapsule } from '../race/traffic';
 import { clamp, turnTowards } from '../physics/math';
 import type { RaceSimulation } from '../race/RaceSimulation';
-import type { Boobs, Cloud, Crate, Drill, Drop, FakeCrate, GlueBlob, GluePuddle, Racer, Shot, Volunteer } from '../race/types';
+import type { Boobs, Cloud, Crate, Drill, Drop, FakeCrate, GlueBlob, GluePuddle, Racer, Shot, Stairs, Volunteer } from '../race/types';
 import { drawItem, oddsColumn } from './itemOdds';
 
 /** Crates, item roulette, item activation and the entities items spawn. */
@@ -24,6 +24,10 @@ export class ItemSystem {
   boobs: Boobs[] = [];
   /** Crates tossed by barges to boats that are behind. */
   drops: Drop[] = [];
+  /** Motorized stairs, coming out of the banks in front of the opponents. */
+  stairs: Stairs[] = [];
+  /** When each circular saw last hurt each boat ("owner-target" -> time). */
+  private sawHits = new Map<string, number>();
   private nextId = 1;
   /** When each boat last had a crate tossed to it. */
   private droppedFor = new Map<number, number>();
@@ -205,6 +209,20 @@ export class ItemSystem {
       case 'lazyVolunteers':
         this.sim.hazards.dropCouches(r);
         break;
+      case 'enlarge':
+        addEffect(r, 'enlarged', TUNING.enlarge.duration);
+        break;
+      case 'circularSaw':
+        addEffect(r, 'circularSaw', TUNING.circularSaw.duration);
+        break;
+      case 'stairs':
+        // Every opponent's screen goes behind unfolding stairs, then stairs come out of a bank in front of them.
+        for (const o of this.sim.racers) {
+          if (o === r || o.finished || o.sinkTimer > 0) continue;
+          addEffect(o, 'stairsDown', TUNING.stairs.warn);
+          this.stairs.push({ id: this.nextId++, owner: r.id, target: o.id, along: -1, side: this.sim.rng.chance(0.5) ? 1 : -1, age: 0, hit: [], dead: false });
+        }
+        break;
       case 'translation':
         // Useless: the others' games switch language for a while (the view's part).
         for (const o of this.sim.racers) if (o !== r && !o.finished) addEffect(o, 'translated', TUNING.translation.duration);
@@ -297,6 +315,8 @@ export class ItemSystem {
     this.updateClouds(dt);
     this.updateKarcher(dt);
     this.updateVacuum(dt);
+    this.updateCircularSaws();
+    this.updateStairs(dt);
     this.updateDrops(dt);
     this.stopAtBarges();
     this.volunteers = this.volunteers.filter((v) => !v.dead);
@@ -308,6 +328,87 @@ export class ItemSystem {
     this.clouds = this.clouds.filter((c) => !c.dead);
     this.boobs = this.boobs.filter((b) => !b.dead);
     this.drops = this.drops.filter((d) => !d.dead);
+    this.stairs = this.stairs.filter((s) => !s.dead);
+  }
+
+  /** Where a circular saw's blade is: running round the hull, `gap` px out from it. */
+  sawPosition(r: Racer): { x: number; y: number; angle: number } | null {
+    const e = r.effects.find((x) => x.kind === 'circularSaw' && x.remaining > 0);
+    if (!e) return null;
+    const C = TUNING.circularSaw;
+    const angle = (e.duration - e.remaining) * C.spin;
+    const a = (r.boat.size.length * r.size) / 2 + C.gap, b = (r.boat.size.width * r.size) / 2 + C.gap;
+    const lx = Math.cos(angle) * a, ly = Math.sin(angle) * b;
+    const hx = Math.cos(r.heading), hy = Math.sin(r.heading);
+    return { x: r.x + lx * hx - ly * hy, y: r.y + lx * hy + ly * hx, angle };
+  }
+
+  /** Circular saws hurt every boat their blade touches (each one again only after a moment). */
+  private updateCircularSaws(): void {
+    const C = TUNING.circularSaw;
+    for (const r of this.sim.racers) {
+      const p = this.sawPosition(r);
+      if (!p || r.sinkTimer > 0) continue;
+      for (const o of this.sim.racers) {
+        if (o === r || this.sim.isIntangible(o) || !isTouching(o, p.x, p.y, C.radius)) continue;
+        const key = `${r.id}-${o.id}`;
+        if (this.sim.time - (this.sawHits.get(key) ?? -99) < C.every) continue;
+        this.sawHits.set(key, this.sim.time);
+        this.sim.hit(o, C.damage, r.id, 'circularSaw');
+      }
+    }
+  }
+
+  /**
+   * Motorized stairs: where they stand and how far they are unfolded (0..1). The base is on the
+   * bank; unfolded, they reach `reach` of the way across the canal.
+   */
+  stairsGeometry(s: Stairs): { base: { x: number; y: number }; tip: { x: number; y: number }; open: number; heading: number } | null {
+    if (s.along < 0) return null;
+    const T = TUNING.stairs, track = this.sim.track;
+    const t = s.age - T.warn;
+    const open = t < T.unfold ? t / T.unfold : t < T.unfold + T.life ? 1 : Math.max(0, 1 - (t - T.unfold - T.life) / T.unfold);
+    const hw = track.sampleAt(s.along).width / 2;
+    const base = track.pointAt(s.along, s.side * hw);
+    const full = track.pointAt(s.along, s.side * (hw - 2 * hw * T.reach));
+    const tip = { x: base.x + (full.x - base.x) * open, y: base.y + (full.y - base.y) * open };
+    return { base, tip, open, heading: base.heading };
+  }
+
+  /** The stairs come out once the warning is over, unfold, stand in the way, and fold back. */
+  private updateStairs(dt: number): void {
+    const T = TUNING.stairs, track = this.sim.track;
+    for (const s of this.stairs) {
+      s.age += dt;
+      if (s.age > T.warn + 2 * T.unfold + T.life) s.dead = true;
+      if (s.dead || s.age < T.warn) continue;
+      if (s.along < 0) {
+        const o = this.sim.racers[s.target];
+        if (o.finished) {
+          s.dead = true;
+          continue;
+        }
+        // In front of the boat as it is now (it couldn't see a thing until then).
+        let along = track.alongOf(o.progress) + T.ahead;
+        if (track.closed) along = ((along % track.length) + track.length) % track.length;
+        else if (along > track.length - 100) {
+          s.dead = true;
+          continue;
+        }
+        s.along = along;
+      }
+      const g = this.stairsGeometry(s)!;
+      if (g.open < 0.15) continue;
+      const cap = { ax: g.base.x, ay: g.base.y, bx: g.tip.x, by: g.tip.y, radius: T.radius };
+      for (const r of this.sim.racers) {
+        if (r.sinkTimer > 0 || this.sim.isGhost(r)) continue;
+        const impact = resolveStatic(r, cap, 0, 0);
+        if (impact > 40 && !s.hit.includes(r.id) && !hasEffect(r, 'invulnerable')) {
+          s.hit.push(r.id);
+          this.sim.hit(r, T.damage, s.owner, 'stairs');
+        }
+      }
+    }
   }
 
   /** Whether a circle at (x, y) touches a barge. */
@@ -799,8 +900,10 @@ export class ItemSystem {
           continue;
         }
         if (c.kind === 2) {
-          // Wet paint: splashed all over the screen (and announced once per splashing).
-          if (!hasEffect(r, 'painted')) this.sim.emit({ type: 'painted', racer: r.id, by: c.owner });
+          // Wet paint: splashed all over the screen, once. While it's on, more paint changes
+          // nothing (it used to start the splash again at every spot of a trail).
+          if (hasEffect(r, 'painted')) continue;
+          this.sim.emit({ type: 'painted', racer: r.id, by: c.owner });
           addEffect(r, 'painted', P.paintTime);
           continue;
         }

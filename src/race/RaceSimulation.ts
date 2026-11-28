@@ -238,7 +238,7 @@ export class RaceSimulation {
       if (hasEffect(r, 'spinOut')) r.spin += dt * 14;
       else r.spin = 0;
       // Mushrooms: shrink and grow back smoothly (the hull collides at its current size).
-      const targetSize = hasEffect(r, 'shrunk') ? TUNING.mushroom.shrink : 1;
+      const targetSize = (hasEffect(r, 'shrunk') ? TUNING.mushroom.shrink : 1) * (hasEffect(r, 'enlarged') ? TUNING.enlarge.size : 1);
       if (r.size !== targetSize) {
         const step = SIZE_RATE * dt;
         setRacerSize(r, Math.abs(targetSize - r.size) <= step ? targetSize : r.size + Math.sign(targetSize - r.size) * step);

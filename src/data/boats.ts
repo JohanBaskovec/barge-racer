@@ -67,7 +67,8 @@ export function scaleStats(base: BoatStats, size: number): BoatStats {
     radius: base.radius * size,
     halfLen: base.halfLen * size,
     capRadius: base.capRadius * size,
-    mass: base.mass * size * size,
+    // Lighter when shrunk (in proportion to the area); a bigger boat (enlarged) weighs the same.
+    mass: base.mass * Math.min(1, size) ** 2,
   };
 }
 
