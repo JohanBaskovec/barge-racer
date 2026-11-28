@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { CUP_TRACKS, cupGrid, cupOver, cupTrack, newCup, pointsFor, scoreRace } from '../src/cup/championship';
+import { CUP_TRACKS, MAX_CUP_RACES, cleanPlan, cupGrid, cupOver, cupRace, cupTrack, defaultPlan, newCup, pointsFor, scoreRace } from '../src/cup/championship';
+import { loadTrack } from '../src/data/tracks';
 import { TRACK_DEFS } from '../src/data/tracks';
 import { TAUNTS, isTaunt } from '../src/data/taunts';
 
@@ -40,6 +41,24 @@ describe('championship', () => {
   it('the leader starts at the back', () => {
     const cup = scoreRace(newCup(), [r('a'), r('b'), r('c')]);
     expect(cupGrid(cup, ['a', 'b', 'c', 'new'], (k) => k)).toEqual(['new', 'c', 'b', 'a']);
+  });
+});
+
+describe('the races of a championship', () => {
+  it('any tracks, in any order, with their laps or stretch; nonsense is cleaned up', () => {
+    expect(cleanPlan('garbage')).toEqual(defaultPlan());
+    expect(cleanPlan([])).toEqual(defaultPlan());
+    const plan = cleanPlan([{ trackId: 'champagneHills', laps: 0 }, { trackId: 'reimsCanal' }, { trackId: 'champagneHills', laps: 5 }, { foo: 1 }]);
+    expect(plan[0]).toEqual({ trackId: 'champagneHills', laps: 1 });
+    expect(plan[1].section).toBeDefined();
+    expect(plan[2]).toEqual({ trackId: 'champagneHills', laps: 5 });
+    expect(plan).toHaveLength(3);
+    expect(cleanPlan(Array(20).fill({ trackId: 'bayouBends', laps: 2 }))).toHaveLength(MAX_CUP_RACES);
+    const cup = newCup(plan);
+    expect(cup.total).toBe(3);
+    expect(cupRace(cup)).toEqual({ trackId: 'champagneHills', laps: 1 });
+    expect(loadTrack('champagneHills', null, 5).laps).toBe(5);
+    expect(loadTrack('champagneHills').laps).toBe(3);
   });
 });
 

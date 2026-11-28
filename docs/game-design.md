@@ -183,7 +183,7 @@ With them, in AI races on Lock & Load, the lead changes hands about 4.4 times a 
 | Mode | Description |
 | --- | --- |
 | **Single Race** | Pick a boat and a track, race once. |
-| **Championship** | Every track with laps in a row (Lock & Load, Industrial Estuary, Bayou Bends, Champagne Hills) against the same 3 opponents. Points by place: 10 / 8 / 6 / 5 / 4 / 3 / 2 / 1. The grid of each race is set by the standings, **fewest points in front, the leader at the back**. Most points at the end wins; level on points, the better place in the latest race goes first. Online too (see [Multiplayer](multiplayer.md#rooms-and-lobby)). |
+| **Championship** | Races in a row against the same 3 opponents. You pick them on the championship screen: 1 to 8 races, any tracks (the same one several times if you like), in any order, 1 to 9 laps each, and for the Reims canal the stretch (start and finish, on the same stretch screen as a single race). By default: every track with laps, three laps each. Points by place: 10 / 8 / 6 / 5 / 4 / 3 / 2 / 1. The grid of each race is set by the standings, **fewest points in front, the leader at the back**. Most points at the end wins; level on points, the better place in the latest race goes first. Online too (see [Multiplayer](multiplayer.md#rooms-and-lobby)). |
 | **Time Trial** *(later)* | Alone on the track, no items, best lap and best total time saved locally. Ghost replay is a stretch goal. |
 
 ## Difficulty
@@ -218,9 +218,11 @@ No accounts, no server, no purchases.
 2. **Main menu**: Single Race, Cup, Options.
 3. **Boat select**: carousel of boats with a stat chart, locked boats shown as
    silhouettes.
-4. **Track select**: thumbnails of the track layout. A **Championship** button switches to the
-   championship: its tracks are numbered and lit, the others faded, and the green button
-   starts it.
+4. **Single race or championship**: two big cards after the boat.
+   - **Track select** (single race): thumbnails of the track layout, the opponents' level.
+   - **Championship**: one row per race: the track (‹ ›), its laps (− +) or, on the Reims canal,
+     its stretch (✎ opens the stretch screen), ▲ ▼ to reorder, ✕ to take it out, "+ Add a race";
+     then the opponents' level and "Start the championship". The races are remembered.
 5. **Race**: the game itself with the HUD.
 6. **Pause**: Resume, Restart, Quit. Opens with the pause button or `Esc`, and
    automatically when the page loses focus.

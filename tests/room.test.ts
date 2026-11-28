@@ -372,7 +372,7 @@ describe('championship and taunts online', () => {
     r.message(a.conn, JSON.stringify({ t: 'settings', settings: { trackId: 'reimsCanal', difficulty: 'river', size: 3, cup: true } }));
     expect(r.settings).toMatchObject({ trackId: CUP_TRACKS[0], cup: true });
     expect(r.settings.section).toBeUndefined();
-    expect(a.last('lobby')!.cup).toEqual({ done: 0, total: CUP_TRACKS.length, standings: [] });
+    expect(a.last('lobby')!.cup).toMatchObject({ done: 0, total: CUP_TRACKS.length, standings: [] });
     // While it lasts, the host can't pick another track.
     r.message(a.conn, JSON.stringify({ t: 'settings', settings: { trackId: 'bayouBends', difficulty: 'ocean', cup: true } }));
     expect(r.settings).toMatchObject({ trackId: CUP_TRACKS[0], difficulty: 'ocean' });
@@ -421,5 +421,41 @@ describe('championship and taunts online', () => {
     expect(b.last('taunt')!.id).toBe('slow');
     r.message(a.conn, JSON.stringify({ t: 'taunt', id: 'bye' }));
     expect(b.last('taunt')!.id).toBe('bye');
+  });
+});
+
+describe('a championship set up by the host', () => {
+  it('the host picks the races, their order, laps and the Reims stretch; the server checks them and races them', { timeout: 120000 }, () => {
+    const { r, advance } = room();
+    const a = client('a');
+    r.message(a.conn, JSON.stringify({ t: 'join', name: 'A', boatId: 'tugboat' }));
+    const plan = [
+      { trackId: 'bayouBends', laps: 1 },
+      { trackId: 'reimsCanal', section: { start: 30000, finish: 45000 } },
+      { trackId: 'nowhere', laps: 2 }, // not a track: dropped
+      { trackId: 'lockAndLoad', laps: 99 }, // too many laps: 9
+    ];
+    r.message(a.conn, JSON.stringify({ t: 'settings', settings: { trackId: 'lockAndLoad', difficulty: 'river', size: 2, cup: true, plan } }));
+    expect(r.cup!.plan).toEqual([
+      { trackId: 'bayouBends', laps: 1 },
+      { trackId: 'reimsCanal', section: { start: 30000, finish: 45000 } },
+      { trackId: 'lockAndLoad', laps: 9 },
+    ]);
+    expect(r.settings).toMatchObject({ trackId: 'bayouBends', laps: 1, cup: true });
+    // The first race: one lap of Bayou Bends.
+    r.message(a.conn, JSON.stringify({ t: 'start' }));
+    expect(r.sim!.track.def.laps).toBe(1);
+    expect(a.last('start')!.settings).toMatchObject({ trackId: 'bayouBends', laps: 1 });
+    for (let i = 0; i < 40000 && r.racing; i++) {
+      advance(TICK_MS);
+      r.tick();
+    }
+    // The next one is the stretch of the Reims canal; the races can't be changed any more.
+    expect(r.settings).toMatchObject({ trackId: 'reimsCanal', section: { start: 30000, finish: 45000 } });
+    r.message(a.conn, JSON.stringify({ t: 'settings', settings: { ...r.settings, plan: [{ trackId: 'lockAndLoad', laps: 2 }] } }));
+    expect(r.cup!.plan).toHaveLength(3);
+    expect(r.cup!.done).toBe(1);
+    r.message(a.conn, JSON.stringify({ t: 'start' }));
+    expect(r.sim!.track.startDist).toBe(30000);
   });
 });

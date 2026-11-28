@@ -1,4 +1,4 @@
-import type { CupState } from '../cup/championship';
+import type { CupRace, CupState } from '../cup/championship';
 import type { Difficulty } from '../data/difficulty';
 import type { TauntId } from '../data/taunts';
 import type { Section } from '../data/tracks';
@@ -41,6 +41,10 @@ export interface RoomSettings {
   section?: Section;
   /** A championship: the room races the cup's tracks in turn and keeps the points (the track follows the cup). */
   cup?: boolean;
+  /** The championship's races, as the host set them (with `cup`). */
+  plan?: CupRace[];
+  /** Laps of this race, when the championship sets them. */
+  laps?: number;
 }
 
 export interface LobbyPlayer {

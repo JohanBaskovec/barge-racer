@@ -34,7 +34,7 @@ export class BoatSelectScene extends Phaser.Scene {
     button(this, 1090, 660, 300, 72, t('boatSelect.next'), () => {
       session.boatId = BOATS[this.index].id;
       saveSession();
-      this.scene.start('TrackSelect');
+      this.scene.start('Mode');
     }, { fill: 0x2d9d5a, textSize: 36 });
 
     // Swipe to browse

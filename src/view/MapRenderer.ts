@@ -104,21 +104,45 @@ export class MapRenderer {
   }
 
   /**
-   * Names of the bridges over the canal ("Pont de Venise", "Pont · Avenue de Champagne"),
-   * set on the bank beside each bridge so the boats pass under the deck, not under the text.
+   * Names of the bridges over the canal ("Pont de Venise", "Pont · Avenue de Champagne"), written
+   * along the bridge on its deck, like the street names: following the road (or railway) that
+   * crosses there, upright, never longer than the bridge.
    */
   private addBridgeLabels(): void {
     for (const [x, y, kind, name] of this.data.labels ?? []) {
       const s = this.track.samples[this.track.nearest(x, y).index];
-      const side = s.width / 2 + 95; // beside the water, on the left bank
       const text = kind === 0 ? name : kind === 1 ? `${t('map.bridge')} · ${name}` : t('map.railBridge');
+      // The deck: the bridge road or railway nearest the label's spot, else straight across.
+      let best = { d: 160, x, y, angle: Math.atan2(s.ny, s.nx) };
+      const lines = [
+        ...this.data.roads.filter((r) => r[2]).map((r) => r[3]),
+        ...this.data.rails.filter((r) => r[1]).map((r) => r[2]),
+      ];
+      for (const l of lines) {
+        for (let k = 0; k + 3 < l.length; k += 2) {
+          const ax = l[k], ay = l[k + 1], bx = l[k + 2], by = l[k + 3];
+          const dx = bx - ax, dy = by - ay, len2 = dx * dx + dy * dy || 1;
+          const u = Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / len2));
+          const px = ax + dx * u, py = ay + dy * u;
+          const d = Math.hypot(px - x, py - y);
+          if (d < best.d) best = { d, x: px, y: py, angle: Math.atan2(dy, dx) };
+        }
+      }
+      // Upright: never upside down.
+      let angle = best.angle;
+      if (angle > Math.PI / 2) angle -= Math.PI;
+      else if (angle < -Math.PI / 2) angle += Math.PI;
       const label = this.scene.add
-        .text(x + s.nx * side, y + s.ny * side, text, {
-          fontFamily: FONT, fontSize: '30px', fontStyle: 'bold', color: '#ffffff', stroke: '#2b3a4a', strokeThickness: 7, align: 'center', resolution: 2,
+        .text(best.x, best.y, text, {
+          fontFamily: FONT, fontSize: '22px', fontStyle: 'bold', color: '#3b4048', stroke: '#ffffff', strokeThickness: 6, resolution: 2,
         })
         .setOrigin(0.5)
-        .setDepth(21);
-      if (label.width > 460) label.setScale(460 / label.width);
+        .setRotation(angle)
+        .setDepth(20.6); // on the deck, like the street names
+      label.setLetterSpacing(1);
+      // As long as the bridge at most: the water and the towpaths either side.
+      const span = s.width + 2 * TOWPATH + 40;
+      if (label.width > span) label.setScale(span / label.width);
     }
   }
 

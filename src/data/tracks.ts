@@ -134,10 +134,13 @@ export function clampSection(def: TrackDef, s: unknown): Section {
   return { start: a, finish: b };
 }
 
-/** Load a track; for a track whose stretch can be picked, race `section` (default: its default stretch). */
-export function loadTrack(id: string, section?: Section | null): Track {
+/**
+ * Load a track; for a track whose stretch can be picked, race `section` (default: its default
+ * stretch); for a track with laps, `laps` of them (default: its own number, a championship can change it).
+ */
+export function loadTrack(id: string, section?: Section | null, laps?: number | null): Track {
   const def = getTrackDef(id);
-  if (!hasSections(def)) return new Track(def);
+  if (!hasSections(def)) return new Track(laps && laps > 0 ? { ...def, laps: Math.round(laps) } : def);
   const { start, finish } = clampSection(def, section ?? undefined);
   const crateRows = def.crateSpacing ? crateRowsEvery(finish - start, def.crateSpacing.every, def.crateSpacing.count) : def.crateRows;
   return new Track({ ...def, startDist: start, finishDist: finish, crateRows });

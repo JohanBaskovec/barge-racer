@@ -2,7 +2,7 @@ import { BOATS } from '../data/boats';
 import type { Difficulty } from '../data/difficulty';
 import { Rng } from '../physics/math';
 import { AI_NAMES } from '../race/RaceSimulation';
-import { type CupState, newCup } from './championship';
+import { type CupRace, type CupState, defaultPlan, newCup } from './championship';
 
 /** A boat in a single-player championship: the same three AI boats race every round. */
 export interface CupBoat {
@@ -21,8 +21,8 @@ export interface OfflineCup {
 /** The single-player championship being raced, if any (kept in memory: a reload ends it). */
 export let activeCup: OfflineCup | null = null;
 
-/** Start a championship: the player's boat and three AI boats with different boats and names. */
-export function startOfflineCup(playerBoat: string, difficulty: Difficulty, seed = Date.now()): OfflineCup {
+/** Start a championship of these races: the player's boat and three AI boats with different boats and names. */
+export function startOfflineCup(playerBoat: string, difficulty: Difficulty, plan: CupRace[] = defaultPlan(), seed = Date.now()): OfflineCup {
   const rng = new Rng(seed & 0x7fffffff || 1);
   const pool = BOATS.map((b) => b.id).filter((id) => id !== playerBoat);
   const names = [...AI_NAMES];
@@ -34,7 +34,7 @@ export function startOfflineCup(playerBoat: string, difficulty: Difficulty, seed
   }
   // On the grid of the first race (nobody has points yet) the player starts third, as in a single race.
   boats.splice(2, 0, boats.shift()!);
-  activeCup = { state: newCup(), boats, difficulty };
+  activeCup = { state: newCup(plan), boats, difficulty };
   return activeCup;
 }
 

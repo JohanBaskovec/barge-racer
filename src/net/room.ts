@@ -1,4 +1,4 @@
-import { type CupState, cupGrid, cupOver, cupTrack, newCup, scoreRace } from '../cup/championship';
+import { type CupState, cleanPlan, cupGrid, cupOver, cupRace, newCup, scoreRace } from '../cup/championship';
 import { BOATS } from '../data/boats';
 import { DIFFICULTIES, type Difficulty } from '../data/difficulty';
 import { TAUNT_COOLDOWN, isTaunt } from '../data/taunts';
@@ -226,8 +226,11 @@ export class RoomCore {
           // A size that would leave people without a seat is refused (the rest still applies).
           if (msg.settings.size !== undefined) this.resize(Number(msg.settings.size));
           // A championship picks the tracks itself; turning it off forgets the points.
+          // The host's list of races counts until the first race of the championship is run;
+          // after that it is kept as it was (turning the championship off forgets it all).
           if (msg.settings.cup) {
-            this.cup ??= newCup();
+            const plan = cleanPlan(msg.settings.plan ?? this.cup?.plan);
+            if (!this.cup || (this.cup.done === 0 && JSON.stringify(plan) !== JSON.stringify(this.cup.plan))) this.cup = newCup(plan);
             this.followCup();
           } else this.cup = null;
           this.broadcast(this.lobbyState());
@@ -352,7 +355,10 @@ export class RoomCore {
   /** In a championship, the room races the cup's next track. */
   private followCup(): void {
     if (!this.cup) return;
-    this.settings = { trackId: cupTrack(this.cup), difficulty: this.settings.difficulty, size: this.size, cup: true };
+    const race = cupRace(this.cup);
+    this.settings = { trackId: race.trackId, difficulty: this.settings.difficulty, size: this.size, cup: true, plan: this.cup.plan };
+    if (race.laps) this.settings.laps = race.laps;
+    if (race.section) this.settings.section = race.section;
   }
 
   private startRace(): void {
@@ -372,7 +378,7 @@ export class RoomCore {
     this.seatKeys = roster.map((e) => e.key);
     const seed = this.rng.int(1, 2 ** 30);
     this.sim = new RaceSimulation({
-      track: loadTrack(this.settings.trackId, this.settings.section),
+      track: loadTrack(this.settings.trackId, this.settings.section, this.settings.laps),
       difficulty: this.settings.difficulty,
       seed,
       roster: roster.map((e) => ({ name: e.name, boatId: e.boatId, human: e.human, controller: e.input })),
@@ -444,7 +450,7 @@ export class RoomCore {
     let cup: CupState | undefined;
     if (this.cup) {
       cup = this.cup = scoreRace(this.cup, sim.results().map((r) => ({ key: this.seatKeys[r.racer.id], name: r.racer.name, boatId: r.racer.boat.id, human: r.racer.human })));
-      if (cupOver(this.cup)) this.cup = newCup();
+      if (cupOver(this.cup)) this.cup = newCup(this.cup.plan); // the same races again
       this.followCup();
     }
     this.sim = null;

@@ -91,7 +91,8 @@ is on screen and destroyed after (so a 10 km race never holds more than a handfu
 ## Bridge names
 
 Each bridge that really crosses the canal gets a name on the map, written on the
-bank beside it. The importer picks the best name IGN has, in this order:
+bridge itself like a street name: dark letters with a white outline, along the road (or
+railway) on its deck, upright, and never longer than the bridge. The importer picks the best name IGN has, in this order:
 
 1. The bridge's own name, from the bridge structures (`construction_lineaire`,
    `construction_surfacique`): **Pont de Venise, Pont de Fléchambault, Pont Huon,

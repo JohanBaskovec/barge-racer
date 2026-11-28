@@ -1,11 +1,45 @@
+import { type Section, TRACK_DEFS, clampSection, getTrackDef, hasSections } from '../data/tracks';
+
 /**
- * Championship: the lap tracks raced one after the other, points for each place, and the boat
- * with the most points at the end wins. Pure logic, shared by the single-player game and the
- * online room (where the server keeps the standings).
+ * Championship: races one after the other, points for each place, and the boat with the most
+ * points at the end wins. The player (online, the host) picks the races: which tracks, in which
+ * order, how many laps each, and for the Reims canal which stretch. Pure logic, shared by the
+ * single-player game and the online room (where the server keeps the standings).
  */
 
-/** The races of a championship, in order: every track with laps. */
+/** One race of a championship: a track, its laps (tracks with laps), its stretch (the Reims canal). */
+export interface CupRace {
+  trackId: string;
+  laps?: number;
+  section?: Section;
+}
+
+export const MAX_CUP_RACES = 8;
+export const MAX_LAPS = 9;
+
+/** The championship you get unless you change it: every track with laps, three laps each. */
 export const CUP_TRACKS = ['lockAndLoad', 'industrialEstuary', 'bayouBends', 'champagneHills'] as const;
+export const defaultPlan = (): CupRace[] => CUP_TRACKS.map((trackId) => ({ trackId, laps: getTrackDef(trackId).laps }));
+
+/**
+ * Make a list of races valid (it may come from another screen over the network): 1 to
+ * MAX_CUP_RACES races of real tracks, 1 to MAX_LAPS laps on tracks with laps, a valid stretch on
+ * the Reims canal. Anything unusable gives the default championship.
+ */
+export function cleanPlan(raw: unknown): CupRace[] {
+  if (!Array.isArray(raw)) return defaultPlan();
+  const out: CupRace[] = [];
+  for (const r of raw.slice(0, MAX_CUP_RACES)) {
+    if (!r || typeof r !== 'object' || !TRACK_DEFS.some((d) => d.id === (r as CupRace).trackId)) continue;
+    const def = getTrackDef((r as CupRace).trackId);
+    if (hasSections(def)) out.push({ trackId: def.id, section: clampSection(def, (r as CupRace).section) });
+    else {
+      const laps = Math.round(Number((r as CupRace).laps));
+      out.push({ trackId: def.id, laps: Number.isFinite(laps) ? Math.max(1, Math.min(MAX_LAPS, laps)) : def.laps });
+    }
+  }
+  return out.length ? out : defaultPlan();
+}
 
 /** Points by place, 1st to 8th. */
 export const POINTS = [10, 8, 6, 5, 4, 3, 2, 1];
@@ -28,12 +62,17 @@ export interface CupState {
   done: number;
   total: number;
   standings: CupEntry[];
+  /** The races, in order. */
+  plan: CupRace[];
 }
 
-export const newCup = (): CupState => ({ done: 0, total: CUP_TRACKS.length, standings: [] });
+export const newCup = (plan: CupRace[] = defaultPlan()): CupState => ({ done: 0, total: plan.length, standings: [], plan: plan.map((r) => ({ ...r })) });
 
-/** The track of the next race (the last one once the championship is over). */
-export const cupTrack = (cup: CupState): string => CUP_TRACKS[Math.min(cup.done, CUP_TRACKS.length - 1)];
+/** The next race (the last one once the championship is over). */
+export const cupRace = (cup: CupState): CupRace => cup.plan[Math.min(cup.done, cup.plan.length - 1)];
+
+/** The track of the next race. */
+export const cupTrack = (cup: CupState): string => cupRace(cup).trackId;
 
 export const cupOver = (cup: CupState): boolean => cup.done >= cup.total;
 
@@ -65,7 +104,7 @@ export function scoreRace(cup: CupState, order: { key: string; name: string; boa
     e.points += pointsFor(place);
   });
   for (const e of byKey.values()) while (e.races.length <= race) e.races.push(null);
-  return { done: race + 1, total: cup.total, standings: sortStandings([...byKey.values()]) };
+  return { done: race + 1, total: cup.total, standings: sortStandings([...byKey.values()]), plan: cup.plan };
 }
 
 /**

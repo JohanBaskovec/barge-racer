@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { type CupState, CUP_TRACKS, cupOver, cupTrack } from '../cup/championship';
+import { type CupState, cupOver, cupTrack } from '../cup/championship';
 import { activeCup, endOfflineCup, startOfflineCup } from '../cup/offlineCup';
 import { boatName, ordinal, t, trackName } from '../i18n';
 import { audio } from '../audio/AudioManager';
@@ -35,8 +35,9 @@ export class StandingsScene extends Phaser.Scene {
     text(this, 640, 122, `${t('cup.title')} · ${t('cup.race', { n: cup.done, total: cup.total })}`, 26, '#bfe1f7', false);
 
     // A column per race, numbered as on the track screen, then the total.
-    const colX = (k: number): number => 700 + k * 74;
-    CUP_TRACKS.forEach((_, k) => {
+    const step = Math.min(74, 300 / Math.max(1, cup.total - 1));
+    const colX = (k: number): number => 670 + k * step;
+    cup.plan.forEach((_, k) => {
       this.add.circle(colX(k), 166, 15, k < cup.done ? 0xffe08a : 0x6f8fa8).setStrokeStyle(2, 0x0b3a5b);
       text(this, colX(k), 166, String(k + 1), 18, '#0b3a5b');
     });
@@ -74,7 +75,7 @@ export class StandingsScene extends Phaser.Scene {
       return;
     }
     button(this, 820, 655, 420, 68, t('cup.again'), () => {
-      startOfflineCup(session.boatId, activeCup?.difficulty ?? session.difficulty);
+      startOfflineCup(session.boatId, activeCup?.difficulty ?? session.difficulty, cup.plan);
       this.scene.start('Race', { ...session, cup: true });
     }, { fill: 0x2d9d5a, textSize: 30 });
     button(this, 330, 655, 280, 68, t('cup.menu'), () => {

@@ -7,7 +7,7 @@ import { describeSection } from '../view/sectionInfo';
 import { boatName, difficultyName, t, trackName } from '../i18n';
 import { net } from '../net/client';
 import { MAX_PLAYERS, type ServerMsg } from '../net/protocol';
-import { CUP_TRACKS } from '../cup/championship';
+import { cleanPlan } from '../cup/championship';
 import { TAUNTS } from '../data/taunts';
 import { tauntBubble } from '../view/tauntBubble';
 import { RACER_COLORS as COLORS } from '../race/RaceSimulation';
@@ -91,7 +91,11 @@ export class LobbyScene extends Phaser.Scene {
     // The host's settings: a new track brings the host's saved stretch for it; the rest stays.
     const send = (trackId: string, difficulty: Difficulty, size = lobby.settings.size, cup = !!lobby.settings.cup): void => net.send({
       t: 'settings',
-      settings: { trackId, difficulty, size, cup, section: trackId === lobby.settings.trackId ? lobby.settings.section : session.sections?.[trackId] },
+      settings: {
+        trackId, difficulty, size, cup, section: trackId === lobby.settings.trackId ? lobby.settings.section : session.sections?.[trackId],
+        // A championship: the races as they are, or (turning it on) the host's own from single player.
+        plan: cup ? (lobby.settings.plan ?? cleanPlan(session.cupPlan)) : undefined,
+      },
     });
     // In a championship, everyone's points so far.
     const cup = lobby.cup;
@@ -175,17 +179,24 @@ export class LobbyScene extends Phaser.Scene {
     add(fitText(text(this, 950, 440, trackName(lobby.settings.trackId), 28), 300));
     // Championship: the host turns it on; the cup then picks the track, race after race.
     if (host) {
-      const b = add(button(this, 1060, 395, 190, 36, t('cup.toggle'), () => send(cup ? lobby.settings.trackId : CUP_TRACKS[0], lobby.settings.difficulty, lobby.settings.size, !cup), { fill: 0x8a6a2a, textSize: 18 }));
+      const b = add(button(this, 1060, 395, 190, 36, t('cup.toggle'), () => send(lobby.settings.trackId, lobby.settings.difficulty, lobby.settings.size, !cup), { fill: 0x8a6a2a, textSize: 18 }));
       setSelected(b, !!cup);
     } else if (cup) add(text(this, 1060, 395, t('cup.toggle'), 20, '#ffe08a'));
-    if (cup) add(fitText(text(this, 950, 482, t('cup.race', { n: cup.done + 1, total: cup.total }), 20, '#ffe08a', false), 470));
+    if (cup) {
+      // Which race of how many, and its laps (or its stretch); the host sets the races up before the first one.
+      const race = cup.plan[Math.min(cup.done, cup.plan.length - 1)];
+      const what = race.section ? describeSection(race.trackId, race.section, true) : race.laps === 1 ? t('cup.oneLap') : t('cup.laps', { n: race.laps ?? 3 });
+      const editable = host && cup.done === 0;
+      add(fitText(text(this, editable ? 870 : 950, 482, `${t('cup.race', { n: cup.done + 1, total: cup.total })} · ${what}`, 19, '#ffe08a', false), editable ? 290 : 470));
+      if (editable) add(button(this, 1100, 482, 150, 36, t('cup.edit'), () => this.scene.start('CupSetup', { online: true }), { fill: 0x3d5266, textSize: 18 }));
+    }
     const diffs = Object.keys(DIFFICULTIES) as Difficulty[];
     if (host && !cup) {
       add(button(this, 760, 440, 60, 56, '‹', () => send(TRACK_DEFS[(ti - 1 + TRACK_DEFS.length) % TRACK_DEFS.length].id, lobby.settings.difficulty), { textSize: 36 }));
       add(button(this, 1140, 440, 60, 56, '›', () => send(TRACK_DEFS[(ti + 1) % TRACK_DEFS.length].id, lobby.settings.difficulty), { textSize: 36 }));
     }
     // The stretch of the Reims canal: the host can change it.
-    if (hasSections(getTrackDef(lobby.settings.trackId))) {
+    if (!cup && hasSections(getTrackDef(lobby.settings.trackId))) {
       const desc = describeSection(lobby.settings.trackId, lobby.settings.section, true);
       if (host) {
         add(button(this, 950, 482, 470, 38, `✎ ${desc}`, () => this.scene.start('Section', { trackId: lobby.settings.trackId, section: lobby.settings.section, online: true }), { fill: 0x3d5266, textSize: 17 }));

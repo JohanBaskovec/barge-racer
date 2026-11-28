@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { PAINT_COLORS } from '../view/worldArt';
 import type { TauntId } from '../data/taunts';
 import { tauntBubble } from '../view/tauntBubble';
-import { type CupState, cupGrid, cupTrack, scoreRace } from '../cup/championship';
+import { type CupState, cupGrid, cupRace, cupTrack, scoreRace } from '../cup/championship';
 import { activeCup } from '../cup/offlineCup';
 import { DEBUG } from '../config';
 import { PointerController } from '../control/PointerController';
@@ -138,7 +138,11 @@ export class RaceScene extends Phaser.Scene {
 
   create(): void {
     const sel = this.selection;
-    const track = loadTrack(sel.trackId, this.onlineStart ? this.onlineStart.settings.section : sel.sections?.[sel.trackId]);
+    // Online the room says which stretch and how many laps; in a championship, the race does.
+    const race = this.cupKeys && activeCup ? cupRace(activeCup.state) : null;
+    const track = this.onlineStart
+      ? loadTrack(sel.trackId, this.onlineStart.settings.section, this.onlineStart.settings.laps)
+      : race ? loadTrack(race.trackId, race.section, race.laps) : loadTrack(sel.trackId, sel.sections?.[sel.trackId]);
     if (DEBUG.laps) track.def.laps = DEBUG.laps;
     this.pointer = new PointerController(this, () => this.playerScreen());
     const start = this.onlineStart;

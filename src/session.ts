@@ -1,5 +1,6 @@
 import type { Difficulty } from './data/difficulty';
 import type { Section } from './data/tracks';
+import type { CupRace } from './cup/championship';
 
 export interface Selection {
   boatId: string;
@@ -7,8 +8,8 @@ export interface Selection {
   difficulty: Difficulty;
   /** The stretch picked for each track that has one (the Reims canal). */
   sections?: Record<string, Section>;
-  /** The track screen is set to a championship rather than a single race. */
-  cup?: boolean;
+  /** The single-player championship's races, as last set up. */
+  cupPlan?: CupRace[];
 }
 
 const KEY = 'barge-racer-selection';

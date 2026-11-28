@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { cleanPlan } from '../cup/championship';
 import { audio } from '../audio/AudioManager';
 import { type Section, clampSection, defaultSection, getTrackDef } from '../data/tracks';
 import { formatNumber, t, trackName } from '../i18n';
@@ -20,6 +21,8 @@ export interface SectionSceneData {
   section?: Section | null;
   /** Online: the host picks the stretch for the room. */
   online?: boolean;
+  /** A championship race (its index): the stretch is that race's, and back to the championship's screen. */
+  cupRace?: number;
 }
 
 /**
@@ -205,7 +208,23 @@ export class SectionScene extends Phaser.Scene {
   }
 
   private leave(ok: boolean): void {
-    const { trackId, online } = this.data0;
+    const { trackId, online, cupRace } = this.data0;
+    if (cupRace !== undefined) {
+      // One race of a championship: that race gets the stretch.
+      if (ok) {
+        const s = online ? net.lobby?.settings : null;
+        const plan = cleanPlan(online ? s?.plan : session.cupPlan);
+        if (plan[cupRace]?.trackId === trackId) plan[cupRace] = { trackId, section: this.section };
+        if (online) {
+          if (s) net.send({ t: 'settings', settings: { ...s, cup: true, plan } });
+        } else {
+          session.cupPlan = plan;
+          saveSession();
+        }
+      }
+      this.scene.start('CupSetup', { online });
+      return;
+    }
     if (ok) {
       (session.sections ??= {})[trackId] = this.section;
       saveSession();

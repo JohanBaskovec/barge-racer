@@ -83,8 +83,11 @@ own boat and **interpolation** of everyone else.
     until the race ends.
 - The race has exactly the people and the AI boats in the list, in that order on the grid (two
   abreast, four rows) and in those colours.
-- **Championship**: the host turns it on (the button beside "Race"). The room then races the
-  championship's tracks in turn (the track arrows go away; "Race 2/4" shows which one), the
+- **Championship**: the host turns it on (the button beside "Race"; it starts from the host's own
+  single-player championship) and "✎ Races" opens the same championship screen as in single
+  player: which races, their order, their laps, the Reims stretch; every change goes to the
+  room, which checks it (`cleanPlan`). The races can be changed until the first one is run. The
+  room then races them in turn (the track arrows go away; "Race 2/4 · 3 laps" shows which one), the
   server keeps the points (people by player id, AI boats by their id) and each race's grid is
   set by the standings, the leader at the back. The lobby shows everyone's points; after a race
   the results show the points of each place and lead to the standings. After the last race the

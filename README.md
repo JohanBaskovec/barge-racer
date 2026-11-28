@@ -72,8 +72,9 @@ Debug URL parameters (see [Architecture](docs/architecture.md#debug-flags)):
 - 8 boats with different stats, starting with **Cabourg**, a real péniche
   from the canal drawn from an aerial photo; boat select with stat bars.
 - 4 tracks (Lock & Load, Industrial Estuary, Bayou Bends, Champagne Hills) and track select.
-- **Championship**: the four lap tracks in a row, points by place, the leader starting at the
-  back; offline against the same three AI boats, or online with the room keeping the points.
+- **Championship**: races in a row that you pick (tracks, order, laps, the Reims stretch), points
+  by place, the leader starting at the back; offline against the same three AI boats, or online
+  with the room keeping the points.
 - **Taunts**: six phrases in a speech bubble over your boat (AI boats taunt back).
 - **Canal de Reims**: the real canal from boulevard Paul Doumer to the Sillery
   lock at true scale (9.9 km, point-to-point), built from IGN open data
