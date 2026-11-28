@@ -97,18 +97,29 @@ feels earned.
 
 In the [battle modes](game-design.md#battle-modes) there is no racing line to follow: the AI
 picks a target (`battleTarget` in `src/control/AIController.ts`) and steers straight at it when it
-is close along the loop (under 420 px), otherwise round the loop the short way. No rubber-banding.
-Stuck recovery and item use work as in a race.
+is close along the loop (under 420 px), otherwise round the loop the short way. A moored barge in
+the way bends the course round it, on the side the boat is already on (`roundBarges`). No
+rubber-banding. Stuck recovery works as in a race.
 
-- **Deathmatch** (and team deathmatch): with no item, the nearest crate within 700 px; otherwise
-  the nearest opponent, or a weaker one (less hull) a little further away.
+- **Deathmatch** (and team deathmatch): a golden crate that is up within 1300 px (with a free
+  slot); with no item, the nearest crate within 700 px; otherwise the nearest opponent, or a
+  weaker one (less hull) a little further away.
 - **Capture the flag**:
   - carrying the flag: home to its base;
   - an opponent has its flag: chase the thief;
   - its flag lies dropped: go and touch it (it goes home);
-  - otherwise, one boat in two **guards** (stays within 900 px of its base and goes for opponents
-    who come near), the others **attack**: go for the other team's flag, or escort the team-mate
-    carrying it.
+  - otherwise, one boat in two **guards**: goes for any opponent within 1000 px of its flag, or,
+    empty-handed, arms itself from the crates near its base, or waits at the flag;
+  - the others **attack**: escort a team-mate carrying the flag, take a golden crate within
+    900 px, grab a crate within 450 px when empty-handed, then go for the other team's flag.
+- **Items**: only opponents count (team-mates can't be hurt). Instead of "the boat ahead" and
+  "chasing behind": volunteers when an opponent is in front within 1100 px; items that hit every
+  opponent when some are within 900 px (or after 8 s); traps dropped behind when an opponent is
+  close behind. Straight shots use the same checks as in a race (and get the aim assist).
+- **Measuring the pace**: AI-only matches of every mode on both arenas, with the sinkings a
+  minute, how long matches last, captures, flags taken, dropped and returned, and team wins. It
+  is a short script over `RaceSimulation` (no screen) of the kind kept with the balance checks;
+  the numbers in [Game design](game-design.md#battle-modes) come from it.
 
 ## Difficulty summary
 

@@ -50,6 +50,8 @@ export class RaceScene extends Phaser.Scene {
   private trackView!: { update(time: number): void };
   private accumulator = 0;
   private crateSprites = new Map<number, Sprite>();
+  /** Battle: the glow round each golden crate. */
+  private goldGlows = new Map<number, Phaser.GameObjects.Arc>();
   private volSprites = new Map<number, Sprite>();
   private drillSprites = new Map<number, Sprite>();
   private puddleSprites = new Map<number, Sprite>();
@@ -251,7 +253,20 @@ export class RaceScene extends Phaser.Scene {
       lifespan: 500, speed: { min: 80, max: 260 }, scale: { start: 1.2, end: 0 }, emitting: false,
     }).setDepth(40);
 
-    for (const c of this.sim.items.crates) this.crateSprites.set(c.id, this.makeCrateSprite(c.x, c.y));
+    this.goldGlows.clear();
+    for (const c of this.sim.items.crates) {
+      const s = this.makeCrateSprite(c.x, c.y);
+      if (c.power) {
+        // A golden crate: bigger, gold, and glowing so it's seen from afar.
+        this.tweens.killTweensOf(s);
+        s.setTexture('crateGold').setScale(WORLD_ART_SCALE * 1.5);
+        this.tweens.add({ targets: s, scale: { from: 1.38 * WORLD_ART_SCALE, to: 1.62 * WORLD_ART_SCALE }, duration: 500, yoyo: true, repeat: -1 });
+        const glow = this.add.circle(c.x, c.y, 60, 0xffd23f, 0.4).setDepth(7).setStrokeStyle(5, 0xfff2a8, 0.9);
+        this.tweens.add({ targets: glow, scale: { from: 0.8, to: 1.25 }, alpha: { from: 0.55, to: 0.15 }, duration: 900, repeat: -1 });
+        this.goldGlows.set(c.id, glow);
+      }
+      this.crateSprites.set(c.id, s);
+    }
     // The two arms of the V a moving boat leaves behind: particles drifting outward.
     const wakeArm = this.add.particles(0, 0, 'wake', {
       lifespan: 1600, speed: { min: 22, max: 40 }, scale: { start: 0.22, end: 0.9 }, alpha: { start: 0.38, end: 0 }, emitting: false,
@@ -471,7 +486,9 @@ export class RaceScene extends Phaser.Scene {
     this.camX = lerp(this.camX, tx, k);
     this.camY = lerp(this.camY, ty, k);
     // While tripping the zoom breathes a little. (No rotation: steering maps the pointer to the boat.)
-    const zoom = lerp(0.95, 0.72, Math.min(1, speedOf(p) / 440)) * (1 + Math.sin(time / 450) * 0.035 * this.trip);
+    // An arena: further out, to see opponents coming from every side.
+    const arena = this.sim.track.def.arena ? 0.8 : 1;
+    const zoom = lerp(0.95, 0.72, Math.min(1, speedOf(p) / 440)) * arena * (1 + Math.sin(time / 450) * 0.035 * this.trip);
     cam.setZoom(lerp(cam.zoom, zoom, 1 - Math.exp(-dt * 2)));
     cam.centerOn(this.camX, this.camY);
   }
@@ -489,6 +506,7 @@ export class RaceScene extends Phaser.Scene {
         s.setPosition(s.x + (c.x - s.x) * k, s.y + (c.y - s.y) * k);
       }
       s.setVisible(c.respawn <= 0).setRotation(Math.sin(time / 500 + c.id) * 0.12);
+      this.goldGlows.get(c.id)?.setPosition(s.x, s.y).setVisible(c.respawn <= 0);
     }
     this.syncGroup(this.volSprites, items.volunteers, (v) => this.add.image(v.x, v.y, 'volunteer').setDepth(14).setScale(WORLD_ART_SCALE * 1.15), (s, v) => {
       s.setPosition(v.x, v.y).setRotation(v.heading + Math.sin(v.age * 24) * 0.35);

@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { DIFFICULTIES, type Difficulty } from '../data/difficulty';
 import { ARENA_DEFS, loadTrack } from '../data/tracks';
-import { type GameMode, isTeamMode } from '../race/battle';
+import { type GameMode, isTeamMode, winLimit } from '../race/battle';
 import { difficultyName, t, trackDesc, trackName } from '../i18n';
 import { audio } from '../audio/AudioManager';
 import { saveSession, session } from '../session';
@@ -54,7 +54,7 @@ export class BattleSetupScene extends Phaser.Scene {
       const b = add(button(this, 290 + i * 350, 118, 330, 54, t(`battle.${m}`), () => ((s.mode = m), redo()), { textSize: 24 }));
       setSelected(b, s.mode === m);
     });
-    add(this.add.text(640, 160, t(`battle.${s.mode}Desc`), { fontFamily: F, fontSize: '19px', color: '#ffe08a', align: 'center', wordWrap: { width: 1000 }, resolution: 2 }).setOrigin(0.5, 0));
+    add(this.add.text(640, 160, t(`battle.${s.mode}Desc`, { n: winLimit(s.mode, s.boats) }), { fontFamily: F, fontSize: '19px', color: '#ffe08a', align: 'center', wordWrap: { width: 1000 }, resolution: 2 }).setOrigin(0.5, 0));
     // The arenas: tap one.
     ARENA_DEFS.forEach((def, i) => {
       const x = 430 + i * 420, y = 330;

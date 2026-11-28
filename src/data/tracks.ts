@@ -169,6 +169,13 @@ export const ARENA_DEFS: TrackDef[] = [
     ]),
     checkpoints: [0.25, 0.5, 0.75],
     crateRows: [0.06, 0.19, 0.31, 0.44, 0.56, 0.69, 0.81, 0.94].map((at) => ({ at, count: 6 })),
+    // Halfway between the bases, two barges moored across the water, staggered (a chicane with the
+    // golden crate in the middle); between those and the bases, one moored along the middle.
+    moored: [
+      [0.232, 0.5, 1], [0.268, -0.5, 1], [0.732, -0.5, 1], [0.768, 0.5, 1],
+      [0.125, 0], [0.375, 0], [0.625, 0], [0.875, 0],
+    ],
+    power: [0.25, 0.75],
     colors: { land: 0xcfc4a2, shore: 0xddcfa6, water: 0x2f7fb5, waterDeep: 0x1f5f94 },
   },
   {
@@ -185,6 +192,10 @@ export const ARENA_DEFS: TrackDef[] = [
     ]),
     checkpoints: [0.25, 0.5, 0.75],
     crateRows: [0.0, 0.12, 0.25, 0.38, 0.5, 0.62, 0.75, 0.88].map((at) => ({ at, count: 6 })),
+    // In each lake, two barges moored along the water on either side of the way in from the
+    // channels: cover in front of the base. The golden crates sit in the channels.
+    moored: [[0.18, 0.45], [0.32, -0.45], [0.68, 0.45], [0.82, -0.45]],
+    power: [0, 0.5],
     colors: { land: 0xe8d9a2, shore: 0xf2e6bb, water: 0x2fb0b5, waterDeep: 0x1f8d9c },
   },
 ];

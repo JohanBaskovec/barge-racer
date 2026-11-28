@@ -6,7 +6,7 @@ import { drawPeniche, drawPenicheAccent } from './peniche';
 import { drawBarge } from './bargeArt';
 import { CAR, CAR_COLORS, SHIRTS, STREET_ART_SCALE, drawAngler, drawCar, drawCyclist, drawDog, drawWalker } from './streetArt';
 import { TUNING } from '../data/items';
-import { drawRocket, drawDrillBit, drawBloodSplat, drawBullet, drawDuck, drawFeather, drawGib, drawNozzle, drawPolice, drawRowboat, drawSwimmer, drawBoobs, drawCheesePuddle, drawCheeseScreen, drawCrate, drawDildo, drawGlueBlob, drawGluePuddle, drawHam, drawNail, drawPotato, drawSaw, drawToxicSmoke, drawVolunteer, drawWaterTile, PAINT_COLORS, drawPaintPuddle, drawPaintScreen, drawCouch, drawSteamPuff, drawSteamHole, drawCircularSaw, drawCorsicaFlag, drawBretonFlag, drawFlagOnPole } from './worldArt';
+import { drawRocket, drawDrillBit, drawBloodSplat, drawBullet, drawDuck, drawFeather, drawGib, drawNozzle, drawPolice, drawRowboat, drawSwimmer, drawBoobs, drawCheesePuddle, drawCheeseScreen, drawCrate, drawGoldCrate, drawDildo, drawGlueBlob, drawGluePuddle, drawHam, drawNail, drawPotato, drawSaw, drawToxicSmoke, drawVolunteer, drawWaterTile, PAINT_COLORS, drawPaintPuddle, drawPaintScreen, drawCouch, drawSteamPuff, drawSteamHole, drawCircularSaw, drawCorsicaFlag, drawBretonFlag, drawFlagOnPole } from './worldArt';
 
 type G = Phaser.GameObjects.Graphics;
 
@@ -72,6 +72,7 @@ export function generateTextures(scene: Phaser.Scene): void {
     (scene.textures.get(key) as Phaser.Textures.CanvasTexture).refresh();
   };
   world('crate', 44, 44, drawCrate);
+  world('crateGold', 44, 44, drawGoldCrate);
   world('volunteer', 28, 28, drawVolunteer);
   world('glue', 128, 128, drawGluePuddle, 1); // big and soft: its game size is enough
   world('blob', 30, 30, drawGlueBlob);

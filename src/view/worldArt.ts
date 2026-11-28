@@ -32,6 +32,55 @@ function shadowed(c: Ctx, blur: number, alpha: number, draw: () => void): void {
 }
 
 /** An item crate floating in the water, 44 x 44: planks, a frame, steel corners and a question mark. */
+/** An arena's golden crate: gilded planks and frame, a big star on the lid. */
+export function drawGoldCrate(c: Ctx): void {
+  const x = 4, y = 4, s = 36;
+  shadowed(c, 2, 0.5, () => {
+    rr(c, x, y, s, s, 4);
+    c.fillStyle = '#d9a520';
+    c.fill();
+  });
+  c.save();
+  rr(c, x, y, s, s, 4);
+  c.clip();
+  const g = c.createLinearGradient(x, y, x + s, y + s);
+  g.addColorStop(0, '#fff1a0');
+  g.addColorStop(0.45, '#ffcf3a');
+  g.addColorStop(1, '#c98a10');
+  c.fillStyle = g;
+  c.fillRect(x, y, s, s);
+  c.strokeStyle = 'rgba(140,90,0,0.45)';
+  c.lineWidth = 0.8;
+  for (let k = 1; k < 5; k++) {
+    c.beginPath();
+    c.moveTo(x, y + (s * k) / 5);
+    c.lineTo(x + s, y + (s * k) / 5);
+    c.stroke();
+  }
+  c.strokeStyle = '#a8700a';
+  c.lineWidth = 6;
+  rr(c, x, y, s, s, 4);
+  c.stroke();
+  c.restore();
+  // the star
+  const cx = x + s / 2, cy = y + s / 2;
+  c.beginPath();
+  for (let k = 0; k < 10; k++) {
+    const a = -Math.PI / 2 + (k * Math.PI) / 5, r = k % 2 ? 5.5 : 12;
+    if (k === 0) c.moveTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r);
+    else c.lineTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r);
+  }
+  c.closePath();
+  c.fillStyle = '#ffffff';
+  c.fill();
+  c.strokeStyle = '#b07800';
+  c.lineWidth = 1.5;
+  c.stroke();
+  // a glint
+  c.fillStyle = 'rgba(255,255,255,0.8)';
+  c.fillRect(x + 4, y + 4, 6, 2);
+}
+
 export function drawCrate(c: Ctx): void {
   const x = 4, y = 4, s = 36;
   // a ring of ripples where it sits in the water

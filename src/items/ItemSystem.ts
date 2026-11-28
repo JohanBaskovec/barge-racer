@@ -5,7 +5,8 @@ import { isTouching, resolveStatic, touchesCapsule } from '../physics/collisions
 /** A fixed capsule on the water (a segment with round ends). */
 type Capsule = { ax: number; ay: number; bx: number; by: number; radius: number };
 import { bargeCapsule } from '../race/traffic';
-import { clamp, turnTowards } from '../physics/math';
+import { BATTLE } from '../race/battle';
+import { angleDiff, clamp, turnTowards } from '../physics/math';
 import type { RaceSimulation } from '../race/RaceSimulation';
 import type { Boobs, Cloud, Crate, Drill, Drop, FakeCrate, GlueBlob, GluePuddle, Racer, Shot, Stairs, Volunteer } from '../race/types';
 import { drawItem, oddsColumn } from './itemOdds';
@@ -67,6 +68,12 @@ export class ItemSystem {
         this.crates.push({ id: this.nextId++, x: p.x, y: p.y, homeX: p.x, homeY: p.y, respawn: 0 });
       }
     }
+    // An arena's golden crates, in the middle of the water: they turn up a while after the start,
+    // one after the other.
+    (track.def.power ?? []).forEach((at, k) => {
+      const p = track.pointAt(track.alongOf(at * track.lapLength), 0);
+      this.crates.push({ id: this.nextId++, x: p.x, y: p.y, homeX: p.x, homeY: p.y, respawn: BATTLE.powerFirst + k * (BATTLE.powerRespawn / 2), power: true });
+    });
   }
 
   get volunteersInFlight(): number {
@@ -91,7 +98,7 @@ export class ItemSystem {
     const held = r.slots[slot];
     if (!held || held.uses <= 0) return;
     const item = held.id;
-    const heading = dir === 'forward' ? r.heading : r.heading + Math.PI;
+    const heading = this.aimed(r, dir === 'forward' ? r.heading : r.heading + Math.PI);
     const bow = r.boat.size.length / 2 + 12;
     const bx = r.x + Math.cos(heading) * bow;
     const by = r.y + Math.sin(heading) * bow;
@@ -99,7 +106,7 @@ export class ItemSystem {
     switch (item) {
       case 'volunteer': {
         let target: number | null = null;
-        if (dir === 'forward') target = this.targetAhead(r);
+        if (dir === 'forward') target = this.sim.battle ? (this.nearestFoe(r, 'forward', 0.9, 1400)?.id ?? null) : this.targetAhead(r);
         this.volunteers.push({ id: this.nextId++, owner: r.id, targetId: target, x: bx, y: by, heading, age: 0, locked: false, near: r.nearestIndex, dead: false });
         break;
       }
@@ -144,19 +151,22 @@ export class ItemSystem {
         addEffect(r, 'magnet', d);
         for (const o of this.sim.racers) {
           if (o === r || o.finished || o.sinkTimer > 0) continue;
-          addEffect(o, o.progress > r.progress ? 'shrunk' : 'hasty', d);
+          // (a battle: ahead on points; team-mates all get the speed)
+          const ahead = this.sim.battle ? o.position < r.position : o.progress > r.progress;
+          addEffect(o, ahead && !this.sim.allied(r.id, o.id) ? 'shrunk' : 'hasty', d);
         }
         break;
       }
       case 'blackout':
-        for (const o of this.sim.racers) if (o !== r && !o.finished && o.sinkTimer <= 0) addEffect(o, 'blackout', TUNING.blackout.duration);
+        for (const o of this.sim.racers) if (!this.sim.allied(r.id, o.id) && !o.finished && o.sinkTimer <= 0) addEffect(o, 'blackout', TUNING.blackout.duration);
         break;
       case 'raclette': {
         // Always a potato and two slices of ham straight ahead in a fan, and cheese behind (whatever the direction).
         const R = TUNING.raclette;
         const front = r.boat.size.length / 2 + 12;
+        const aim = this.aimed(r, r.heading);
         for (const [kind, off] of [[0, 0], [1, -R.spread], [1, R.spread]] as const) {
-          const a = r.heading + off;
+          const a = aim + off;
           this.shots.push({ id: this.nextId++, owner: r.id, kind, wait: 0, x: r.x + Math.cos(a) * front, y: r.y + Math.sin(a) * front, heading: a, travelled: 0, age: 0, near: r.nearestIndex, dead: false });
         }
         this.dropCloud(r, 0, R.cheeseRadius);
@@ -185,7 +195,7 @@ export class ItemSystem {
         this.dropTitten(r);
         break;
       case 'siphon':
-        for (const o of this.sim.racers) if (o !== r && !o.finished && o.sinkTimer <= 0) addEffect(o, 'siphoned', TUNING.siphon.duration);
+        for (const o of this.sim.racers) if (!this.sim.allied(r.id, o.id) && !o.finished && o.sinkTimer <= 0) addEffect(o, 'siphoned', TUNING.siphon.duration);
         break;
       case 'tugboat':
         addEffect(r, 'towed', TUNING.tugboat.duration);
@@ -204,7 +214,7 @@ export class ItemSystem {
       case 'sauna':
         // Steam everywhere for the others; the one clear spot is round the owner.
         addEffect(r, 'sauna', TUNING.sauna.duration);
-        for (const o of this.sim.racers) if (o !== r && !o.finished && o.sinkTimer <= 0) addEffect(o, 'steamed', TUNING.sauna.duration);
+        for (const o of this.sim.racers) if (!this.sim.allied(r.id, o.id) && !o.finished && o.sinkTimer <= 0) addEffect(o, 'steamed', TUNING.sauna.duration);
         break;
       case 'noise':
         this.sim.hazards.noiseComplaint(r);
@@ -221,14 +231,14 @@ export class ItemSystem {
       case 'stairs':
         // Every opponent's screen goes behind unfolding stairs, then stairs come out of a bank in front of them.
         for (const o of this.sim.racers) {
-          if (o === r || o.finished || o.sinkTimer > 0) continue;
+          if (this.sim.allied(r.id, o.id) || o.finished || o.sinkTimer > 0) continue;
           addEffect(o, 'stairsDown', TUNING.stairs.warn);
           this.stairs.push({ id: this.nextId++, owner: r.id, target: o.id, along: -1, side: this.sim.rng.chance(0.5) ? 1 : -1, age: 0, hit: [], dead: false });
         }
         break;
       case 'translation':
         // Useless: the others' games switch language for a while (the view's part).
-        for (const o of this.sim.racers) if (o !== r && !o.finished) addEffect(o, 'translated', TUNING.translation.duration);
+        for (const o of this.sim.racers) if (!this.sim.allied(r.id, o.id) && !o.finished) addEffect(o, 'translated', TUNING.translation.duration);
         break;
       case 'champagne':
         // Useless: popping the champagne before the finish. A little drunker than a beer, nothing repaired.
@@ -262,12 +272,13 @@ export class ItemSystem {
   private dropTitten(r: Racer): void {
     const T = TUNING.titten, track = this.sim.track;
     const placed: number[] = [];
-    const targets = this.sim.racers.filter((o) => o !== r && !o.finished && o.sinkTimer <= 0).sort((a, b) => a.progress - b.progress);
+    const targets = this.sim.racers.filter((o) => !this.sim.allied(r.id, o.id) && !o.finished && o.sinkTimer <= 0).sort((a, b) => a.progress - b.progress);
     for (const o of targets) {
       const n = track.nearest(o.x, o.y, o.nearestIndex);
-      let along = n.along + T.ahead;
+      const way = this.sim.facing(o);
+      let along = n.along + T.ahead * way;
       // Not in the same stretch as another pair: further on.
-      for (let tries = 0; tries < 6 && placed.some((a) => Math.abs(a - along) < T.row); tries++) along += T.row;
+      for (let tries = 0; tries < 6 && placed.some((a) => Math.abs(a - along) < T.row); tries++) along += T.row * way;
       if (!track.closed && along > track.length - 60) continue;
       if (track.closed) along = ((along % track.length) + track.length) % track.length;
       const hw = track.sampleAt(along).width / 2;
@@ -294,6 +305,41 @@ export class ItemSystem {
 
   private spawnPuddle(x: number, y: number, owner: number): void {
     this.puddles.push({ id: this.nextId++, owner, x, y, age: 0, boatsStuck: new Set(), dead: false });
+  }
+
+  /**
+   * Battle aim assist: a shot fired roughly at an opponent (within BATTLE.aimCone of `heading`, in
+   * range) goes straight at where it is heading. Steering at a boat crossing your bow with one
+   * finger is hard; in a race everything goes the same way, so there is none.
+   */
+  aimed(r: Racer, heading: number): number {
+    if (!this.sim.battle) return heading;
+    const back = Math.abs(angleDiff(heading, r.heading)) > Math.PI / 2;
+    const o = this.nearestFoe(r, back ? 'backward' : 'forward', BATTLE.aimCone, BATTLE.aimRange);
+    if (!o) return heading;
+    // a little ahead of it, the way it is going
+    const lead = Math.hypot(o.x - r.x, o.y - r.y) / 900;
+    const a = Math.atan2(o.y + o.vy * lead - r.y, o.x + o.vx * lead - r.x);
+    return Math.abs(angleDiff(a, heading)) <= BATTLE.aimCone * 1.3 ? a : heading;
+  }
+
+  /**
+   * The nearest opponent in front of `r` (or behind), within `range` px and a cone of `halfAngle`
+   * radians either side of the bow (or stern). Battles aim with it: there is no "boat ahead".
+   */
+  nearestFoe(r: Racer, dir: 'forward' | 'backward', halfAngle: number, range: number): Racer | null {
+    const h = dir === 'forward' ? r.heading : r.heading + Math.PI;
+    const hx = Math.cos(h), hy = Math.sin(h), cos = Math.cos(halfAngle);
+    let best: Racer | null = null, bestD = range;
+    for (const o of this.sim.racers) {
+      if (this.sim.allied(r.id, o.id) || o.sinkTimer > 0 || o.finished) continue;
+      const dx = o.x - r.x, dy = o.y - r.y, d = Math.hypot(dx, dy);
+      if (d < bestD && d > 1 && (dx * hx + dy * hy) / d >= cos) {
+        best = o;
+        bestD = d;
+      }
+    }
+    return best;
   }
 
   private targetAhead(r: Racer): number | null {
@@ -353,7 +399,7 @@ export class ItemSystem {
       const p = this.sawPosition(r);
       if (!p || r.sinkTimer > 0) continue;
       for (const o of this.sim.racers) {
-        if (o === r || this.sim.isIntangible(o) || !isTouching(o, p.x, p.y, C.radius)) continue;
+        if (this.sim.allied(r.id, o.id) || this.sim.isIntangible(o) || !isTouching(o, p.x, p.y, C.radius)) continue;
         const key = `${r.id}-${o.id}`;
         if (this.sim.time - (this.sawHits.get(key) ?? -99) < C.every) continue;
         this.sawHits.set(key, this.sim.time);
@@ -392,7 +438,7 @@ export class ItemSystem {
           continue;
         }
         // In front of the boat as it is now (it couldn't see a thing until then).
-        let along = track.alongOf(o.progress) + T.ahead;
+        let along = track.alongOf(o.progress) + T.ahead * this.sim.facing(o);
         if (track.closed) along = ((along % track.length) + track.length) % track.length;
         else if (along > track.length - 100) {
           s.dead = true;
@@ -433,19 +479,21 @@ export class ItemSystem {
   }
 
   /** Open a crate for `r`: the roulette starts if a slot is free and none is spinning. */
-  private openCrate(r: Racer): void {
+  private openCrate(r: Racer, power = false): void {
     if (this.freeSlot(r) < 0 || r.rouletteItem) return;
     const leader = this.sim.racers.reduce((m, o) => Math.max(m, o.progress), -Infinity);
+    // A battle: the odds go by the lead on points (as four places), not by place.
+    // A golden crate: the last place's column (the strongest), always the better version.
+    const odds = power ? { position: 3, count: 4 } : this.sim.battle ? { position: this.sim.battle.oddsColumn(r), count: 4 } : { position: r.position, count: this.sim.racers.length };
     const item = drawItem(this.sim.rng, {
-      position: r.position,
-      count: this.sim.racers.length,
+      ...odds,
       farBehind: !this.sim.battle && leader - r.progress > this.sim.track.lapLength,
       volunteersInFlight: this.volunteersInFlight,
       recentItems: r.recentItems,
       excluded: this.sim.battle ? BATTLE_EXCLUDED : undefined,
     });
     r.rouletteItem = this.sim.forcedItem ?? item;
-    r.rouletteTriple = this.rollTriple(r.rouletteItem, r.position, !this.sim.battle && leader - r.progress > this.sim.track.lapLength);
+    r.rouletteTriple = (power && ITEM_INFO[r.rouletteItem].uses < 3) || this.rollTriple(r.rouletteItem, odds.position, !this.sim.battle && leader - r.progress > this.sim.track.lapLength);
     r.rouletteT = TUNING.rouletteTime;
     this.sim.emit({ type: 'itemPickup', racer: r.id, item: r.rouletteItem });
   }
@@ -453,7 +501,8 @@ export class ItemSystem {
   /** Whether an item comes as its better version (three uses): likelier further back, never for the leader. */
   private rollTriple(id: ItemId, position: number, farBehind: boolean): boolean {
     if (ITEM_INFO[id].uses >= 3) return false;
-    const col = farBehind ? 3 : oddsColumn(position, this.sim.racers.length);
+    // (in a battle `position` is already the column)
+    const col = farBehind ? 3 : this.sim.battle ? position : oddsColumn(position, this.sim.racers.length);
     const odds = (GLOBAL_ITEMS.includes(id) ? TRIPLE_ODDS.global : TRIPLE_ODDS.normal)[col];
     return odds > 0 && this.sim.rng.next() < odds;
   }
@@ -577,12 +626,14 @@ export class ItemSystem {
       for (const r of this.sim.racers) {
         if (r.sinkTimer > 0 || this.sim.isGhost(r)) continue;
         if (!isTouching(r, c.x, c.y, TUNING.crateRadius - r.stats.radius * 0.4)) continue;
-        c.respawn = TUNING.crateRespawn;
+        // (a golden crate needs a free slot: it isn't wasted on a boat that can't take anything)
+        if (c.power && (this.freeSlot(r) < 0 || r.rouletteItem)) continue;
+        c.respawn = c.power ? BATTLE.powerRespawn : this.sim.battle ? BATTLE.crateRespawn : TUNING.crateRespawn;
         c.x = c.homeX; // it comes back in its place
         c.y = c.homeY;
         this.sim.emit({ type: 'crate', id: c.id, taken: true });
         // A crate only gives something if a slot is free and the roulette isn't already spinning.
-        this.openCrate(r);
+        this.openCrate(r, !!c.power);
         break;
       }
     }
@@ -640,7 +691,7 @@ export class ItemSystem {
         return q.f > 0 && q.f < sawReach + slack && Math.abs(q.p) < q.f * sawTan + slack * 0.8;
       };
       for (const o of this.sim.racers) {
-        if (o === r || o.sinkTimer > 0 || r.jigsawHit.has(o.id)) continue;
+        if (this.sim.allied(r.id, o.id) || o.sinkTimer > 0 || r.jigsawHit.has(o.id)) continue;
         if (saw && (bySaw(o.x, o.y, o.stats.capRadius) || byBowSaw(o.x, o.y, o.stats.radius))) {
           r.jigsawHit.add(o.id);
           this.sim.hit(o, J.damage, r.id, 'jigsaw');
@@ -650,11 +701,11 @@ export class ItemSystem {
         }
       }
       if (!dildo) continue;
-      for (const v of this.volunteers) if (v.owner !== r.id && byDildo(v.x, v.y, 12)) v.dead = true;
-      for (const d of this.drills) if (d.owner !== r.id && d.mounted <= 0 && byDildo(d.x, d.y, 12)) d.dead = true;
-      for (const b of this.blobs) if (b.owner !== r.id && byDildo(b.x, b.y, 12)) b.dead = true;
-      for (const s of this.shots) if (s.owner !== r.id && s.wait <= 0 && byDildo(s.x, s.y, 12)) s.dead = true;
-      for (const f of this.fakeCrates) if (f.owner !== r.id && byDildo(f.x, f.y, TUNING.fakeCrate.radius)) f.dead = true;
+      for (const v of this.volunteers) if (!this.sim.allied(v.owner, r.id) && byDildo(v.x, v.y, 12)) v.dead = true;
+      for (const d of this.drills) if (!this.sim.allied(d.owner, r.id) && d.mounted <= 0 && byDildo(d.x, d.y, 12)) d.dead = true;
+      for (const b of this.blobs) if (!this.sim.allied(b.owner, r.id) && byDildo(b.x, b.y, 12)) b.dead = true;
+      for (const s of this.shots) if (!this.sim.allied(s.owner, r.id) && s.wait <= 0 && byDildo(s.x, s.y, 12)) s.dead = true;
+      for (const f of this.fakeCrates) if (!this.sim.allied(f.owner, r.id) && byDildo(f.x, f.y, TUNING.fakeCrate.radius)) f.dead = true;
     }
   }
 
@@ -683,7 +734,7 @@ export class ItemSystem {
       v.y += Math.sin(v.heading) * speed * dt;
 
       for (const r of this.sim.racers) {
-        if (r.sinkTimer > 0 || (r.id === v.owner && v.age < 0.6)) continue;
+        if (r.sinkTimer > 0 || this.sim.spares(r, v.owner, v.age < 0.6)) continue;
         if (isTouching(r, v.x, v.y, 10)) {
           this.sim.hit(r, TUNING.volunteer.damage, v.owner, 'volunteer');
           v.dead = true;
@@ -717,7 +768,7 @@ export class ItemSystem {
         d.near = o.nearestIndex;
         const tipX = d.x + Math.cos(d.heading) * D.length * 0.4, tipY = d.y + Math.sin(d.heading) * D.length * 0.4;
         for (const r of this.sim.racers) {
-          if (r === o || r.sinkTimer > 0 || d.hit.includes(r.id)) continue;
+          if (this.sim.allied(r.id, o.id) || r.sinkTimer > 0 || d.hit.includes(r.id)) continue;
           if (isTouching(r, tipX, tipY, D.radius) || isTouching(r, d.x, d.y, D.radius)) {
             d.hit.push(r.id);
             this.sim.hit(r, D.mountDamage, d.owner, 'drill');
@@ -728,6 +779,7 @@ export class ItemSystem {
           // Off it goes, straight ahead, from where it is.
           d.mounted = 0;
           d.age = 0;
+          d.heading = this.aimed(o, d.heading);
         }
         continue;
       }
@@ -742,7 +794,7 @@ export class ItemSystem {
       d.travelled += speed * dt;
       if (d.travelled > TUNING.drill.range) d.dead = true;
       for (const r of this.sim.racers) {
-        if (r.sinkTimer > 0 || (r.id === d.owner && d.age < 0.5)) continue;
+        if (r.sinkTimer > 0 || this.sim.spares(r, d.owner, d.age < 0.5)) continue;
         if (isTouching(r, d.x, d.y, D.radius)) {
           this.sim.hit(r, D.damage, d.owner, 'drill');
           d.dead = true;
@@ -778,7 +830,7 @@ export class ItemSystem {
       b.travelled += speed * dt;
       // It lands on the first boat it touches...
       for (const r of this.sim.racers) {
-        if (r.sinkTimer > 0 || this.sim.isGhost(r) || (r.id === b.owner && b.age < TUNING.silicone.ownerImmunity)) continue;
+        if (r.sinkTimer > 0 || this.sim.isGhost(r) || this.sim.spares(r, b.owner, b.age < TUNING.silicone.ownerImmunity)) continue;
         if (isTouching(r, b.x, b.y, 10)) {
           this.spawnPuddle(r.x, r.y, b.owner);
           b.dead = true;
@@ -817,6 +869,7 @@ export class ItemSystem {
         s.y = o.y + Math.sin(s.heading) * bow;
         s.near = o.nearestIndex;
         if (s.wait > 0) continue;
+        s.heading = this.aimed(o, s.heading); // (a battle's aim assist, nail by nail)
       }
       const spec = s.kind === 0 ? R.potato : s.kind === 1 ? R.ham : N;
       const speed = FASTEST_TOP_SPEED * spec.speedMult;
@@ -829,7 +882,7 @@ export class ItemSystem {
         continue;
       }
       for (const r of this.sim.racers) {
-        if (r.sinkTimer > 0 || this.sim.isGhost(r) || (r.id === s.owner && s.age < 0.5)) continue;
+        if (r.sinkTimer > 0 || this.sim.isGhost(r) || this.sim.spares(r, s.owner, s.age < 0.5)) continue;
         if (isTouching(r, s.x, s.y, spec.radius)) {
           if (s.kind === 2) this.sim.prick(r, N.damage, s.owner, N.slow);
           else if (this.sim.hit(r, spec.damage, s.owner, 'raclette')) addEffect(r, 'cheesed', R.splashTime);
@@ -853,7 +906,7 @@ export class ItemSystem {
       if (b.dead || b.age < T.warn) continue;
       const cap = this.boobsCapsule(b);
       for (const r of this.sim.racers) {
-        if (r.id === b.owner || r.sinkTimer > 0 || this.sim.isGhost(r)) continue;
+        if (this.sim.allied(r.id, b.owner) || r.sinkTimer > 0 || this.sim.isGhost(r)) continue;
         const impact = resolveStatic(r, cap, 0, 0);
         if (impact > 0 && !b.hit.includes(r.id)) {
           b.hit.push(r.id);
@@ -896,7 +949,7 @@ export class ItemSystem {
       if (c.dead) continue;
       const grow = Math.min(1, c.age / 0.4);
       for (const r of this.sim.racers) {
-        if (r.sinkTimer > 0 || this.sim.isGhost(r) || (r.id === c.owner && c.age < immunity)) continue;
+        if (r.sinkTimer > 0 || this.sim.isGhost(r) || this.sim.spares(r, c.owner, c.age < immunity)) continue;
         const rr = radius * grow + r.stats.radius * 0.4;
         if ((r.x - c.x) ** 2 + (r.y - c.y) ** 2 > rr * rr) continue;
         if (c.kind === 0) {
@@ -930,7 +983,7 @@ export class ItemSystem {
       const nx = -hy, ny = hx;
       const base = (r.boat.size.length * K.base) / 2;
       for (const o of this.sim.racers) {
-        if (o === r || o.sinkTimer > 0 || o.finished || this.sim.isGhost(o)) continue;
+        if (this.sim.allied(r.id, o.id) || o.sinkTimer > 0 || o.finished || this.sim.isGhost(o)) continue;
         const dx = o.x - r.x, dy = o.y - r.y;
         const f = dx * hx + dy * hy;
         const p = dx * nx + dy * ny;
@@ -959,7 +1012,7 @@ export class ItemSystem {
       if (!hasEffect(r, 'vacuum') || r.sinkTimer > 0) continue;
       const hx = Math.cos(r.heading), hy = Math.sin(r.heading);
       for (const o of this.sim.racers) {
-        if (o === r || o.sinkTimer > 0 || o.finished || this.sim.isGhost(o)) continue;
+        if (this.sim.allied(r.id, o.id) || o.sinkTimer > 0 || o.finished || this.sim.isGhost(o)) continue;
         const dx = o.x - r.x, dy = o.y - r.y;
         const d = Math.hypot(dx, dy);
         if (d < 1 || d > V.range || (dx * hx + dy * hy) / d < cos) continue;
@@ -980,7 +1033,7 @@ export class ItemSystem {
       if (f.age > TUNING.fakeCrate.life) f.dead = true;
       if (f.dead) continue;
       for (const r of this.sim.racers) {
-        if (r.sinkTimer > 0 || this.sim.isGhost(r) || (r.id === f.owner && f.age < TUNING.fakeCrate.ownerImmunity)) continue;
+        if (r.sinkTimer > 0 || this.sim.isGhost(r) || this.sim.spares(r, f.owner, f.age < TUNING.fakeCrate.ownerImmunity)) continue;
         if (!isTouching(r, f.x, f.y, radius - r.stats.radius * 0.4)) continue;
         // A boat that is blinking (just hit) passes straight through; the trap stays armed.
         if (this.sim.hit(r, TUNING.fakeCrate.damage, f.owner, 'fakeCrate')) {
@@ -1003,7 +1056,7 @@ export class ItemSystem {
         if (r.sinkTimer > 0) continue;
         const rr = radius + r.stats.radius * 0.4;
         if ((r.x - p.x) ** 2 + (r.y - p.y) ** 2 > rr * rr) continue;
-        if (r.id === p.owner && p.age < TUNING.glue.ownerImmunity) continue;
+        if (this.sim.spares(r, p.owner, p.age < TUNING.glue.ownerImmunity)) continue;
         if (hasEffect(r, 'boost')) continue;
         if (r.boat.specials?.washesGlue) {
           p.dead = true;

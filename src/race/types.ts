@@ -251,6 +251,8 @@ export interface Crate {
   homeX: number;
   homeY: number;
   respawn: number;
+  /** An arena's golden crate: the strongest items, three of them; it comes back slowly. */
+  power?: boolean;
 }
 
 export type RaceEvent =
@@ -268,6 +270,8 @@ export type RaceEvent =
   | { type: 'flag'; team: number; action: 'taken' | 'dropped' | 'returned' | 'captured'; racer: number }
   /** Battle over (`team`: the winning team, -1 for none or a draw). */
   | { type: 'battleOver'; team: number }
+  /** Battle: time is up with the lead shared; the next point wins. */
+  | { type: 'suddenDeath' }
   /** Drove through wet paint (painting workshop). */
   | { type: 'painted'; racer: number; by: number }
   /** `noise`: sent by a noise complaint (an item) rather than for speeding. */

@@ -47,7 +47,7 @@ export class TrafficView {
       s.setVisible(visible);
       if (!visible) return;
       s.setPosition(p.x, p.y).setRotation(p.heading).setAlpha(p.alpha);
-      if (emit && p.alpha > 0.5) {
+      if (emit && p.alpha > 0.5 && !p.moored) {
         const back = p.heading + Math.PI;
         const sx = p.x + Math.cos(back) * T.length * 0.48, sy = p.y + Math.sin(back) * T.length * 0.48;
         this.wake.emitParticleAt(sx, sy, 1);
@@ -56,7 +56,7 @@ export class TrafficView {
           this.wakeArm.emitParticleAt(sx + Math.cos(p.heading + (side * Math.PI) / 2) * T.width * 0.4, sy + Math.sin(p.heading + (side * Math.PI) / 2) * T.width * 0.4, 1);
         }
       }
-      if (focus && Math.hypot(focus.x - p.x, focus.y - p.y) < 320 && now - (this.hornAt.get(p.id) ?? -99) > 15) {
+      if (!p.moored && focus && Math.hypot(focus.x - p.x, focus.y - p.y) < 320 && now - (this.hornAt.get(p.id) ?? -99) > 15) {
         this.hornAt.set(p.id, now);
         this.audio.at('horn', p.x, p.y, 0.8);
       }

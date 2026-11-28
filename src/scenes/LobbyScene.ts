@@ -3,7 +3,7 @@ import { audio } from '../audio/AudioManager';
 import { BOATS } from '../data/boats';
 import { DIFFICULTIES, type Difficulty } from '../data/difficulty';
 import { ARENA_DEFS, TRACK_DEFS, getTrackDef, hasSections } from '../data/tracks';
-import { GAME_MODES, type GameMode, TEAM_COLORS, isBattle, isTeamMode } from '../race/battle';
+import { GAME_MODES, type GameMode, TEAM_COLORS, isBattle, isTeamMode, winLimit } from '../race/battle';
 import { describeSection } from '../view/sectionInfo';
 import { boatName, difficultyName, t, trackName } from '../i18n';
 import { net } from '../net/client';
@@ -217,7 +217,7 @@ export class LobbyScene extends Phaser.Scene {
       setSelected(b, !!cup);
     } else if (cup) add(text(this, 1060, 395, t('cup.toggle'), 20, '#ffe08a'));
     // A battle: what it's about, under the arena.
-    if (battle) add(this.add.text(950, 468, t(`battle.${mode}Desc` as 'battle.ctfDesc'), { fontFamily: 'Trebuchet MS, Verdana, sans-serif', fontSize: '15px', color: '#ffe08a', align: 'center', wordWrap: { width: 440 }, resolution: 2 }).setOrigin(0.5, 0));
+    if (battle) add(this.add.text(950, 468, t(`battle.${mode}Desc` as 'battle.ctfDesc', { n: winLimit(mode as Exclude<GameMode, 'race'>, lobby.players.length + lobby.bots.length) }), { fontFamily: 'Trebuchet MS, Verdana, sans-serif', fontSize: '15px', color: '#ffe08a', align: 'center', wordWrap: { width: 440 }, resolution: 2 }).setOrigin(0.5, 0));
     if (cup) {
       // Which race of how many, and its laps (or its stretch); the host sets the races up before the first one.
       const race = cup.plan[Math.min(cup.done, cup.plan.length - 1)];

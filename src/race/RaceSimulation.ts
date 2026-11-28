@@ -4,7 +4,7 @@ import { type ItemId, TUNING } from '../data/items';
 import { addEffect, hasEffect, removeEffect, tickEffects } from '../effects/effects';
 import { ItemSystem } from '../items/ItemSystem';
 import { HazardSystem } from './hazards';
-import { BattleSystem, type GameMode, TEAM_COLORS, isBattle } from './battle';
+import { BATTLE, BattleSystem, type GameMode, TEAM_COLORS, isBattle } from './battle';
 import { setRacerSize, stepBoat } from '../physics/BoatPhysics';
 import { resolveBank, resolveBoatPair, resolveStatic } from '../physics/collisions';
 import { type BargePose, Traffic, bargeCapsule } from './traffic';
@@ -357,10 +357,41 @@ export class RaceSimulation {
     return c;
   }
 
+  /**
+   * Team battles: whether two boats are on the same side (a boat is its own ally). Items never hurt,
+   * slow or aim at an ally of whoever used them.
+   */
+  allied(a: number, b: number): boolean {
+    if (a === b) return true;
+    const t = this.battle?.teams;
+    return !!t && t[a] >= 0 && t[a] === t[b];
+  }
+
+  /**
+   * Which way round the loop a boat is going: 1 the track's way, -1 the other. Always 1 in a race;
+   * in a battle (boats go both ways round an arena) from its course, or its heading when slow.
+   * Items that land "in front of" or "behind" a boat use it.
+   */
+  facing(r: Racer): 1 | -1 {
+    if (!this.battle) return 1;
+    const s = this.track.samples[r.nearestIndex];
+    const fast = Math.hypot(r.vx, r.vy) > 60;
+    const dx = fast ? r.vx : Math.cos(r.heading), dy = fast ? r.vy : Math.sin(r.heading);
+    return dx * s.tx + dy * s.ty >= 0 ? 1 : -1;
+  }
+
+  /** Spared by something `owner` set off: a team-mate always; the owner itself while `young`. */
+  spares(r: Racer, owner: number | null | undefined, young: boolean): boolean {
+    if (owner === null || owner === undefined) return false;
+    return r.id === owner ? young : this.allied(r.id, owner);
+  }
+
   /** Apply damage, a spin-out and brief invulnerability. Returns true if the hit landed. */
   hit(r: Racer, damage: number, by: number | null, source: HitSource, spin = true): boolean {
     if (hasEffect(r, 'invulnerable') || r.sinkTimer > 0 || this.isGhost(r)) return false;
+    if (by !== null && by !== r.id && this.allied(by, r.id)) return false; // no friendly fire
     if (this.popShield(r, source)) return false;
+    if (this.battle && source !== 'bank') damage *= BATTLE.damageMult;
     r.hull -= damage;
     r.sinceHit = 0;
     addEffect(r, 'invulnerable', TUNING.hitInvulnerable);
@@ -400,6 +431,7 @@ export class RaceSimulation {
    */
   poison(r: Racer, amount: number): boolean {
     if (hasEffect(r, 'invulnerable') || r.sinkTimer > 0 || this.isGhost(r)) return false;
+    if (this.battle) amount *= BATTLE.damageMult;
     r.hull -= amount;
     r.sinceHit = 0;
     if (r.hull <= 0) this.sink(r);
@@ -424,7 +456,9 @@ export class RaceSimulation {
    */
   prick(r: Racer, damage: number, by: number, slow: number): boolean {
     if (hasEffect(r, 'invulnerable') || r.sinkTimer > 0 || this.isGhost(r)) return false;
+    if (by !== r.id && this.allied(by, r.id)) return false;
     if (this.popShield(r, 'nailGun')) return false;
+    if (this.battle) damage *= BATTLE.damageMult;
     r.hull -= damage;
     r.sinceHit = 0;
     r.vx *= slow;

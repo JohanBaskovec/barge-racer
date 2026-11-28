@@ -14,6 +14,8 @@ export interface Barge {
   kind: number;
   /** Seconds until it may toss another crate (server and offline only). */
   dropT: number;
+  /** Moored (an arena's cover): it never moves. `lat`: across the water (-1 to 1); `across`: turned across. */
+  moored?: { lat: number; across: boolean };
 }
 
 export interface BargePose {
@@ -33,6 +35,8 @@ export interface BargePose {
   /** Unit vector from the barge towards the middle of the canal: a boat met head-on is pushed that way. */
   mx: number;
   my: number;
+  /** Moored: no wake, no horn. */
+  moored?: boolean;
 }
 
 /**
@@ -57,6 +61,10 @@ export class Traffic {
         this.barges.push({ id: id++, dir, a0: ((i + offset) / n) * L, speed: T.speed[dir === 1 ? 0 : 1], kind: rng.int(0, 2), dropT: rng.range(2, T.dropCooldown) });
       }
     }
+    // Moored barges (an arena's cover), after the moving ones.
+    for (const [at, lat, across] of track.def.moored ?? []) {
+      this.barges.push({ id: id++, dir: 1, a0: at * L, speed: 0, kind: rng.int(0, 2), dropT: 1e9, moored: { lat, across: !!across } });
+    }
   }
 
   /** No barge between 800 px behind the start line and 600 px past it at the start. */
@@ -75,6 +83,15 @@ export class Traffic {
     const T = TUNING.traffic;
     const track = this.track;
     const L = track.length;
+    if (b.moored) {
+      const hw = track.sampleAt(b.a0).width / 2;
+      const p = track.pointAt(b.a0, b.moored.lat * hw);
+      const heading = b.moored.across ? p.heading + Math.PI / 2 : p.heading;
+      // pushed away from it towards the open water: across the canal (along it, when turned across)
+      const s = -Math.sign(b.moored.lat || 1);
+      const [mx, my] = b.moored.across ? [Math.cos(p.heading), Math.sin(p.heading)] : [-Math.sin(p.heading) * s, Math.cos(p.heading) * s];
+      return { id: b.id, x: p.x, y: p.y, heading, vx: 0, vy: 0, along: b.a0, lat: b.moored.lat * hw, alpha: 1, solid: true, mx, my, moored: true };
+    }
     const along = (((b.a0 + b.dir * b.speed * t) % L) + L) % L;
     let alpha = 1;
     if (!track.closed) alpha = clamp((Math.min(along, L - along) - 60) / T.fadeEnds, 0, 1);

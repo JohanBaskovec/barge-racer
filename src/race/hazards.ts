@@ -218,7 +218,7 @@ export class HazardSystem {
   noiseComplaint(r: Racer): void {
     const sim = this.sim;
     for (const o of sim.racers) {
-      if (o === r || o.finished || o.sinkTimer > 0) continue;
+      if (sim.allied(r.id, o.id) || o.finished || o.sinkTimer > 0) continue;
       if (this.police?.target === o.id || this.noisePolice.some((p) => p.target === o.id)) continue;
       this.noisePolice.push({ phase: 'warn', target: o.id, t: 0, x: o.x, y: o.y, heading: o.heading, side: sim.rng.chance(0.5) ? 1 : -1, fireT: sim.rng.range(0.6, 1.4), noise: true });
       sim.emit({ type: 'cops', racer: o.id, phase: 'warn', noise: true });
@@ -231,9 +231,10 @@ export class HazardSystem {
    */
   dropCouches(r: Racer): void {
     const L = TUNING.lazyVolunteers, K = TUNING.critters, track = this.sim.track;
-    const base = track.alongOf(r.progress) - L.behind - r.boat.size.length / 2;
+    const way = this.sim.facing(r); // behind the boat, whichever way round an arena it is going
+    const base = track.alongOf(r.progress) - (L.behind + r.boat.size.length / 2) * way;
     for (let k = 0; k < L.couches; k++) {
-      let along = base - k * L.stagger;
+      let along = base - k * L.stagger * way;
       if (track.closed) along = ((along % track.length) + track.length) % track.length;
       else if (along < 0) continue;
       const room = Math.max(0, track.sampleAt(along).width / 2 - K.radius[3] - 8);
@@ -401,7 +402,7 @@ export class HazardSystem {
             break;
           }
         }
-        let along = track.alongOf(pick.progress) + sim.rng.range(K.ahead[0], K.ahead[1]);
+        let along = track.alongOf(pick.progress) + sim.rng.range(K.ahead[0], K.ahead[1]) * sim.facing(pick);
         if (track.closed) along = ((along % track.length) + track.length) % track.length;
         const roll2 = sim.rng.next();
         const kind = (roll2 < 0.45 ? 0 : roll2 < 0.75 ? 1 : 2) as 0 | 1 | 2;
@@ -431,7 +432,7 @@ export class HazardSystem {
       const hx = Math.cos(p.heading), hy = Math.sin(p.heading);
       for (const r of sim.racers) {
         if (r.sinkTimer > 0 || sim.isGhost(r)) continue;
-        if (c.owner === r.id && c.age < TUNING.lazyVolunteers.ownerImmunity) continue;
+        if (sim.spares(r, c.owner, c.age < TUNING.lazyVolunteers.ownerImmunity)) continue;
         // A rowing boat is long: test along its length.
         const hitIt = c.kind === 1
           ? [-28, 0, 28].some((o) => isTouching(r, p.x + hx * o, p.y + hy * o, 12))

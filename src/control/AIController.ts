@@ -1,3 +1,4 @@
+import { bargeCapsule } from '../race/traffic';
 import type { DifficultyDef } from '../data/difficulty';
 import { TUNING } from '../data/items';
 import { hasEffect } from '../effects/effects';
@@ -262,6 +263,7 @@ export class AIController implements Controller {
       const p = track.pointAt(ahead, clamp(t.lateral, -hw * 0.55, hw * 0.55));
       desired = Math.atan2(p.y - r.y, p.x - r.x);
     }
+    desired = this.roundBarges(r, sim, desired, Math.hypot(target.x - r.x, target.y - r.y));
     const blind = hasEffect(r, 'cheesed') || hasEffect(r, 'steamed') || hasEffect(r, 'stairsDown');
     if (blind) desired += Math.sin(sim.time * 3.1 + this.noisePhase) * 0.45;
     intent.desiredHeading = desired;
@@ -283,6 +285,41 @@ export class AIController implements Controller {
     return intent;
   }
 
+  /** Which way round the last barge in the way (sticks, so the boat doesn't dither in front of it). */
+  private roundSide = 0;
+
+  /**
+   * Battle: a moored barge in the way bends the course round it (on the side the boat is already
+   * on), more the closer it is. Nothing beyond the target counts.
+   */
+  private roundBarges(r: Racer, sim: RaceSimulation, desired: number, targetDist: number): number {
+    let vx = Math.cos(desired), vy = Math.sin(desired);
+    const ux = vx, uy = vy;
+    let any = false;
+    for (const b of sim.trafficPoses) {
+      if (!b.solid) continue;
+      const c = bargeCapsule(b);
+      const dx = c.bx - c.ax, dy = c.by - c.ay;
+      const t = clamp(((r.x - c.ax) * dx + (r.y - c.ay) * dy) / (dx * dx + dy * dy), 0, 1);
+      const ox = c.ax + dx * t - r.x, oy = c.ay + dy * t - r.y;
+      const od = Math.hypot(ox, oy);
+      const gap = od - c.radius - r.stats.radius;
+      const reach = 230;
+      if (gap > reach || od < 1 || od > targetDist + c.radius) continue;
+      const ahead = (ox * ux + oy * uy) / od;
+      if (ahead < 0.15) continue;
+      // The barge is to the left of the course (cross > 0): go right of it, and the other way.
+      const cross = ox * -uy + oy * ux;
+      if (!any && (this.roundSide === 0 || Math.abs(cross) > od * 0.5)) this.roundSide = cross > 0 ? 1 : -1;
+      any = true;
+      const w = (1 - Math.max(0, gap) / reach) * 1.8 * ahead;
+      vx += uy * this.roundSide * w;
+      vy += -ux * this.roundSide * w;
+    }
+    if (!any) this.roundSide = 0;
+    return any ? Math.atan2(vy, vx) : desired;
+  }
+
   /**
    * What to go for in a battle. Capture the flag: the flag you carry goes home; a thief carrying
    * your flag is chased; your dropped flag is fetched; otherwise attackers go for the other flag and
@@ -302,6 +339,28 @@ export class AIController implements Controller {
       }
       return best;
     };
+    const empty = r.slots.every((s) => s === null) && !r.rouletteItem;
+    /** The nearest crate within `within` px (of `near`, or of the boat). */
+    const crateNear = (within: number, near: { x: number; y: number } = r): { x: number; y: number } | null => {
+      let crate: { x: number; y: number } | null = null, cd = within;
+      for (const c of sim.items.crates) {
+        if (c.respawn > 0) continue;
+        const d = Math.hypot(c.x - near.x, c.y - near.y) + dist(c) * 0.5;
+        if (d < cd) (crate = c), (cd = d);
+      }
+      return crate;
+    };
+    // A golden crate up and not too far, with room for what's in it.
+    const golden = (within: number): { x: number; y: number } | null => {
+      if (sim.items.freeSlot(r) < 0 || r.rouletteItem) return null;
+      let best: { x: number; y: number } | null = null, bd = within;
+      for (const c of sim.items.crates) {
+        if (!c.power || c.respawn > 0) continue;
+        const d = dist(c);
+        if (d < bd) (best = c), (bd = d);
+      }
+      return best;
+    };
     if (b.mode === 'ctf' && team >= 0) {
       const own = b.flags[team], theirs = b.flags[1 - team];
       const home = { x: own.homeX, y: own.homeY };
@@ -309,17 +368,26 @@ export class AIController implements Controller {
       if (own.carrier >= 0) return sim.racers[own.carrier];
       if (own.dropped) return own;
       const defender = Math.floor(r.id / 2) % 2 === 1;
-      if (defender) return nearestFoe(home, 900) ?? home;
+      if (defender) {
+        // Guard the flag: an opponent near it first; otherwise arm yourself from the crates nearby.
+        const intruder = nearestFoe(home, 1000);
+        if (intruder) return intruder;
+        return (empty ? crateNear(900, home) : null) ?? home;
+      }
       if (theirs.carrier >= 0) return nearestFoe(sim.racers[theirs.carrier], 900) ?? sim.racers[theirs.carrier];
+      const g = golden(900);
+      if (g) return g;
+      // On the way to their flag, grab a crate close by (going in empty-handed is asking to be sunk).
+      if (empty) {
+        const c = crateNear(450);
+        if (c) return c;
+      }
       return theirs;
     }
-    if (r.slots.every((s) => s === null) && !r.rouletteItem) {
-      let crate: { x: number; y: number } | null = null, cd = 700;
-      for (const c of sim.items.crates) {
-        if (c.respawn > 0) continue;
-        const d = dist(c);
-        if (d < cd) (crate = c), (cd = d);
-      }
+    const g = golden(1300);
+    if (g) return g;
+    if (empty) {
+      const crate = crateNear(700);
       if (crate) return crate;
     }
     return nearestFoe(r) ?? r;
@@ -355,7 +423,8 @@ export class AIController implements Controller {
       const dy = o.y - r.y;
       return { f: dx * hx + dy * hy, p: -dx * hy + dy * hx, d: Math.hypot(dx, dy) };
     };
-    const others = sim.racers.filter((o) => o !== r && o.sinkTimer <= 0 && !sim.isGhost(o));
+    // Opponents only: team-mates can't be hurt (and aren't worth wasting an item on).
+    const others = sim.racers.filter((o) => !sim.allied(r.id, o.id) && o.sinkTimer <= 0 && !sim.isGhost(o));
     const L = sim.track.lapLength;
     /** A boat straight ahead (or behind) within `range`, narrow enough for a straight shot to hit. */
     const inLine = (range: number, behind: boolean): boolean =>
@@ -363,6 +432,31 @@ export class AIController implements Controller {
         const q = rel(o);
         return (behind ? q.f < 0 && q.f > -range : q.f > 0 && q.f < range) && Math.abs(q.p) < o.stats.radius + 8;
       });
+
+    // A battle: no "boat ahead" or "chasing behind" along the track; what counts is who is near,
+    // in front, behind.
+    if (sim.battle) {
+      const near = (d: number): boolean => others.some((o) => rel(o).d < d);
+      const behindClose = (d: number): boolean => others.some((o) => {
+        const q = rel(o);
+        return q.f < 0 && q.d < d && Math.abs(q.p) < 140;
+      });
+      switch (item) {
+        case 'volunteer':
+          // It homes in on the nearest opponent in front.
+          if (sim.items.nearestFoe(r, 'forward', 0.9, 1100)) return 'forward';
+          if (behindClose(300)) return 'backward';
+          return heldFor > 20 ? 'forward' : 'none';
+        case 'titten': case 'siphon': case 'stairs': case 'sauna': case 'noise': case 'blackout': case 'mushroom':
+          // They hit every opponent: when some are close enough to make the most of it.
+          if (near(900) || heldFor > 8) return 'forward';
+          return 'none';
+        case 'lazyVolunteers': case 'paint': case 'glue': case 'fakeCrate': case 'toilet':
+          // Dropped behind: when someone is on your tail.
+          if (behindClose(450)) return 'forward';
+          return heldFor > 20 ? 'forward' : 'none';
+      }
+    }
 
     switch (item) {
       case 'volunteer': {

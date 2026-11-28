@@ -121,6 +121,8 @@ export class HudScene extends Phaser.Scene {
     this.popupRows.clear();
     this.posText = text(this, 24, 22, '', 60).setOrigin(0, 0).setStroke(stroke, 8);
     this.teamScoreTexts = [];
+    this.feed = [];
+    this.arrowGfx = undefined;
     const battle = race.sim.battle;
     if (battle && battle.teams.some((tm) => tm >= 0)) {
       const mine = battle.teams[race.sim.player!.id];
@@ -287,11 +289,17 @@ export class HudScene extends Phaser.Scene {
       this.posText.setText(team >= 0 ? '' : `${ordinal(p.position + 1)}`);
       this.teamScoreTexts.forEach((tx, k) => tx.setText(String(battle.teamScores[k])));
       this.lapText.setText(t('hud.score', { n: battle.scores[p.id] }));
-      const secs = Math.ceil(battle.timeLeft);
-      if (secs !== this.clockTick) {
-        this.clockTick = secs;
-        this.timeText.setText(sim.phase === 'countdown' ? '' : `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`).setColor(secs <= 30 ? '#ff8a7a' : '#ffe08a');
+      const secs = Math.max(0, Math.ceil(battle.timeLeft));
+      const sudden = battle.timeLeft <= 0 && !battle.over;
+      const tick = sudden ? -1 : secs;
+      if (tick !== this.clockTick) {
+        this.clockTick = tick;
+        // Sudden death instead of the clock once time is up with the lead shared.
+        if (sudden) this.timeText.setText(t('hud.suddenDeath')).setColor('#ff6a5a');
+        else this.timeText.setText(sim.phase === 'countdown' ? '' : `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`).setColor(secs <= 30 ? '#ff8a7a' : '#ffe08a');
       }
+      this.drawArrows();
+      this.updateFeed();
     } else this.posText.setText(`${ordinal(p.position + 1)}`);
     if (battle) {
       /* score and clock above */
@@ -523,6 +531,72 @@ export class HudScene extends Phaser.Scene {
     this.tripGfx.clear().fillGradientStyle(hue(0), hue(0.25), hue(0.5), hue(0.75), 1).fillRect(0, 0, this.W, 720);
   }
 
+  /** Battle: the last sinkings, under the minimap ("Bilge sank Marge"), each for a few seconds. */
+  private feed: { text: Phaser.GameObjects.Text; until: number }[] = [];
+
+  private feedKill(racer: number, by: number | null): void {
+    const sim = this.race.sim, b = sim.battle;
+    if (!b) return;
+    const name = (i: number): string => (i === sim.player?.id && !this.race.spectating ? t('you') : sim.racers[i].name);
+    const msg = by === null ? t('hud.feedSunk', { b: name(racer) }) : t('hud.feedKill', { a: name(by), b: name(racer) });
+    // In team battles the line takes the colour of the team that scored (or lost a boat).
+    const team = b.teams[by ?? racer];
+    const color = team >= 0 ? (team === 0 ? '#ff9a8a' : '#9ac4ff') : '#ffffff';
+    const tx = text(this, this.mapBox.x + this.mapBox.w, 0, msg, 17, color, false).setOrigin(1, 0).setStroke('#0b3a5b', 4);
+    fitText(tx, 300);
+    this.feed.unshift({ text: tx, until: this.time.now + 6000 });
+    while (this.feed.length > 4) this.feed.pop()!.text.destroy();
+  }
+
+  private updateFeed(): void {
+    const now = this.time.now;
+    this.feed = this.feed.filter((f) => {
+      if (f.until > now) return true;
+      f.text.destroy();
+      return false;
+    });
+    this.feed.forEach((f, i) => f.text.setY(this.mapBox.y + this.mapBox.h + 8 + i * 22).setAlpha(Math.min(1, (f.until - now) / 600)));
+  }
+
+  /**
+   * Battle: arrows at the edge of the screen towards what matters off it: the flags (carried or
+   * lying in the water), golden crates that are up, and opponents not too far away.
+   */
+  private arrowGfx?: Phaser.GameObjects.Graphics;
+
+  private drawArrows(): void {
+    const sim = this.race.sim, b = sim.battle!;
+    const g = (this.arrowGfx ??= this.add.graphics().setDepth(-1));
+    g.clear();
+    if (sim.phase !== 'racing' || b.over) return;
+    const cam = this.race.cameras.main, wv = cam.worldView;
+    const me = sim.player!;
+    const W = this.W, H = 720, m = 34, cx = W / 2, cy = H / 2;
+    const arrow = (x: number, y: number, color: number, size: number, alpha = 1, flag = -1): void => {
+      const sx = (x - wv.x) * cam.zoom, sy = (y - wv.y) * cam.zoom;
+      if (sx > 0 && sx < W && sy > 0 && sy < H) return; // on screen: no arrow
+      const dx = sx - cx, dy = sy - cy;
+      const k = Math.min((cx - m) / Math.max(1e-6, Math.abs(dx)), (cy - m) / Math.max(1e-6, Math.abs(dy)));
+      const ax = cx + dx * k, ay = cy + dy * k, a = Math.atan2(dy, dx);
+      const tip = (r: number, da: number): [number, number] => [ax + Math.cos(a + da) * r, ay + Math.sin(a + da) * r];
+      const [x1, y1] = tip(size, 0), [x2, y2] = tip(size * 0.8, 2.5), [x3, y3] = tip(size * 0.8, -2.5);
+      g.fillStyle(color, alpha).lineStyle(2.5, 0xffffff, alpha).fillTriangle(x1, y1, x2, y2, x3, y3).strokeTriangle(x1, y1, x2, y2, x3, y3);
+      if (flag >= 0) {
+        // a little flag behind the arrow head
+        const [fx, fy] = tip(size * 1.1, Math.PI);
+        g.fillStyle(0xffffff, alpha).fillRect(fx - 1, fy - 14, 2, 16);
+        g.fillStyle(TEAM_COLORS[flag], alpha).fillRect(fx + 1, fy - 14, 11, 7);
+      }
+    };
+    for (const o of sim.racers) {
+      if (o === me || o.sinkTimer > 0 || sim.allied(me.id, o.id)) continue;
+      const d = Math.hypot(o.x - me.x, o.y - me.y);
+      if (d < 1500) arrow(o.x, o.y, b.teams[o.id] >= 0 ? TEAM_COLORS[b.teams[o.id]] : 0xff5a4d, 13, 1 - d / 1800);
+    }
+    for (const c of sim.items.crates) if (c.power && c.respawn <= 0) arrow(c.x, c.y, 0xffd23f, 16);
+    for (const f of b.flags) if (f.carrier >= 0 || f.dropped) arrow(f.x, f.y, TEAM_COLORS[f.team], 20, 1, f.team);
+  }
+
   private drawMap(): void {
     const g = this.map;
     const sim = this.race.sim;
@@ -534,6 +608,17 @@ export class HudScene extends Phaser.Scene {
       const x = p.x * this.mapScale + this.mapOx, y = p.y * this.mapScale + this.mapOy;
       if (x < this.mapBox.x || x > this.mapBox.x + this.mapBox.w || y < this.mapBox.y || y > this.mapBox.y + this.mapBox.h) continue;
       g.fillRect(x - 1.5, y - 1.5, 3, 3);
+    }
+    // Battle: golden crates that are up, as gold stars.
+    for (const c of sim.items.crates) {
+      if (!c.power || c.respawn > 0) continue;
+      const x = c.x * this.mapScale + this.mapOx, y = c.y * this.mapScale + this.mapOy;
+      g.fillStyle(0xffd23f, 1).lineStyle(1.5, 0x7a5200, 1);
+      const pts = Array.from({ length: 10 }, (_, k) => {
+        const a = -Math.PI / 2 + (k * Math.PI) / 5, rad = k % 2 ? 3 : 7;
+        return new Phaser.Math.Vector2(x + Math.cos(a) * rad, y + Math.sin(a) * rad);
+      });
+      g.fillPoints(pts, true).strokePoints(pts, true);
     }
     // Battle: the bases, and the flags (on their carriers when carried).
     const battle = sim.battle;
@@ -565,10 +650,20 @@ export class HudScene extends Phaser.Scene {
         this.flashBig(e.value === 0 ? t('hud.go') : String(e.value), e.value === 0 ? '#62d26f' : '#ffffff');
         break;
       case 'kill':
-        // Battle: who sank whom (only what concerns you, or the screen would be all messages).
+        // Battle: who sank whom. A message for what concerns you; everything in the feed.
         if (e.by === me) this.popup(t('hud.youSank', { name: sim.racers[e.racer].name }), '#ffe08a');
         else if (e.racer === me && e.by !== null) this.popup(t('hud.sankYou', { name: sim.racers[e.by].name }), '#ff8a7a');
+        this.feedKill(e.racer, e.by);
         break;
+      case 'suddenDeath':
+        this.flashBig(t('hud.suddenDeath'), '#ff6a5a', 70);
+        break;
+      case 'crate': {
+        // A golden crate turns up.
+        const c = sim.items.crates.find((k) => k.id === e.id);
+        if (c?.power && !e.taken && sim.battle) this.popup(t('hud.golden'), '#ffd23f');
+        break;
+      }
       case 'flag': {
         const flag = t(e.team === 0 ? 'battle.flag0' : 'battle.flag1');
         const name = e.racer >= 0 ? (e.racer === me ? t('you') : sim.racers[e.racer].name) : '';

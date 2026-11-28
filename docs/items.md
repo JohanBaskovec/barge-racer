@@ -492,6 +492,14 @@ Rules on top of the table:
 - The roulette never gives the same item **three times in a row** to the same
   racer.
 
+## In battles
+
+The [battle modes](game-design.md#battle-modes) change a few things: no friendly fire in team
+modes (items never hurt, slow, blind or aim at a team-mate), odds by the lead on points instead
+of by place, items 1.6× as harmful, crates back after 2.5 s, golden crates (the strongest column,
+×3), aim assist for straight shots, "in front of" and "behind" following the way a boat is going
+round the arena, and no tugboat. The details are in the game design.
+
 ## Item data shape
 
 ```ts

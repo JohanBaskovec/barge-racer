@@ -37,11 +37,18 @@ of the loop (0 Corsica, 1 Brittany).
 
 | Arena | Theme | Layout | Bases |
 | --- | --- | --- | --- |
-| **The Great Basin** | `canal` | A round basin in a canal town: a ring of open water (700 px wide) round a walled island, crates in rows all round | Opposite sides of the ring |
-| **The Two Lakes** | `lagoon` | A wide lake (820 to 900 px) for each team, joined by two narrow channels (320 px) round an island: the channels are where fights happen | One in each lake |
+| **The Great Basin** | `canal` | A round basin in a canal town: a ring of open water (700 px wide) round a walled island, crates in rows all round. Halfway between the bases, two barges moored across the water, staggered: a chicane with a golden crate in the middle; between those and each base, a barge moored along the middle of the ring | Opposite sides of the ring |
+| **The Two Lakes** | `lagoon` | A wide lake (820 to 900 px) for each team, joined by two narrow channels (320 px) round an island: the channels are where fights happen, with a golden crate in each. In each lake two barges moored along the water either side of the way in: cover in front of the base | One in each lake |
 
 There is no start line: boats start round their base (free for all: spread round the loop).
 Police, anglers and barge drops are turned off.
+
+- **Moored barges** (`moored`: where along the loop, where across as a share of the half width,
+  and whether turned across the water) are barges of the traffic with no speed: solid like the
+  moving ones (boats bump off them, shots stop on them), drawn the same, computed on every
+  screen (nothing to send online), without wake or horn. Respawns never land on one.
+- **Golden crates** (`power`: spots along the loop, in the middle of the water) are crates of
+  their own, see [Game design](game-design.md#battle-modes).
 
 ## Real-world tracks
 

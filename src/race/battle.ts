@@ -1,5 +1,6 @@
 import { addEffect } from '../effects/effects';
-import { isTouching } from '../physics/collisions';
+import { isTouching, touchesCapsule } from '../physics/collisions';
+import { bargeCapsule } from './traffic';
 import type { RaceSimulation } from './RaceSimulation';
 import type { Racer } from './types';
 
@@ -30,10 +31,8 @@ export const TEAM_COLORS = [0xd8352b, 0x2f6fd8];
 export const BATTLE = {
   /** Seconds a match lasts at most (deathmatch, capture the flag). */
   timeLimit: { deathmatch: 240, teamDeathmatch: 240, ctf: 300 },
-  /** Points that win straight away. */
-  fragLimit: 8,
-  teamFragLimit: 15,
-  captureLimit: 3,
+  /** Captures that win straight away (points in deathmatch: see winLimit). */
+  captureLimit: 4,
   /** The last hit counts for this long when a boat sinks. */
   killCredit: 6,
   /** Touching a flag (px, added to the boat's size). */
@@ -45,7 +44,29 @@ export const BATTLE = {
   baseAcross: 0.6,
   /** After the end, a moment before the results. */
   endPause: 2.5,
+  /** Items hurt this much more than in a race: fights end in sinkings, not in a stream of dents. */
+  damageMult: 1.6,
+  /** Crates come back this fast (s; 4 in a race). */
+  crateRespawn: 2.5,
+  /** Sudden death, when time runs out on a tie: the next point wins, or a draw after this long (s). */
+  overtime: 90,
+  /** Aim assist: a shot fired within this angle (rad) of an opponent, this close, goes straight at it. */
+  aimCone: 0.3,
+  aimRange: 1000,
+  /** Golden crates: back this long after one is opened (s); the first ones turn up after `powerFirst`. */
+  powerRespawn: 30,
+  powerFirst: 20,
+  /** A boat carrying a flag is slower (top speed ×): the others have time to catch it. */
+  carrierSpeed: 0.75,
 };
+
+/**
+ * What wins straight away: in deathmatch, the boats + 2 points (8 for six boats); in team
+ * deathmatch 2.5 points a boat (15 for six); in capture the flag, captureLimit captures.
+ */
+export function winLimit(mode: Exclude<GameMode, 'race'>, boats: number): number {
+  return mode === 'deathmatch' ? boats + 2 : mode === 'teamDeathmatch' ? Math.round(boats * 2.5) : BATTLE.captureLimit;
+}
 
 export interface Flag {
   team: number;
@@ -80,6 +101,8 @@ export class BattleSystem {
   teamScores = [0, 0];
   flags: Flag[] = [];
   timeLeft: number;
+  /** Points (or captures) that win straight away. */
+  readonly limit: number;
   over = false;
   /** The team that won (team modes), or -1. */
   winnerTeam = -1;
@@ -91,6 +114,7 @@ export class BattleSystem {
     this.teams = isTeamMode(mode) ? Array.from({ length: n }, (_, i) => (teams?.[i] === 0 || teams?.[i] === 1 ? teams[i] : i % 2)) : Array(n).fill(-1);
     this.stats = Array.from({ length: n }, () => ({ kills: 0, deaths: 0, captures: 0 }));
     this.timeLeft = BATTLE.timeLimit[mode];
+    this.limit = winLimit(mode, n);
     if (mode === 'ctf') {
       for (const team of [0, 1]) {
         const b = this.basePoint(team);
@@ -130,7 +154,22 @@ export class BattleSystem {
 
   /** A hit by `by` on `r`: if `r` sinks soon after, `by` scores. */
   noteHit(r: Racer, by: number | null): void {
-    if (by !== null && by !== r.id) this.lastHit.set(r.id, { by, t: this.sim.time });
+    if (by === null || by === r.id) return;
+    this.lastHit.set(r.id, { by, t: this.sim.time });
+    // Hit by an opponent, a flag carrier drops the flag (it blinks: it can't pick it straight up again).
+    if (!this.over && this.teams[by] !== this.teams[r.id]) this.dropFlags(r);
+  }
+
+  private dropFlags(r: Racer): void {
+    for (const f of this.flags) {
+      if (f.carrier !== r.id) continue;
+      f.carrier = -1;
+      f.dropped = true;
+      f.droppedT = 0;
+      f.x = r.x;
+      f.y = r.y;
+      this.sim.emit({ type: 'flag', team: f.team, action: 'dropped', racer: r.id });
+    }
   }
 
   /** A boat sank: the kill goes to the last boat that hit it, lately; a flag it carried drops. */
@@ -146,15 +185,7 @@ export class BattleSystem {
       if (this.mode === 'teamDeathmatch') this.teamScores[this.teams[by]]++;
     }
     this.sim.emit({ type: 'kill', racer: r.id, by });
-    for (const f of this.flags) {
-      if (f.carrier !== r.id) continue;
-      f.carrier = -1;
-      f.dropped = true;
-      f.droppedT = 0;
-      f.x = r.x;
-      f.y = r.y;
-      this.sim.emit({ type: 'flag', team: f.team, action: 'dropped', racer: r.id });
-    }
+    this.dropFlags(r);
     this.checkEnd();
   }
 
@@ -163,7 +194,7 @@ export class BattleSystem {
    * for all, the spot of the arena farthest from any opponent.
    */
   respawnPoint(r: Racer): { x: number; y: number; heading: number } {
-    const track = this.sim.track, rng = this.sim.rng;
+    const sim = this.sim, track = sim.track, rng = sim.rng;
     const team = this.teams[r.id];
     const foes = this.sim.racers.filter((o) => o !== r && o.sinkTimer <= 0 && (team < 0 || this.teams[o.id] !== team));
     const far = (p: { x: number; y: number }): number => foes.reduce((m, o) => Math.min(m, Math.hypot(o.x - p.x, o.y - p.y)), Infinity);
@@ -177,13 +208,27 @@ export class BattleSystem {
       const p = track.pointAt(along, rng.range(-1, 1) * hw * BATTLE.baseAcross);
       // Facing either way round the loop at random.
       const spot = { x: p.x, y: p.y, heading: rng.chance(0.5) ? p.heading : p.heading + Math.PI };
+      // never inside (or touching) a moored barge
+      if (sim.trafficPoses.some((b) => b.solid && touchesCapsule(spot.x, spot.y, r.stats.radius + 24, bargeCapsule(b)))) continue;
       const d = far(spot);
       if (d > bestD) {
         bestD = d;
         best = spot;
       }
     }
-    return best!;
+    return best ?? track.pointAt(team >= 0 ? this.basePoint(team).along : 0, 0);
+  }
+
+  /** Time is up and the lead is shared: the next point wins (timeLeft goes on below 0 meanwhile). */
+  get suddenDeath(): boolean {
+    return this.timeLeft <= 0 && !this.over;
+  }
+
+  /** The lead is shared: two teams level, or (free for all) two boats on the top score. */
+  private tied(): boolean {
+    if (isTeamMode(this.mode)) return this.teamScores[0] === this.teamScores[1];
+    const s = [...this.scores].sort((a, b) => b - a);
+    return s.length > 1 && s[0] === s[1];
   }
 
   update(dt: number): void {
@@ -192,12 +237,15 @@ export class BattleSystem {
       this.endT -= dt;
       return;
     }
+    const before = this.timeLeft;
     this.timeLeft -= dt;
     if (this.mode === 'ctf') this.updateFlags(dt);
-    if (this.timeLeft <= 0) {
-      this.timeLeft = 0;
-      this.finish();
-    }
+    if (this.over) return;
+    if (before > 0 && this.timeLeft <= 0) {
+      // Time's up: a winner, or sudden death.
+      if (this.tied()) this.sim.emit({ type: 'suddenDeath' });
+      else this.finish();
+    } else if (this.timeLeft <= -BATTLE.overtime) this.finish(); // still level: a draw
   }
 
   /** The match is over and the results can show. */
@@ -207,6 +255,8 @@ export class BattleSystem {
 
   private updateFlags(dt: number): void {
     const sim = this.sim;
+    // Carrying a flag slows you down (through the catch-up factor, which battles don't otherwise use).
+    for (const r of sim.racers) r.catchUp = this.flags.some((f) => f.carrier === r.id) ? BATTLE.carrierSpeed : 1;
     for (const f of this.flags) {
       if (f.carrier >= 0) {
         const c = sim.racers[f.carrier];
@@ -257,9 +307,10 @@ export class BattleSystem {
   }
 
   private checkEnd(): void {
+    if (this.suddenDeath && !this.tied()) return this.finish();
     const won = this.mode === 'deathmatch'
-      ? this.stats.some((s) => s.kills >= BATTLE.fragLimit)
-      : this.teamScores.some((s) => s >= (this.mode === 'ctf' ? BATTLE.captureLimit : BATTLE.teamFragLimit));
+      ? this.stats.some((s) => s.kills >= this.limit)
+      : this.teamScores.some((s) => s >= this.limit);
     if (won) this.finish();
   }
 
@@ -271,6 +322,26 @@ export class BattleSystem {
     // Everyone stops shooting: blinking boats can't be hurt any more.
     for (const r of this.sim.racers) addEffect(r, 'invulnerable', BATTLE.endPause + 1);
     this.sim.emit({ type: 'battleOver', team: this.winnerTeam });
+  }
+
+  /**
+   * Which column of the item odds a boat draws from (0: the leader's weak items, 3: the strongest),
+   * by how far it (or its team) is ahead or behind on points, not by place: at 0-0 nobody leads.
+   */
+  oddsColumn(r: Racer): number {
+    let lead: number, steps: number[];
+    if (isTeamMode(this.mode)) {
+      const t = this.teams[r.id];
+      lead = this.teamScores[t] - this.teamScores[1 - t];
+      // a capture is worth a lot more than a sinking
+      steps = this.mode === 'ctf' ? [1, 0, -2] : [3, 0, -3];
+    } else {
+      const s = this.scores;
+      lead = s[r.id] - Math.max(...s.filter((_, i) => i !== r.id));
+      steps = [1, 0, -2];
+    }
+    // ahead by the first step or more: 0; level (or a little ahead): 1; a little behind: 2; far behind: 3
+    return lead >= steps[0] ? 0 : lead >= steps[1] ? 1 : lead > steps[2] ? 2 : 3;
   }
 
   get result(): BattleResult {

@@ -190,41 +190,72 @@ With them, in AI races on Lock & Load, the lead changes hands about 4.4 times a 
 ## Battle modes
 
 Played on the two [arenas](tracks.md#arenas), offline (Single player → Battle) or online (the
-host picks the mode in the lobby). No laps: boats score. Items work as in a race (crates
-everywhere, weak and strong items handed out by score rather than by place), except the
-tugboat, which never comes out of a crate in a battle (it tows you along the loop); catch-up boost,
-rubber-banding, police, anglers and barge drops are off. Code: `src/race/battle.ts`.
+host picks the mode in the lobby). No laps: boats score. Catch-up boost, rubber-banding, police,
+anglers and barge drops are off. Code: `src/race/battle.ts`; numbers in `BATTLE`.
 
 | Mode | Teams | Wins | Time limit |
 | --- | --- | --- | --- |
-| **Deathmatch** | Every boat for itself | 8 sinkings, or the most when time runs out (level: fewer times sunk) | 4 min |
-| **Team deathmatch** | Corsica against Brittany | 15 sinkings for the team | 4 min |
-| **Capture the flag** | Corsica against Brittany | 3 captures | 5 min |
+| **Deathmatch** | Every boat for itself | boats + 2 sinkings (8 for six boats), or the most when time runs out (level on points: fewer times sunk) | 4 min |
+| **Team deathmatch** | Corsica against Brittany | 2.5 sinkings a boat for the team (15 for six boats, 10 for four) | 4 min |
+| **Capture the flag** | Corsica against Brittany | 4 captures | 5 min |
 
 - **A sinking scores** for the boat that last hit the one that sank, if that hit was less than
-  6 s before (sinking on your own, or by a team-mate, scores nothing).
+  6 s before (sinking on your own scores nothing).
 - **Teams**: Corsica (red boats, the Moor's head flag) and Brittany (blue boats, the Gwenn-ha-Du).
   Every boat of a team has a ring of its colour round the hull and its team's flag (in a
-  frame of the team's colour) flying over it. Each team has a **base**: a glowing ring on the water. Offline you pick your team; online each
-  person picks a side in the lobby and AI boats fill in for the side with fewer boats.
+  frame of the team's colour) flying over it. Each team has a **base**: a glowing ring on the
+  water. Offline you pick your team; online each person picks a side in the lobby and AI boats
+  fill in for the side with fewer boats.
+- **No friendly fire**: nothing a team-mate does hurts, slows or blinds you. Items that hit
+  "every opponent" (siphoning, blackout, sauna, stairs, noise complaint, Dicke Titten, Lost in
+  Translation…) skip your team; homing volunteers only go for opponents; your team-mates'
+  traps, smoke, glue, saws and jets let you through. A magic mushroom shrinks opponents ahead on
+  points and speeds up everyone else on your team.
+- **Items in an arena**:
+  - There is no "boat ahead": volunteers home in on the nearest opponent in front (within
+    1400 px); things that land in front of or behind a boat (Dicke Titten, stairs, lazy
+    volunteers, ducks) go by **the way it is going** round the arena.
+  - **Odds by the lead on points**, not by place (at 0-0 nobody leads): ahead (by a point, a
+    capture, or 3 points in team deathmatch): the leader's weak items; level: the second
+    column; a little behind: the third; far behind: the strongest.
+  - Items hurt **1.6×** as much as in a race (fights end in sinkings rather than dents), and
+    crates come back after 2.5 s instead of 4.
+  - **Aim assist**: a shot (nails, silicone, raclette, the drill when it leaves the bow) fired
+    within 17° of an opponent, closer than 1000 px, goes straight at where it is heading.
+  - The **tugboat** never comes out of a crate (it tows you along the loop).
+- **Golden crates**: two spots per arena, in the middle of the water (in the chicanes of the
+  Great Basin, in the channels of the Two Lakes). The first turns up after 20 s, the second 15 s
+  later, then each comes back 30 s after it is opened. A golden crate holds an item from the
+  strongest column, always the better version (×3), and only opens for a boat with a free slot.
+  Big, gold, glowing; a star on the minimap, an arrow at the edge of the screen and "A golden
+  crate is up!" when one appears.
 - **Respawn**: a boat that sinks comes back with a full hull **at its team's base**, on a random
-  spot there, the one of twelve tries farthest from any opponent. Free for all: anywhere on the
-  arena, again the try farthest from any opponent.
+  spot there, the one of twelve tries farthest from any opponent (never on a moored barge).
+  Free for all: anywhere on the arena, again the try farthest from any opponent.
 - **Capture the flag**: each team's flag stands at its base. Touch the other team's flag to take
   it (it flies over your boat), bring it to your own base **while your own flag is there**: a
-  capture. A carrier that sinks drops the flag where it sank; touched by its own team, a dropped
-  flag goes home at once; touched by the other team it is taken again; left alone it goes home
-  after 20 s.
+  capture. The carrier is slower (75 % top speed). **Hit by an opponent, the carrier drops the
+  flag** (and blinks, so it can't pick it straight back up); so does a carrier that sinks.
+  Touched by its own team, a dropped flag goes home at once; touched by the other team it is
+  taken again; left alone it goes home after 20 s.
+- **Sudden death**: time runs out with the lead shared (two teams level, or two boats on the top
+  score): "Sudden death!", the clock is replaced by it, and the next point that breaks the tie
+  wins. Still level after 90 s: a draw.
 - **The end**: when a team or a boat reaches the limit, or time runs out, everyone blinks
   (can't be hurt) for 2.5 s, then the results: the winning team (or a draw) with both teams'
   scores beside their flags, and for each boat its flags, sinkings and times sunk.
 - **The HUD**: the two flags with the team scores (yours highlighted) or your place in free for
-  all, your score, the time left (red under 30 s), bases and flags on the minimap, and messages
-  ("You sank X", "Your flag was taken", …).
-- **AI**: in deathmatch, fetch an item when empty-handed, then go for the nearest or weakest
-  opponent. In capture the flag a carrier heads home; the others chase a thief, bring back a
-  dropped flag, guard their base (one in two) or go for the other flag and escort its carrier
-  (see [AI](ai.md)).
+  all, your score, the time left (red under 30 s), bases, flags and golden crates on the
+  minimap, and messages ("You sank X", "Your flag was taken", …). Under the minimap a **feed** of
+  the last four sinkings ("Bilge sank Marge", in the scoring team's colour). **Arrows** at the
+  edge of the screen point to what matters off it: opponents within 1500 px (fading with
+  distance), golden crates, and the flags when carried or dropped. The camera is further out
+  than in a race (×0.8) to see boats coming from every side.
+- **Pace** (AI-only matches, six boats): about one sinking per boat per minute in deathmatch,
+  a third of the matches won on points before the time limit; capture the flag lasts 3½ to
+  4½ minutes with plenty of flags dropped and brought back. The measurement script is described
+  in [AI](ai.md#battles).
+- **AI**: see [AI](ai.md#battles).
 
 ## Difficulty
 

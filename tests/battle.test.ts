@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { ARENA_DEFS, TRACK_DEFS, loadTrack } from '../src/data/tracks';
 import { removeEffect } from '../src/effects/effects';
-import { BATTLE, type GameMode, TEAM_COLORS } from '../src/race/battle';
+import { BATTLE, type GameMode, TEAM_COLORS, winLimit } from '../src/race/battle';
+import { bargeCapsule } from '../src/race/traffic';
+import { touchesCapsule } from '../src/physics/collisions';
+import { addEffect, hasEffect } from '../src/effects/effects';
 import { RaceSimulation, STEP } from '../src/race/RaceSimulation';
 import { NO_INTENT, type Racer } from '../src/race/types';
 import type { ServerMsg } from '../src/net/protocol';
@@ -53,7 +56,7 @@ describe('battle setup', () => {
     expect(b.flags).toEqual([]);
   });
 
-  it('the arenas are listed apart from the race tracks, have no barges and two bases', () => {
+  it('the arenas are listed apart from the race tracks, have no moving barges and two bases', () => {
     expect(ARENA_DEFS.map((d) => d.id)).toEqual(['arenaBasin', 'arenaLakes']);
     for (const d of ARENA_DEFS) {
       expect(d.arena).toBe(true);
@@ -61,8 +64,21 @@ describe('battle setup', () => {
       expect(d.bases).toHaveLength(2);
       expect(TRACK_DEFS.some((t) => t.id === d.id)).toBe(false);
     }
+    // Only moored barges (cover), which never move.
     const { sim } = battle('deathmatch', 4, 'arenaLakes');
-    expect(sim.traffic.barges).toHaveLength(0);
+    expect(sim.traffic.barges.length).toBe(4);
+    expect(sim.traffic.barges.every((b) => b.moored && b.speed === 0)).toBe(true);
+    expect(sim.traffic.poses(100)).toEqual(sim.traffic.poses(0));
+    expect(sim.traffic.poses(0).every((p) => p.solid && p.moored)).toBe(true);
+  });
+
+  it('the points that win go with the number of boats', () => {
+    expect(winLimit('deathmatch', 6)).toBe(8);
+    expect(winLimit('deathmatch', 4)).toBe(6);
+    expect(winLimit('teamDeathmatch', 6)).toBe(15);
+    expect(winLimit('teamDeathmatch', 4)).toBe(10);
+    expect(winLimit('ctf', 8)).toBe(BATTLE.captureLimit);
+    expect(battle('deathmatch', 5).b.limit).toBe(7);
   });
 });
 
@@ -93,7 +109,7 @@ describe('deathmatch', () => {
   it('comes back where no opponent is near, and the match ends at the points limit', () => {
     const { sim, b } = battle('deathmatch');
     const r = sim.racers[3];
-    for (let k = 0; k < BATTLE.fragLimit; k++) {
+    for (let k = 0; k < b.limit; k++) {
       sinkBy(sim, r, 0);
       waitRespawn(sim, r);
       expect(r.hull).toBe(r.stats.maxHull);
@@ -107,12 +123,37 @@ describe('deathmatch', () => {
     expect(sim.results()[0].racer.id).toBe(0);
   });
 
-  it('ends when time runs out', () => {
+  it('ends when time runs out with a leader', () => {
     const { sim, b } = battle('deathmatch');
+    sinkBy(sim, sim.racers[1], 2);
     b.timeLeft = 0.5;
     for (let i = 0; i < 300 && sim.phase !== 'over'; i++) sim.step(STEP);
     expect(sim.phase).toBe('over');
-    expect(b.timeLeft).toBe(0);
+    expect(sim.results()[0].racer.id).toBe(2);
+  });
+
+  it('level when time runs out: sudden death, the next point wins', () => {
+    const { sim, b } = battle('deathmatch');
+    sinkBy(sim, sim.racers[1], 0);
+    sinkBy(sim, sim.racers[0], 3); // 0 and 3 share the lead
+    b.timeLeft = 0.2;
+    for (let i = 0; i < 30; i++) sim.step(STEP);
+    expect(b.suddenDeath).toBe(true);
+    expect(b.over).toBe(false);
+    expect(sim.takeEvents()).toContainEqual({ type: 'suddenDeath' });
+    // A point for somebody else doesn't break the tie at the top...
+    sinkBy(sim, sim.racers[2], 1);
+    sinkBy(sim, sim.racers[3], 1); // ...but now 1 leads alone with 2
+    expect(b.over).toBe(true);
+    expect(b.order()[0].id).toBe(1);
+  });
+
+  it('still level at the end of sudden death: a draw', () => {
+    const { sim, b } = battle('teamDeathmatch');
+    b.timeLeft = 0.1;
+    for (let i = 0; i < (BATTLE.overtime + 1) / STEP && !b.over; i++) sim.step(STEP);
+    expect(b.over).toBe(true);
+    expect(b.winnerTeam).toBe(-1);
   });
 });
 
@@ -289,5 +330,132 @@ describe('battle online', () => {
     for (const row of res.rows) expect(row).toHaveProperty('kills');
     // Back in the lobby, still a battle.
     expect(a.last('lobby')!.settings.mode).toBe('teamDeathmatch');
+  });
+});
+
+describe('battle items', () => {
+  it('no friendly fire: a team-mate\'s hit does nothing, an opponent\'s hurts more than in a race', () => {
+    const { sim } = battle('teamDeathmatch', 4);
+    const r = sim.racers[0];
+    const full = r.hull;
+    expect(sim.hit(r, 10, 2, 'nailGun')).toBe(false); // 2 is on team 0 too
+    expect(r.hull).toBe(full);
+    expect(sim.hit(r, 10, 1, 'nailGun')).toBe(true);
+    expect(r.hull).toBeCloseTo(full - 10 * BATTLE.damageMult);
+  });
+
+  it('items that hit everyone spare team-mates; free for all, they hit everyone else', () => {
+    const { sim } = battle('teamDeathmatch', 4);
+    sim.items.give(sim.racers[0], 'siphon');
+    sim.items.use(sim.racers[0], 0, 'forward');
+    expect(sim.racers.map((o) => hasEffect(o, 'siphoned'))).toEqual([false, true, false, true]);
+    const ffa = battle('deathmatch', 4).sim;
+    ffa.items.give(ffa.racers[0], 'siphon');
+    ffa.items.use(ffa.racers[0], 0, 'forward');
+    expect(ffa.racers.map((o) => hasEffect(o, 'siphoned'))).toEqual([false, true, true, true]);
+  });
+
+  it('volunteers home in on the nearest opponent in front, never a team-mate', () => {
+    const { sim } = battle('teamDeathmatch', 4);
+    const [me, foe, mate] = [sim.racers[0], sim.racers[1], sim.racers[2]];
+    const ahead = (r: Racer, d: number, side = 0) => {
+      r.x = me.x + Math.cos(me.heading) * d - Math.sin(me.heading) * side;
+      r.y = me.y + Math.sin(me.heading) * d + Math.cos(me.heading) * side;
+    };
+    ahead(mate, 200);
+    ahead(foe, 500, 60);
+    sim.racers[3].x = me.x - 3000;
+    expect(sim.items.nearestFoe(me, 'forward', 0.9, 1400)?.id).toBe(1);
+    sim.items.give(me, 'volunteer');
+    sim.items.use(me, 0, 'forward');
+    expect(sim.items.volunteers[0].targetId).toBe(1);
+  });
+
+  it('aim assist: a shot fired close to an opponent goes at it (in a battle only)', () => {
+    for (const mode of ['deathmatch', 'race'] as const) {
+      const sim = mode === 'race'
+        ? new RaceSimulation({ track: loadTrack('arenaBasin'), difficulty: 'river', seed: 7, roster: Array.from({ length: 2 }, (_, i) => ({ name: `B${i}`, boatId: 'tugboat', human: true, controller: idle })) })
+        : battle('deathmatch', 2).sim;
+      const [me, foe] = sim.racers;
+      // 12 degrees off the bow, 500 px away
+      const a = me.heading + 0.21;
+      foe.x = me.x + Math.cos(a) * 500;
+      foe.y = me.y + Math.sin(a) * 500;
+      foe.vx = foe.vy = 0;
+      sim.items.give(me, 'siliconeGun');
+      sim.items.use(me, 0, 'forward');
+      const blob = sim.items.blobs[0];
+      expect(Math.abs(blob.heading - a) < 0.02).toBe(mode === 'deathmatch');
+    }
+  });
+
+  it('a hit makes a flag carrier drop the flag; carrying it slows you', () => {
+    const { sim, b } = battle('ctf', 4);
+    const thief = sim.racers[0];
+    b.flags[1].carrier = 0;
+    sim.step(STEP);
+    expect(thief.catchUp).toBe(BATTLE.carrierSpeed);
+    removeEffect(thief, 'invulnerable');
+    sim.hit(thief, 5, 1, 'nailGun');
+    expect(b.flags[1].carrier).toBe(-1);
+    expect(b.flags[1].dropped).toBe(true);
+    sim.step(STEP);
+    expect(thief.catchUp).toBe(1);
+  });
+
+  it('item odds go by the lead on points: level, nobody leads', () => {
+    const { sim, b } = battle('deathmatch', 4);
+    expect(sim.racers.map((r) => b.oddsColumn(r))).toEqual([1, 1, 1, 1]);
+    sinkBy(sim, sim.racers[1], 0);
+    sinkBy(sim, sim.racers[2], 0);
+    sinkBy(sim, sim.racers[3], 0);
+    expect(b.oddsColumn(sim.racers[0])).toBe(0);
+    expect(b.oddsColumn(sim.racers[1])).toBe(3);
+    const t = battle('ctf', 4);
+    t.b.teamScores = [1, 0];
+    expect(t.sim.racers.map((r) => t.b.oddsColumn(r))).toEqual([0, 2, 0, 2]);
+  });
+
+  it('golden crates: in the middle of the water, late to turn up, and full of the best (x3)', () => {
+    const { sim } = battle('deathmatch', 2);
+    const golden = sim.items.crates.filter((c) => c.power);
+    expect(golden).toHaveLength(2);
+    expect(golden[0].respawn).toBeGreaterThan(10);
+    golden[0].respawn = 0;
+    const me = sim.racers[0];
+    me.x = golden[0].x;
+    me.y = golden[0].y;
+    me.nearestIndex = sim.track.nearest(me.x, me.y, -1).index;
+    sim.step(STEP);
+    expect(golden[0].respawn).toBeCloseTo(BATTLE.powerRespawn, 0);
+    expect(me.rouletteItem).not.toBeNull();
+    // (an item with three uses already can't be tripled)
+    expect(me.rouletteTriple || me.rouletteItem === 'nailGun' || me.rouletteItem === 'volunteer').toBe(true);
+  });
+
+  it('never comes back inside a moored barge', () => {
+    for (const arena of ['arenaBasin', 'arenaLakes']) {
+      const { sim, b } = battle('deathmatch', 6, arena);
+      const caps = sim.trafficPoses.map(bargeCapsule);
+      for (let k = 0; k < 60; k++) {
+        const r = sim.racers[k % 6];
+        const p = b.respawnPoint(r);
+        expect(caps.some((c) => touchesCapsule(p.x, p.y, r.stats.radius, c))).toBe(false);
+      }
+    }
+  });
+
+  it('things that land in front of a boat follow the way it is going round the arena', () => {
+    const { sim } = battle('deathmatch', 2);
+    const r = sim.racers[0];
+    const s = sim.track.samples[r.nearestIndex];
+    r.vx = s.tx * 200;
+    r.vy = s.ty * 200;
+    expect(sim.facing(r)).toBe(1);
+    r.vx = -r.vx;
+    r.vy = -r.vy;
+    expect(sim.facing(r)).toBe(-1);
+    addEffect(r, 'boost', 1); // (nothing to do with it: facing reads the course only)
+    expect(sim.facing(r)).toBe(-1);
   });
 });

@@ -33,6 +33,13 @@ export interface TrackDef {
   arena?: boolean;
   /** Arenas: where each team's base is, as fractions of the loop (default 0 and 0.5). */
   bases?: number[];
+  /**
+   * Barges moored in the water, as cover to fight round: [where along the loop (fraction), where
+   * across (fraction of the half width, -1 to 1), 1 if moored across the water rather than along].
+   */
+  moored?: [number, number, number?][];
+  /** Arenas: the spots of the golden crates (fractions of the loop, in the middle of the water). */
+  power?: number[];
   /** Real-world tracks: pixels per metre, scenery file (in public/) and data attribution. */
   pxPerM?: number;
   scenery?: string;
