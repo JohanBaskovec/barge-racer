@@ -173,6 +173,8 @@ export class RaceScene extends Phaser.Scene {
         seed: start.seed,
         roster: start.roster.map((e) => ({ name: e.name, boatId: e.boatId, human: e.human })),
         localRacer: mine, // -1 when watching: then sim.player is just the boat being watched
+        mode: start.settings.mode,
+        teams: start.roster.map((e) => e.team ?? 0),
       });
       const online = new OnlineRace(this.sim, this.spectating ? null : this.sim.player!);
       this.online = online;
@@ -453,9 +455,10 @@ export class RaceScene extends Phaser.Scene {
         time: r.time,
         finished: r.finished,
         isPlayer: r.playerId === net.you,
+        ...(m.battle ? { team: r.team, kills: r.kills, deaths: r.deaths, captures: r.captures } : {}),
       };
     });
-    this.time.delayedCall(1200, () => this.scene.start('Results', { rows, trackId: this.sim.track.def.id, selection: this.selection, online: true, cup: m.cup, you: net.you }));
+    this.time.delayedCall(1200, () => this.scene.start('Results', { rows, trackId: this.sim.track.def.id, selection: this.selection, online: true, cup: m.cup, you: net.you, battle: m.battle }));
   }
 
   private updateCamera(dt: number, time: number): void {
@@ -888,7 +891,7 @@ export class RaceScene extends Phaser.Scene {
       isPlayer: r.racer.isPlayer,
       ...(b ? { team: b.teams[r.racer.id], ...b.stats[r.racer.id] } : {}),
     }));
-    const battle = b ? { mode: b.mode, teamScores: [...b.teamScores], winnerTeam: b.winnerTeam } : undefined;
+    const battle = b?.result;
     // A championship race counts for the standings.
     let cup: CupState | undefined;
     if (this.cupKeys && activeCup) {

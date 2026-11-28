@@ -2,6 +2,7 @@ import type { CupRace, CupState } from '../cup/championship';
 import type { Difficulty } from '../data/difficulty';
 import type { TauntId } from '../data/taunts';
 import type { Section } from '../data/tracks';
+import type { BattleResult, GameMode } from '../race/battle';
 import type { RaceEvent } from '../race/types';
 import type { SimState } from './snapshot';
 
@@ -45,6 +46,8 @@ export interface RoomSettings {
   plan?: CupRace[];
   /** Laps of this race, when the championship sets them. */
   laps?: number;
+  /** A battle (deathmatch, team deathmatch, capture the flag) on an arena instead of a race (absent: a race). */
+  mode?: GameMode;
 }
 
 export interface LobbyPlayer {
@@ -57,6 +60,8 @@ export interface LobbyPlayer {
   away?: boolean;
   /** Joined during a race: watching it, racing in the next one. */
   watching?: boolean;
+  /** In a team battle: 0 Corsica, 1 Brittany. */
+  team?: number;
 }
 
 /** An AI boat the host has added to the room. */
@@ -64,6 +69,8 @@ export interface LobbyBot {
   id: string;
   name: string;
   boatId: string;
+  /** In a team battle: the team it fills in for (the smaller one). */
+  team?: number;
 }
 
 export interface StartEntry {
@@ -72,6 +79,8 @@ export interface StartEntry {
   human: boolean;
   /** The player driving this boat, or null for an AI boat. */
   playerId: string | null;
+  /** In a team battle: the boat's team. */
+  team?: number;
 }
 
 export interface ResultRowNet {
@@ -80,6 +89,11 @@ export interface ResultRowNet {
   time: number;
   finished: boolean;
   playerId: string | null;
+  /** In a battle: the boat's team (-1: none) and its tally. */
+  team?: number;
+  kills?: number;
+  deaths?: number;
+  captures?: number;
 }
 
 export type ClientMsg =
@@ -87,6 +101,8 @@ export type ClientMsg =
   | { t: 'join'; name: string; boatId: string; key?: string }
   | { t: 'boat'; boatId: string }
   | { t: 'ready'; ready: boolean }
+  /** In a team battle: change sides. */
+  | { t: 'team'; team: number }
   | { t: 'settings'; settings: RoomSettings }
   /** Host: one more seat (an AI boat in it), or take an AI boat out along with its seat. */
   | { t: 'addBot' }
@@ -104,7 +120,7 @@ export type ServerMsg =
   | { t: 'start'; seed: number; settings: RoomSettings; roster: StartEntry[] }
   | { t: 'snap'; s: number; ack: number; state: SimState; ev: RaceEvent[] }
   /** `cup`: in a championship, the standings with this race counted. */
-  | { t: 'results'; rows: ResultRowNet[]; cup?: CupState }
+  | { t: 'results'; rows: ResultRowNet[]; cup?: CupState; battle?: BattleResult }
   /** Someone taunted (`from`: their player id). */
   | { t: 'taunt'; from: string; id: TauntId }
   | { t: 'error'; reason: 'full' | 'racing' | 'bad' }

@@ -27,6 +27,22 @@ Unlocks: Canal Cup tracks 1 and 2 are unlocked at the start. Finishing a race
 unlocks the next track for Single Race. Winning the Canal Cup unlocks the Open
 Water Cup.
 
+## Arenas
+
+The battle modes ([Game design](game-design.md#battle-modes)) are played on two arenas, listed
+apart from the race tracks (`ARENA_DEFS` in `src/data/tracks.ts`): closed loops of very wide water
+round an island, so boats can fight in every direction rather than race one way. A `TrackDef`
+with `arena: true`, `traffic: 0` (no barges), no laps, and `bases`: each team's base as a share
+of the loop (0 Corsica, 1 Brittany).
+
+| Arena | Theme | Layout | Bases |
+| --- | --- | --- | --- |
+| **The Great Basin** | `canal` | A round basin in a canal town: a ring of open water (700 px wide) round a walled island, crates in rows all round | Opposite sides of the ring |
+| **The Two Lakes** | `lagoon` | A wide lake (820 to 900 px) for each team, joined by two narrow channels (320 px) round an island: the channels are where fights happen | One in each lake |
+
+There is no start line: boats start round their base (free for all: spread round the loop).
+Police, anglers and barge drops are turned off.
+
 ## Real-world tracks
 
 Canal de Reims is built from map data rather than drawn by hand; see
@@ -34,9 +50,11 @@ Canal de Reims is built from map data rather than drawn by hand; see
 
 ## Track format
 
-Tracks are data, not code. **Current state:** the four implemented invented tracks
-(Lock & Load, Industrial Estuary, Bayou Bends and Champagne Hills, a river winding through
-vineyards with a tight chicane and a hairpin) are
+Tracks are data, not code. **Current state:** the eight implemented invented race tracks
+(Lock & Load, Industrial Estuary, Bayou Bends, Champagne Hills, a river winding through
+vineyards with a tight chicane and a hairpin; Harbour Rush, right-angled quays round a working
+harbour, 3 laps; Frozen Fjord, a long fjord with two hairpins, 2 laps; Canyon Run, S-bends through
+red rock; Tropical Lagoon, wide and flowing) and the two battle arenas (see [Arenas](#arenas)) are
 plain `TrackDef` objects in `src/data/tracks.ts` (centre line control points with
 widths, checkpoints, crate rows and colours), turned into a `Track` by
 `src/track/Track.ts`. The JSON/Tiled format below is the plan for when there are
@@ -184,6 +202,10 @@ make the game stutter on a phone:
 | `canal` | Lock & Load | A brick town: a quay street on each bank with plane trees, cross streets and a back street forming blocks, terraces of houses (mostly tiled roofs, a few slate, the odd church) with gardens, more houses and trees further out, a football pitch where there is room |
 | `industrial` | Industrial Estuary | A dock road on one bank and a two-track railway on the other, then warehouses with rooftop units, groups of round storage tanks and yards of stacked shipping containers, scrub on the waste ground |
 | `bayou` | Bayou Bends | Swamp forest down to the water: bushes crowding both banks, a canopy of big crowns everywhere else, a dirt trail along one bank, a few tin-roofed shacks in clearings, lily pads in the slack water |
+| `harbour` | Harbour Rush | Quays at right angles with bollards, container yards, warehouses and tank farms behind, a harbour road, moored dinghies in the water |
+| `fjord` | Frozen Fjord | Snow on the banks, pine forests up the slopes, a few red wooden houses by a road along one bank, ice floes drifting in the water |
+| `canyon` | Canyon Run | Red rock and sand, boulders and cacti, a dirt track, an adobe hamlet, rocks sticking out of the water |
+| `lagoon` | Tropical Lagoon, The Two Lakes | Palm trees on sandy banks, beach huts and a beach road, rocks in the shallows |
 | `vineyard` | Champagne Hills | Parcels of vines lined up with the river on both banks (now and then an orchard, a meadow or, further out, a wood), a country road along one bank with a few side roads, a village with its church and a cluster of houses round it, champagne cellars (long buildings) along the road, poplars on the banks |
 
   Rules that keep it tidy: nothing is built on the towpath or in the water; a line

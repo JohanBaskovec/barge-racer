@@ -184,7 +184,45 @@ With them, in AI races on Lock & Load, the lead changes hands about 4.4 times a 
 | --- | --- |
 | **Single Race** | Pick a boat and a track, race once. |
 | **Championship** | Races in a row against the same 3 opponents. You pick them on the championship screen: 1 to 8 races, any tracks (the same one several times if you like), in any order, 1 to 9 laps each, and for the Reims canal the stretch (start and finish, on the same stretch screen as a single race). By default: every track with laps, three laps each. Points by place: 10 / 8 / 6 / 5 / 4 / 3 / 2 / 1. The grid of each race is set by the standings, **fewest points in front, the leader at the back**. Most points at the end wins; level on points, the better place in the latest race goes first. Online too (see [Multiplayer](multiplayer.md#rooms-and-lobby)). |
+| **Battle** | Deathmatch, team deathmatch or capture the flag on an arena, against AI boats (3 to 8 boats) or online. See [Battle modes](#battle-modes). |
 | **Time Trial** *(later)* | Alone on the track, no items, best lap and best total time saved locally. Ghost replay is a stretch goal. |
+
+## Battle modes
+
+Played on the two [arenas](tracks.md#arenas), offline (Single player → Battle) or online (the
+host picks the mode in the lobby). No laps: boats score. Items work as in a race (crates
+everywhere, weak and strong items handed out by score rather than by place); catch-up boost,
+rubber-banding, police, anglers and barge drops are off. Code: `src/race/battle.ts`.
+
+| Mode | Teams | Wins | Time limit |
+| --- | --- | --- | --- |
+| **Deathmatch** | Every boat for itself | 8 sinkings, or the most when time runs out (level: fewer times sunk) | 4 min |
+| **Team deathmatch** | Corsica against Brittany | 15 sinkings for the team | 4 min |
+| **Capture the flag** | Corsica against Brittany | 3 captures | 5 min |
+
+- **A sinking scores** for the boat that last hit the one that sank, if that hit was less than
+  6 s before (sinking on your own, or by a team-mate, scores nothing).
+- **Teams**: Corsica (red boats, the Moor's head flag) and Brittany (blue boats, the Gwenn-ha-Du).
+  Each team has a **base**: a glowing ring on the water. Offline you pick your team; online each
+  person picks a side in the lobby and AI boats fill in for the side with fewer boats.
+- **Respawn**: a boat that sinks comes back with a full hull **at its team's base**, on a random
+  spot there, the one of twelve tries farthest from any opponent. Free for all: anywhere on the
+  arena, again the try farthest from any opponent.
+- **Capture the flag**: each team's flag stands at its base. Touch the other team's flag to take
+  it (it flies over your boat), bring it to your own base **while your own flag is there**: a
+  capture. A carrier that sinks drops the flag where it sank; touched by its own team, a dropped
+  flag goes home at once; touched by the other team it is taken again; left alone it goes home
+  after 20 s.
+- **The end**: when a team or a boat reaches the limit, or time runs out, everyone blinks
+  (can't be hurt) for 2.5 s, then the results: the winning team (or a draw) with both teams'
+  scores beside their flags, and for each boat its flags, sinkings and times sunk.
+- **The HUD**: the two flags with the team scores (yours highlighted) or your place in free for
+  all, your score, the time left (red under 30 s), bases and flags on the minimap, and messages
+  ("You sank X", "Your flag was taken", …).
+- **AI**: in deathmatch, fetch an item when empty-handed, then go for the nearest or weakest
+  opponent. In capture the flag a carrier heads home; the others chase a thief, bring back a
+  dropped flag, guard their base (one in two) or go for the other flag and escort its carrier
+  (see [AI](ai.md)).
 
 ## Difficulty
 
@@ -218,7 +256,10 @@ No accounts, no server, no purchases.
 2. **Main menu**: Single Race, Cup, Options.
 3. **Boat select**: carousel of boats with a stat chart, locked boats shown as
    silhouettes.
-4. **Single race or championship**: two big cards after the boat.
+4. **Single race, championship or battle**: three big cards after the boat.
+   - **Battle**: the mode (Deathmatch, Team deathmatch, Capture the flag), the arena, the number
+     of boats (3 to 8, at least 4 with teams), your team (Corsica or Brittany) and the
+     opponents' level, then "Fight!".
    - **Track select** (single race): thumbnails of the track layout, the opponents' level.
    - **Championship**: one row per race: the track (‹ ›), its laps (− +) or, on the Reims canal,
      its stretch (✎ opens the stretch screen), ▲ ▼ to reorder, ✕ to take it out, "+ Add a race";

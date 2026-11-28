@@ -60,6 +60,13 @@ export interface Flag {
   droppedT: number;
 }
 
+/** A battle's outcome, for the results: the mode, the teams' scores, the winning team (-1: none or a draw). */
+export interface BattleResult {
+  mode: Exclude<GameMode, 'race'>;
+  teamScores: number[];
+  winnerTeam: number;
+}
+
 export interface BattleStats {
   kills: number;
   deaths: number;
@@ -226,9 +233,12 @@ export class BattleSystem {
       for (const r of sim.racers) {
         if (r.sinkTimer > 0 || sim.isIntangible(r)) continue;
         if (!isTouching(r, f.x, f.y, BATTLE.flagRadius)) continue;
+        // (a boat of its own team guarding the flag at home doesn't stop the others taking it)
         if (this.teams[r.id] === f.team) {
-          if (f.dropped) this.sendHome(f, r.id);
-        } else if (!this.flags.some((o) => o.carrier === r.id)) {
+          if (!f.dropped) continue;
+          this.sendHome(f, r.id);
+        } else {
+          if (this.flags.some((o) => o.carrier === r.id)) continue;
           f.carrier = r.id;
           f.dropped = false;
           sim.emit({ type: 'flag', team: f.team, action: 'taken', racer: r.id });
@@ -261,6 +271,10 @@ export class BattleSystem {
     // Everyone stops shooting: blinking boats can't be hurt any more.
     for (const r of this.sim.racers) addEffect(r, 'invulnerable', BATTLE.endPause + 1);
     this.sim.emit({ type: 'battleOver', team: this.winnerTeam });
+  }
+
+  get result(): BattleResult {
+    return { mode: this.mode, teamScores: [...this.teamScores], winnerTeam: this.winnerTeam };
   }
 
   /** The standings: team modes by team then points; free for all by points, then fewest deaths. */

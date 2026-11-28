@@ -34,6 +34,17 @@ export interface SimState {
   bul: [number, number, number, number, number, number, number][]; // id, x, y, heading, travelled, target, near
   ang: [number, number, number, number, number, number][]; // id, target, side, along, age, hooked
   cri: [number, number, number, number, number, number, number?][]; // id, kind, along, lat, dir, age, owner (couches)
+  /** A battle: time left, team scores, each boat's kills, deaths and captures, the flags, over, the winning team. */
+  bt?: BattleState;
+}
+
+export interface BattleState {
+  tl: number;
+  ts: number[];
+  st: [number, number, number][];
+  fl: [number, number, number, number, number][]; // x, y, carrier, dropped, droppedT
+  ov: number;
+  wt: number;
 }
 
 export interface RacerState {
@@ -72,7 +83,7 @@ const r3 = (v: number): number => Math.round(v * 1000) / 1000;
 export function encodeState(sim: RaceSimulation): SimState {
   const it = sim.items;
   const hz = sim.hazards;
-  return {
+  const state: SimState = {
     phase: sim.phase,
     k: sim.steps,
     cd: r3(sim.countdownT),
@@ -97,6 +108,14 @@ export function encodeState(sim: RaceSimulation): SimState {
     ang: hz.anglers.map((a) => [a.id, a.target, a.side, r1(a.along), r3(a.age), a.hooked ? 1 : 0]),
     cri: hz.critters.map((c) => (c.owner === undefined ? [c.id, c.kind, r1(c.along), r1(c.lat), c.dir, r3(c.age)] : [c.id, c.kind, r1(c.along), r1(c.lat), c.dir, r3(c.age), c.owner])),
   };
+  const b = sim.battle;
+  if (b) {
+    state.bt = {
+      tl: r3(b.timeLeft), ts: [...b.teamScores], st: b.stats.map((s) => [s.kills, s.deaths, s.captures]),
+      fl: b.flags.map((f) => [r1(f.x), r1(f.y), f.carrier, f.dropped ? 1 : 0, r3(f.droppedT)]), ov: b.over ? 1 : 0, wt: b.winnerTeam,
+    };
+  }
+  return state;
 }
 
 type PoliceTuple = [number, number, number, number, number, number, number, number];
@@ -168,6 +187,20 @@ export function applyState(sim: RaceSimulation, s: SimState, except = -1): void 
   it.clouds = s.clouds.map(([id, owner, kind, x, y, age]) => ({ id, owner, kind: kind as 0 | 1 | 2, x, y, age, dead: false }));
   it.stairs = (s.stairs ?? []).map(([id, owner, target, along, side, age, hit]) => ({ id, owner, target, along, side: side as 1 | -1, age, hit: [...hit], dead: false }));
   it.drops = s.drops.map(([id, x, y, fromX, fromY, age, target, kind]) => ({ id, kind: (kind ?? 0) as 0 | 1, x, y, fromX, fromY, age, target, dead: false }));
+  const b = sim.battle;
+  if (b && s.bt) {
+    b.timeLeft = s.bt.tl;
+    b.teamScores = [...s.bt.ts];
+    s.bt.st.forEach(([kills, deaths, captures], i) => {
+      if (b.stats[i]) Object.assign(b.stats[i], { kills, deaths, captures });
+    });
+    s.bt.fl.forEach(([x, y, carrier, dropped, droppedT], i) => {
+      if (b.flags[i]) Object.assign(b.flags[i], { x, y, carrier, dropped: dropped === 1, droppedT });
+    });
+    b.over = s.bt.ov === 1;
+    b.winnerTeam = s.bt.wt;
+    sim.updateRanking(); // the standings follow the scores
+  }
   const hz = sim.hazards;
   const pol = s.pol ?? null;
   hz.police = pol && decodePolice(pol, false);

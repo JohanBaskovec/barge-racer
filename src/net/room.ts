@@ -2,7 +2,8 @@ import { type CupState, cleanPlan, cupGrid, cupOver, cupRace, newCup, scoreRace 
 import { BOATS } from '../data/boats';
 import { DIFFICULTIES, type Difficulty } from '../data/difficulty';
 import { TAUNT_COOLDOWN, isTaunt } from '../data/taunts';
-import { TRACK_DEFS, clampSection, getTrackDef, hasSections, loadTrack } from '../data/tracks';
+import { ARENA_DEFS, TRACK_DEFS, clampSection, getTrackDef, hasSections, loadTrack } from '../data/tracks';
+import { GAME_MODES, type GameMode, isBattle, isTeamMode } from '../race/battle';
 import { Rng } from '../physics/math';
 import { RaceSimulation, STEP } from '../race/RaceSimulation';
 import type { RaceEvent } from '../race/types';
@@ -40,6 +41,8 @@ interface Player {
   idle: boolean;
   /** When they last taunted (ms), to keep taunts from flooding everyone. */
   lastTaunt: number;
+  /** Their side in a team battle: 0 Corsica, 1 Brittany. */
+  team: number;
 }
 
 const AI_NAMES = ['Captain Bob', 'Molly Moor', 'Dredge', 'Admiral Fizz', 'Bilge', 'Skipper Sue', 'Barnacle Ben', 'Lady Lock', 'Rusty Rudder', 'Marge'];
@@ -151,6 +154,21 @@ export class RoomCore {
     return this.order[0];
   }
 
+  get mode(): GameMode {
+    return this.settings.mode ?? 'race';
+  }
+
+  /** The AI boats' teams: each fills in for the side with fewer boats so far (people first). */
+  private botTeams(): number[] {
+    const n = [0, 0];
+    for (const id of this.order) n[this.players.get(id)!.team]++;
+    return this.bots.map(() => {
+      const t = n[1] < n[0] ? 1 : 0;
+      n[t]++;
+      return t;
+    });
+  }
+
   private send(conn: Conn, msg: ServerMsg): void {
     try {
       conn.send(JSON.stringify(msg));
@@ -176,9 +194,12 @@ export class RoomCore {
       const row: LobbyPlayer = { id, name: p.name, boatId: p.boatId, ready: p.ready, host: id === this.hostId };
       if (!p.conn) row.away = true;
       if (p.watching) row.watching = true;
+      if (isTeamMode(this.mode)) row.team = p.team;
       return row;
     });
-    const msg: ServerMsg = { t: 'lobby', players, bots: this.bots.map((b) => ({ ...b })), settings: this.settings, racing: this.racing };
+    const teams = isTeamMode(this.mode) ? this.botTeams() : null;
+    const bots = this.bots.map((b, i) => (teams ? { ...b, team: teams[i] } : { ...b }));
+    const msg: ServerMsg = { t: 'lobby', players, bots, settings: this.settings, racing: this.racing };
     if (this.cup) msg.cup = this.cup;
     return msg;
   }
@@ -218,10 +239,30 @@ export class RoomCore {
           this.broadcast(this.lobbyState());
         }
         break;
-      case 'settings':
-        if (!this.racing && p.id === this.hostId && msg.settings && TRACK_DEFS.some((t) => t.id === msg.settings.trackId) && msg.settings.difficulty in DIFFICULTIES) {
+      case 'team':
+        if (!this.racing && (msg.team === 0 || msg.team === 1)) {
+          p.team = msg.team;
+          this.broadcast(this.lobbyState());
+        }
+        break;
+      case 'settings': {
+        if (this.racing || p.id !== this.hostId || !msg.settings || !(msg.settings.difficulty in DIFFICULTIES)) break;
+        // A battle is fought on an arena, a race on a race track: a track of the wrong kind is refused.
+        const mode: GameMode = GAME_MODES.includes(msg.settings.mode as GameMode) ? (msg.settings.mode as GameMode) : 'race';
+        const tracks = isBattle(mode) ? ARENA_DEFS : TRACK_DEFS;
+        if (!tracks.some((t) => t.id === msg.settings.trackId)) break;
+        {
           const def = getTrackDef(msg.settings.trackId);
           this.settings = { trackId: def.id, difficulty: msg.settings.difficulty as Difficulty, size: this.size };
+          if (isBattle(mode)) {
+            // No championship in a battle; two teams need two boats at least.
+            this.settings.mode = mode;
+            this.cup = null;
+            if (msg.settings.size !== undefined) this.resize(Number(msg.settings.size));
+            if (isTeamMode(mode) && this.size < 2) this.resize(2);
+            this.broadcast(this.lobbyState());
+            break;
+          }
           if (hasSections(def)) this.settings.section = clampSection(def, msg.settings.section);
           // A size that would leave people without a seat is refused (the rest still applies).
           if (msg.settings.size !== undefined) this.resize(Number(msg.settings.size));
@@ -236,6 +277,7 @@ export class RoomCore {
           this.broadcast(this.lobbyState());
         }
         break;
+      }
       case 'addBot':
         // One more seat, for an AI boat.
         if (!this.racing && p.id === this.hostId && this.resize(this.size + 1)) this.broadcast(this.lobbyState());
@@ -303,6 +345,8 @@ export class RoomCore {
       id: conn.id, conn, key: randomKey(), name: cleanName(msg.name),
       boatId: BOATS.some((b) => b.id === msg.boatId) ? msg.boatId : BOATS[0].id,
       ready: false, racer: -1, input: new RemoteController(), watching: this.racing, idle: false, lastTaunt: -1e9,
+      // The side with fewer people.
+      team: this.order.filter((id) => this.players.get(id)!.team === 1).length < this.order.filter((id) => this.players.get(id)!.team === 0).length ? 1 : 0,
     };
     this.players.set(player.id, player);
     this.order.push(player.id);
@@ -366,10 +410,13 @@ export class RoomCore {
       const h = this.players.get(id)!;
       h.input = new RemoteController();
       h.idle = false;
-      return { name: h.name, boatId: h.boatId, human: true, playerId: h.id, input: h.input, key: h.id };
+      return { name: h.name, boatId: h.boatId, human: true, playerId: h.id, input: h.input, key: h.id, team: h.team };
     });
     // AI boats in the other seats.
-    for (const b of this.bots.slice(0, MAX_PLAYERS - roster.length)) roster.push({ name: b.name, boatId: b.boatId, human: false, playerId: null, key: b.id });
+    const botTeams = this.botTeams();
+    this.bots.slice(0, MAX_PLAYERS - roster.length).forEach((b, i) => roster.push({ name: b.name, boatId: b.boatId, human: false, playerId: null, key: b.id, team: botTeams[i] }));
+    const teamMode = isTeamMode(this.mode);
+    if (!teamMode) for (const e of roster) delete e.team;
     // A championship race: the fewest points at the front of the grid, the leader at the back.
     if (this.cup) roster = cupGrid(this.cup, roster, (e) => e.key);
     roster.forEach((e, i) => {
@@ -382,6 +429,8 @@ export class RoomCore {
       difficulty: this.settings.difficulty,
       seed,
       roster: roster.map((e) => ({ name: e.name, boatId: e.boatId, human: e.human, controller: e.input })),
+      mode: this.mode,
+      teams: teamMode ? roster.map((e) => e.team ?? 0) : undefined,
     });
     this.stepsDone = 0;
     this.startedAt = this.now();
@@ -443,8 +492,10 @@ export class RoomCore {
     }
     const byRacer = new Map(this.order.map((id) => [this.players.get(id)!.racer, id]));
     byRacer.delete(-1);
+    const b = sim.battle;
     const rows: ResultRowNet[] = sim.results().map((r) => ({
       name: r.racer.name, boatId: r.racer.boat.id, time: Math.round(r.time * 1000) / 1000, finished: r.finished, playerId: byRacer.get(r.racer.id) ?? null,
+      ...(b ? { team: b.teams[r.racer.id], ...b.stats[r.racer.id] } : {}),
     }));
     // A championship: count the race, then on to the next track (or a new championship after the last).
     let cup: CupState | undefined;
@@ -463,7 +514,10 @@ export class RoomCore {
       p.watching = false;
       p.idle = false;
     }
-    this.broadcast(cup ? { t: 'results', rows, cup } : { t: 'results', rows });
+    const results: Extract<ServerMsg, { t: 'results' }> = { t: 'results', rows };
+    if (cup) results.cup = cup;
+    if (b) results.battle = b.result;
+    this.broadcast(results);
     this.broadcast(this.lobbyState());
   }
 }

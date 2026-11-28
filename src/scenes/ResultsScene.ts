@@ -4,6 +4,7 @@ import { audio } from '../audio/AudioManager';
 import { net } from '../net/client';
 import { type CupState, pointsFor } from '../cup/championship';
 import type { Selection } from '../session';
+import type { BattleResult } from '../race/battle';
 import { background, button, fitText, fmtTime, text } from '../view/ui';
 
 export interface ResultRow {
@@ -20,12 +21,6 @@ export interface ResultRow {
   captures?: number;
 }
 
-/** A battle's outcome: the mode, the teams' scores, the winning team (-1: none or a draw). */
-export interface BattleResult {
-  mode: 'deathmatch' | 'teamDeathmatch' | 'ctf';
-  teamScores: number[];
-  winnerTeam: number;
-}
 
 export class ResultsScene extends Phaser.Scene {
   constructor() {

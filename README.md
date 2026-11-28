@@ -8,7 +8,7 @@ jigsaws, electric drills, glue and a mysterious white powder.
 The whole game is played with **one pointer**: a mouse or a single finger.
 
 > **Status:** playable prototype (milestones M0 to M3 of the [roadmap](docs/roadmap.md)).
-> You can pick one of 8 boats, race 3 AI opponents on 5 tracks (or all the lap tracks in a championship) at 3 difficulty
+> You can pick one of 8 boats, race 3 AI opponents on 9 tracks (or several in a championship), or fight in two arenas (deathmatch, team deathmatch, capture the flag), at 3 difficulty
 > levels, and use twenty-nine items (two at a time). Art is placeholder (drawn in code) and there
 > is no sound yet. See [what is implemented](#implemented-so-far).
 
@@ -71,7 +71,11 @@ Debug URL parameters (see [Architecture](docs/architecture.md#debug-flags)):
   `Space` to fire, swipe down on the item button to fire backwards.
 - 8 boats with different stats, starting with **Cabourg**, a real péniche
   from the canal drawn from an aerial photo; boat select with stat bars.
-- 4 tracks (Lock & Load, Industrial Estuary, Bayou Bends, Champagne Hills) and track select.
+- 8 invented tracks (Lock & Load, Industrial Estuary, Bayou Bends, Champagne Hills, Harbour Rush,
+  Frozen Fjord, Canyon Run, Tropical Lagoon) and track select (five a page).
+- **Battle modes** on two arenas (The Great Basin, The Two Lakes): deathmatch, team deathmatch
+  and capture the flag, Corsica against Brittany (with their flags), respawn at your team's base;
+  offline against AI boats or online.
 - **Championship**: races in a row that you pick (tracks, order, laps, the Reims stretch), points
   by place, the leader starting at the back; offline against the same three AI boats, or online
   with the room keeping the points.

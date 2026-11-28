@@ -93,6 +93,23 @@ player:
 Rubber-banding is turned off on the last half of the final lap so the finish
 feels earned.
 
+## Battles
+
+In the [battle modes](game-design.md#battle-modes) there is no racing line to follow: the AI
+picks a target (`battleTarget` in `src/control/AIController.ts`) and steers straight at it when it
+is close along the loop (under 420 px), otherwise round the loop the short way. No rubber-banding.
+Stuck recovery and item use work as in a race.
+
+- **Deathmatch** (and team deathmatch): with no item, the nearest crate within 700 px; otherwise
+  the nearest opponent, or a weaker one (less hull) a little further away.
+- **Capture the flag**:
+  - carrying the flag: home to its base;
+  - an opponent has its flag: chase the thief;
+  - its flag lies dropped: go and touch it (it goes home);
+  - otherwise, one boat in two **guards** (stays within 900 px of its base and goes for opponents
+    who come near), the others **attack**: go for the other team's flag, or escort the team-mate
+    carrying it.
+
 ## Difficulty summary
 
 | | Pond | River | Ocean |

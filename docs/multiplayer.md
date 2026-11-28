@@ -97,6 +97,15 @@ own boat and **interpolation** of everyone else.
   champion is shown and the room starts a new championship; turning it off forgets the points.
   Someone who joins in the middle starts with no points; someone who leaves keeps theirs in the
   standings.
+- **Battle**: the host picks the mode with ‹ › above the track: Normal race, Deathmatch, Team
+  deathmatch or Capture the flag. A battle swaps the track for an arena (‹ › then go through the
+  arenas) and turns the championship off. In team modes each row shows its team's flag; people
+  start on the side with fewer people and change with "Join Corsica / Brittany", and AI boats fill
+  in for the side with fewer boats. The server checks the arena goes with the mode (a battle on a
+  race track, or a race on an arena, is refused), passes the mode and teams (`team` in each
+  `StartEntry`) to the race, sends the battle state in every snapshot (`bt`: time left, team
+  scores, each boat's kills, deaths and captures, the flags, over, winner) and the tally in the
+  results (`battle` and per-row `team`, `kills`, `deaths`, `captures`).
 - **Taunts**: "Taunt…" under the list, or the taunt button in a race. The server sends the taunt
   to everyone (at most one per player every 1.2 s); it appears beside the name in the lobby and
   over the boat in a race.
