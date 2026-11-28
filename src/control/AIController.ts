@@ -96,14 +96,14 @@ export class AIController implements Controller {
         if (f > 0 && f < 280 && Math.abs(p) < gap) lateralPx += (p >= 0 ? -1 : 1) * (gap - Math.abs(p) + 10);
       }
     }
-    // Steer round clouds on the water: toxic smoke hurts, melted cheese blinds.
+    // Steer round clouds on the water: toxic smoke hurts, melted cheese and wet paint blind.
     for (const c of sim.items.clouds) {
       if (c.owner === r.id && c.age < 2) continue;
       const dx = c.x - r.x;
       const dy = c.y - r.y;
       const f = dx * hx + dy * hy;
       const p = -dx * hy + dy * hx;
-      const gap = (c.kind === 0 ? TUNING.raclette.cheeseRadius : TUNING.toilet.radius) + r.stats.radius;
+      const gap = (c.kind === 0 ? TUNING.raclette.cheeseRadius : c.kind === 1 ? TUNING.toilet.radius : TUNING.paint.radius) + r.stats.radius;
       if (f > 0 && f < 300 && Math.abs(p) < gap) lateralPx += (p >= 0 ? -1 : 1) * (gap - Math.abs(p) + 10);
     }
     // Steer around fake crates (they look like real ones; better AIs spot them more often).
@@ -135,6 +135,7 @@ export class AIController implements Controller {
     // Birds, rowers and swimmers: swerve round them (sometimes: running them over only slows you).
     const hz = sim.hazards;
     for (const c of hz.critters) {
+      if (c.owner === r.id) continue; // its own couches are behind it
       const p = hz.critterPos(c);
       const dx = p.x - r.x;
       const dy = p.y - r.y;
@@ -172,9 +173,11 @@ export class AIController implements Controller {
     lateralPx = clamp(lateralPx, -maxLat, maxLat);
     const target = track.pointAt(along + lookAhead, lateralPx);
     let desired = Math.atan2(target.y - r.y, target.x - r.x);
-    // Covered in cheese the AI can't see where it is going: it wanders.
-    const blind = hasEffect(r, 'cheesed');
+    // Covered in cheese, lost in steam or with paint all over, the AI can't see where it is going: it wanders.
+    const blind = hasEffect(r, 'cheesed') || hasEffect(r, 'steamed');
+    const smeared = hasEffect(r, 'painted');
     if (blind) desired += Math.sin(sim.time * 3.1 + this.noisePhase) * 0.45;
+    else if (smeared) desired += Math.sin(sim.time * 2.7 + this.noisePhase) * 0.25;
     intent.desiredHeading = desired;
 
     // --- Throttle: lift off for sharp corners ------------------------------
@@ -185,6 +188,7 @@ export class AIController implements Controller {
     const vmax = (r.stats.turnRate * 0.9) / Math.max(kmax, 1e-4);
     intent.throttle = speed > vmax * 1.05 ? clamp(vmax / speed, 0.4, 1) : 1;
     if (blind) intent.throttle = Math.min(intent.throttle, 0.75);
+    else if (smeared) intent.throttle = Math.min(intent.throttle, 0.88);
     if (Math.abs(angleDiff(desired, r.heading)) > 1.2) intent.throttle = Math.min(intent.throttle, 0.5);
 
     // --- Stuck recovery ---------------------------------------------------
@@ -293,6 +297,22 @@ export class AIController implements Controller {
       case 'siphon':
         // They hit every opponent: best from behind, with someone worth passing not too far ahead.
         if (r.position > 0 && others.some((o) => o.progress > r.progress && o.progress - r.progress < 1800)) return 'forward';
+        break;
+      case 'sauna':
+        // Steam for everyone else: best from behind, with boats ahead to pass.
+        if (r.position > 0 && others.some((o) => o.progress > r.progress && o.progress - r.progress < 1800)) return 'forward';
+        break;
+      case 'noise':
+        // The police after everyone else: from behind, with boats worth catching ahead.
+        if (r.position > 0 && others.some((o) => o.progress > r.progress && o.progress - r.progress < 2500)) return 'forward';
+        break;
+      case 'lazyVolunteers':
+      case 'paint':
+        // Dropped behind: when someone is chasing closely.
+        if (others.some((o) => {
+          const gap = r.progress - o.progress;
+          return gap > 40 && gap < 500 && gap < L / 2;
+        })) return 'forward';
         break;
       case 'beerDispenser':
         if (r.hull < r.stats.maxHull * 0.65 && !hasEffect(r, 'shielded')) return 'forward';

@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { PAINT_COLORS } from '../view/worldArt';
 import type { TauntId } from '../data/taunts';
 import { tauntBubble } from '../view/tauntBubble';
 import { type CupState, cupGrid, cupTrack, scoreRace } from '../cup/championship';
@@ -249,6 +250,13 @@ export class RaceScene extends Phaser.Scene {
     return s;
   }
 
+  /** Where a boat is on screen, in game pixels. */
+  boatOnScreen(racer: number): { x: number; y: number } | null {
+    const cam = this.cameras.main;
+    const v = this.views[racer];
+    return v ? { x: (v.x - cam.worldView.x) * cam.zoom, y: (v.y - cam.worldView.y) * cam.zoom } : null;
+  }
+
   /** Where the player's boat is on screen, in game pixels. */
   private playerScreen(): { x: number; y: number } {
     const cam = this.cameras.main;
@@ -476,17 +484,19 @@ export class RaceScene extends Phaser.Scene {
       (sp.getData('shadow') as Phaser.GameObjects.Ellipse).destroy();
       this.retire(sp, 'fade');
     });
-    // Melted cheese and toxic smoke lying on the water.
+    // Melted cheese, toxic smoke and wet paint lying on the water.
     this.syncGroup(this.cloudSprites, items.clouds, (c) => {
       if (c.kind === 0) this.raceAudio.at('glue', c.x, c.y, 0.7); // (a toilet's trail: the flush is heard once)
       if (c.kind === 0) this.fx.cheese(c.x, c.y);
+      if (c.kind === 2) return this.add.image(c.x, c.y, `paint_${c.id % PAINT_COLORS.length}`).setDepth(4).setRotation(c.id * 2.4);
       return this.add.image(c.x, c.y, c.kind === 0 ? 'cheese' : 'smoke').setDepth(c.kind === 0 ? 4 : 12);
     }, (sp, c) => {
-      const life = c.kind === 0 ? TUNING.raclette.cheeseLife : TUNING.toilet.life;
-      const radius = c.kind === 0 ? TUNING.raclette.cheeseRadius : TUNING.toilet.radius;
+      const life = c.kind === 0 ? TUNING.raclette.cheeseLife : c.kind === 1 ? TUNING.toilet.life : TUNING.paint.life;
+      const radius = c.kind === 0 ? TUNING.raclette.cheeseRadius : c.kind === 1 ? TUNING.toilet.radius : TUNING.paint.radius;
       const grow = Math.min(1, c.age / 0.4);
       const fade = c.age > life - 2 ? Math.max(0, (life - c.age) / 2) : 1;
       if (c.kind === 0) sp.setPosition(c.x, c.y).setDisplaySize(radius * 2.15 * grow, radius * 2.15 * grow).setAlpha(fade);
+      else if (c.kind === 2) sp.setPosition(c.x, c.y).setDisplaySize(radius * 2.3 * grow, radius * 2.3 * grow).setAlpha(0.92 * fade);
       else {
         // Smoke rolls slowly and breathes; a bit bigger than the area that hurts, as it is soft at the edges.
         const k = radius * 2.5 * grow * (1 + Math.sin(time / 380 + c.id) * 0.04);
@@ -678,7 +688,7 @@ export class RaceScene extends Phaser.Scene {
     this.drunk += (target - this.drunk) * (1 - Math.exp(-dt * 3));
     if (this.drunk < 0.005) this.drunk = 0;
     const sway = this.reduceShake() ? 0.3 : 1;
-    this.cameras.main.setRotation(Math.sin(time / 650) * 0.06 * this.drunk * sway);
+    this.cameras.main.setRotation(Math.sin(time / 650) * 0.035 * this.drunk * sway);
   }
 
   private updateTrip(time: number, dt: number): void {

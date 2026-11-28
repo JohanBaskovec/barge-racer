@@ -29,6 +29,8 @@ export class ItemSystem {
   private droppedFor = new Map<number, number>();
   /** Time since each flushing boat dropped its last cloud of smoke. */
   private flushT = new Map<number, number>();
+  /** Time since each painting boat left its last splash of paint. */
+  private paintT = new Map<number, number>();
   /** When each boat last got a "toxic" hit event (the smoke hurts every step, but is announced now and then). */
   private toxicAt = new Map<number, number>();
 
@@ -192,6 +194,23 @@ export class ItemSystem {
       case 'vacuum':
         addEffect(r, 'vacuum', TUNING.vacuum.duration);
         break;
+      case 'sauna':
+        // Steam everywhere for the others; the one clear spot is round the owner.
+        addEffect(r, 'sauna', TUNING.sauna.duration);
+        for (const o of this.sim.racers) if (o !== r && !o.finished && o.sinkTimer <= 0) addEffect(o, 'steamed', TUNING.sauna.duration);
+        break;
+      case 'noise':
+        this.sim.hazards.noiseComplaint(r);
+        break;
+      case 'lazyVolunteers':
+        this.sim.hazards.dropCouches(r);
+        break;
+      case 'paint':
+        // A trail of wet paint behind, for a few seconds (see updateFlushing).
+        addEffect(r, 'painting', TUNING.paint.trailTime);
+        this.dropCloud(r, 2, TUNING.paint.radius);
+        this.paintT.set(r.id, 0);
+        break;
     }
     this.sim.emit({ type: 'itemUsed', racer: r.id, item });
     held.uses--;
@@ -199,7 +218,7 @@ export class ItemSystem {
   }
 
   /** A cloud on the water just behind the stern, like glue. */
-  private dropCloud(r: Racer, kind: 0 | 1, radius: number): void {
+  private dropCloud(r: Racer, kind: 0 | 1 | 2, radius: number): void {
     const back = r.heading + Math.PI;
     const dist = r.boat.size.length / 2 + radius * 0.6;
     this.clouds.push({ id: this.nextId++, owner: r.id, kind, x: r.x + Math.cos(back) * dist, y: r.y + Math.sin(back) * dist, age: 0, dead: false });
@@ -735,26 +754,30 @@ export class ItemSystem {
   }
 
   /** A clogged toilet keeps going: a cloud of smoke every `every` s behind the boat, a trail. */
+  /** Trails: toxic smoke behind a flushing boat, wet paint behind a painting one. */
   private updateFlushing(dt: number): void {
-    const T = TUNING.toilet;
+    const T = TUNING.toilet, P = TUNING.paint;
     for (const r of this.sim.racers) {
-      if (!hasEffect(r, 'flushing') || r.sinkTimer > 0) continue;
-      const t = (this.flushT.get(r.id) ?? 0) + dt;
-      if (t >= T.every) {
-        this.dropCloud(r, 1, T.radius);
-        this.flushT.set(r.id, t - T.every);
-      } else this.flushT.set(r.id, t);
+      if (r.sinkTimer > 0) continue;
+      for (const [effect, times, every, kind, radius] of [['flushing', this.flushT, T.every, 1, T.radius], ['painting', this.paintT, P.every, 2, P.radius]] as const) {
+        if (!hasEffect(r, effect)) continue;
+        const t = (times.get(r.id) ?? 0) + dt;
+        if (t >= every) {
+          this.dropCloud(r, kind, radius);
+          times.set(r.id, t - every);
+        } else times.set(r.id, t);
+      }
     }
   }
 
   /** Melted cheese covers whoever drives through it; toxic smoke hurts them, the owner too after a moment. */
   private updateClouds(dt: number): void {
-    const R = TUNING.raclette, T = TUNING.toilet;
+    const R = TUNING.raclette, T = TUNING.toilet, P = TUNING.paint;
     // Smoke hurts once per step, however many clouds of a trail a boat is in.
     const smoked = new Set<number>();
     for (const c of this.clouds) {
       c.age += dt;
-      const [radius, life, immunity] = c.kind === 0 ? [R.cheeseRadius, R.cheeseLife, R.cheeseOwnerImmunity] : [T.radius, T.life, T.ownerImmunity];
+      const [radius, life, immunity] = c.kind === 0 ? [R.cheeseRadius, R.cheeseLife, R.cheeseOwnerImmunity] : c.kind === 1 ? [T.radius, T.life, T.ownerImmunity] : [P.radius, P.life, P.ownerImmunity];
       if (c.age > life) c.dead = true;
       if (c.dead) continue;
       const grow = Math.min(1, c.age / 0.4);
@@ -764,6 +787,12 @@ export class ItemSystem {
         if ((r.x - c.x) ** 2 + (r.y - c.y) ** 2 > rr * rr) continue;
         if (c.kind === 0) {
           addEffect(r, 'cheesed', R.cheeseTime);
+          continue;
+        }
+        if (c.kind === 2) {
+          // Wet paint: splashed all over the screen (and announced once per splashing).
+          if (!hasEffect(r, 'painted')) this.sim.emit({ type: 'painted', racer: r.id, by: c.owner });
+          addEffect(r, 'painted', P.paintTime);
           continue;
         }
         if (smoked.has(r.id)) continue;

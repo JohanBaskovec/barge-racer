@@ -188,6 +188,22 @@ export const SFX = {
     }
     noise(c, d, { dur: len, filter: 'bandpass', freq: 1400, freqEnd: 900, q: 2, gain: 0.12, attack: 0.03 });
   },
+  /** Sauna: water on the hot stones, a long hiss of steam */
+  steam: (c: Ctx, d: AudioNode) => {
+    noise(c, d, { dur: 1.4, filter: 'highpass', freq: 3000, freqEnd: 1800, gain: 0.35, attack: 0.05 });
+    noise(c, d, { dur: 0.3, filter: 'bandpass', freq: 900, q: 1.5, gain: 0.25 });
+  },
+  /** Noise complaint: a loud party: thumping bass and a whoop */
+  partyNoise: (c: Ctx, d: AudioNode) => {
+    for (let k = 0; k < 4; k++) tone(c, d, { type: 'sine', freq: 70, freqEnd: 40, dur: 0.18, gain: 0.5, at: k * 0.22 });
+    for (let k = 0; k < 4; k++) tone(c, d, { type: 'square', freq: [220, 262, 196, 247][k], dur: 0.16, gain: 0.05, lowpass: 1200, at: k * 0.22 + 0.11 });
+    tone(c, d, { type: 'sawtooth', freq: 500, freqEnd: 1100, dur: 0.35, gain: 0.06, lowpass: 2400, vibrato: [30, 8], at: 0.6 });
+  },
+  /** Wet paint: a thick splat */
+  paint: (c: Ctx, d: AudioNode) => {
+    noise(c, d, { dur: 0.22, filter: 'lowpass', freq: 900, freqEnd: 300, gain: 0.45 });
+    tone(c, d, { type: 'sine', freq: 300, freqEnd: 120, dur: 0.15, gain: 0.2 });
+  },
   /** A taunt: two cheeky toots of a car horn */
   honk: (c: Ctx, d: AudioNode) => {
     for (const at of [0, 0.22]) {

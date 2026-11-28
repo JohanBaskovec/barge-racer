@@ -15,6 +15,8 @@ import { oddsColumn } from '../items/itemOdds';
  *   is dragged into the bank).
  * - For everyone, more often the better placed: **birds, rowers and swimmers** on the water.
  *   Running into them makes a mess and slows the boat down; no damage.
+ * - Set off by items: a **noise complaint** sends a police boat after every opponent, and **lazy
+ *   volunteers** on floating couches behave like swimmers.
  *
  * Pure logic like the rest of the race (seeded random numbers), so it runs on the server too.
  */
@@ -34,6 +36,8 @@ export interface Police {
   /** Which side of the target it keeps to. */
   side: 1 | -1;
   fireT: number;
+  /** Sent by a noise complaint (an item) rather than for speeding. */
+  noise?: boolean;
 }
 
 /** A police rocket: flies straight and explodes on the first thing it meets (a boat, the bank, a barge). */
@@ -61,10 +65,14 @@ export interface Angler {
   dead: boolean;
 }
 
-/** Kind 0: a flock of birds, 1: a rowing boat, 2: swimmers. They move along the canal (`dir`). */
+/**
+ * Kind 0: a flock of birds, 1: a rowing boat, 2: swimmers, 3: lazy volunteers on a floating couch
+ * (an item: `owner` dropped it). They move along the canal (`dir`).
+ */
 export interface Critter {
   id: number;
-  kind: 0 | 1 | 2;
+  kind: 0 | 1 | 2 | 3;
+  owner?: number;
   along: number;
   lat: number;
   dir: 1 | -1;
@@ -74,6 +82,8 @@ export interface Critter {
 
 export class HazardSystem {
   police: Police | null = null;
+  /** Police boats sent by a noise complaint, one per boat chased. */
+  noisePolice: Police[] = [];
   bullets: Bullet[] = [];
   anglers: Angler[] = [];
   critters: Critter[] = [];
@@ -91,10 +101,15 @@ export class HazardSystem {
   }
 
   update(dt: number): void {
-    if (!this.enabled || this.sim.phase !== 'racing') return;
-    this.updatePolice(dt);
+    if (this.sim.phase !== 'racing') return;
+    // The hazards that come by themselves (off in some tests); those set off by items always run.
+    if (this.enabled) {
+      this.updatePolice(dt);
+      this.updateAnglers(dt);
+      this.spawnCritters(dt);
+    }
+    this.noisePolice = this.noisePolice.filter((p) => !this.stepPolice(p, dt));
     this.updateBullets(dt);
-    this.updateAnglers(dt);
     this.updateCritters(dt);
     this.bullets = this.bullets.filter((b) => !b.dead);
     this.anglers = this.anglers.filter((a) => !a.dead);
@@ -129,14 +144,23 @@ export class HazardSystem {
       }
       return;
     }
-    const p = this.police;
+    if (this.stepPolice(this.police, dt)) {
+      this.police = null;
+      this.copsReadyAt = sim.time + C.cooldown;
+    }
+  }
+
+  /** One police boat's step: warned, chasing, writing the ticket, leaving. True once it has gone. */
+  private stepPolice(p: Police, dt: number): boolean {
+    const C = TUNING.cops, sim = this.sim, track = sim.track;
+    const warn = p.noise ? TUNING.noise.warn : C.warn, chase = p.noise ? TUNING.noise.chase : C.chase;
     const T = sim.racers[p.target];
     p.t += dt;
     const along = track.alongOf(T.progress);
     const lat = track.nearest(T.x, T.y, T.nearestIndex).lateral;
     switch (p.phase) {
       case 'warn': {
-        if (p.t < C.warn) break;
+        if (p.t < warn) break;
         // It turns up behind its target.
         const s = track.pointAt(along - 520, Math.max(-60, Math.min(60, lat + p.side * 70)));
         p.x = s.x;
@@ -146,7 +170,7 @@ export class HazardSystem {
         break;
       }
       case 'chase': {
-        if (T.finished || T.sinkTimer > 0 || p.t > C.chase) {
+        if (T.finished || T.sinkTimer > 0 || p.t > chase) {
           this.setPhase(p, 'leave');
           break;
         }
@@ -180,19 +204,45 @@ export class HazardSystem {
         // Off it goes, ahead along the canal, and fades away.
         const s = track.pointAt(track.nearest(p.x, p.y, -1).along + 400, 0);
         this.moveTo(p, s, 320, dt);
-        if (p.t > 1.6) {
-          this.police = null;
-          this.copsReadyAt = sim.time + C.cooldown;
-        }
+        if (p.t > 1.6) return true;
         break;
       }
+    }
+    return false;
+  }
+
+  /** A noise complaint: a police boat after every opponent of `r` not already chased. */
+  noiseComplaint(r: Racer): void {
+    const sim = this.sim;
+    for (const o of sim.racers) {
+      if (o === r || o.finished || o.sinkTimer > 0) continue;
+      if (this.police?.target === o.id || this.noisePolice.some((p) => p.target === o.id)) continue;
+      this.noisePolice.push({ phase: 'warn', target: o.id, t: 0, x: o.x, y: o.y, heading: o.heading, side: sim.rng.chance(0.5) ? 1 : -1, fireT: sim.rng.range(0.6, 1.4), noise: true });
+      sim.emit({ type: 'cops', racer: o.id, phase: 'warn', noise: true });
+    }
+  }
+
+  /**
+   * Lazy volunteers: floating couches behind `r`, staggered across the canal (left, middle, right,
+   * one behind the other) so there is always a way through.
+   */
+  dropCouches(r: Racer): void {
+    const L = TUNING.lazyVolunteers, K = TUNING.critters, track = this.sim.track;
+    const base = track.alongOf(r.progress) - L.behind - r.boat.size.length / 2;
+    for (let k = 0; k < L.couches; k++) {
+      let along = base - k * L.stagger;
+      if (track.closed) along = ((along % track.length) + track.length) % track.length;
+      else if (along < 0) continue;
+      const room = Math.max(0, track.sampleAt(along).width / 2 - K.radius[3] - 8);
+      const lat = room * ((k % 3) - 1) * 0.8;
+      this.critters.push({ id: this.nextId++, kind: 3, owner: r.id, along, lat, dir: 1, age: 0, dead: false });
     }
   }
 
   private setPhase(p: Police, phase: PolicePhase): void {
     p.phase = phase;
     p.t = 0;
-    this.sim.emit({ type: 'cops', racer: p.target, phase });
+    this.sim.emit(p.noise ? { type: 'cops', racer: p.target, phase, noise: true } : { type: 'cops', racer: p.target, phase });
   }
 
   /** Glide towards a point at up to `speed`, turning to face the way it goes. */
@@ -254,8 +304,8 @@ export class HazardSystem {
   private rocketHit(r: Racer): void {
     if (hasEffect(r, 'invulnerable')) return;
     if (this.sim.popShield(r, 'police')) return;
-    const p = this.police;
-    if (p && p.target === r.id && p.phase === 'chase') {
+    const p = [this.police, ...this.noisePolice].find((q) => q && q.target === r.id && q.phase === 'chase');
+    if (p) {
       addEffect(r, 'ticketed', TUNING.cops.ticket);
       this.bullets = this.bullets.filter((x) => x.target !== r.id || x.dead);
       this.setPhase(p, 'ticket');
@@ -328,7 +378,8 @@ export class HazardSystem {
     return { x: p.x, y: p.y, heading: c.dir === 1 ? p.heading : p.heading + Math.PI };
   }
 
-  private updateCritters(dt: number): void {
+  /** Now and then birds, rowers or swimmers ahead of a boat (the better placed, the more often). */
+  private spawnCritters(dt: number): void {
     const K = TUNING.critters, sim = this.sim, track = sim.track;
     this.critterT += dt;
     if (this.critterT >= K.every && sim.time > K.startAfter) {
@@ -357,9 +408,14 @@ export class HazardSystem {
         }
       }
     }
+  }
+
+  /** Critters drift along; a boat that runs into one makes a mess of it and is slowed. */
+  private updateCritters(dt: number): void {
+    const K = TUNING.critters, sim = this.sim, track = sim.track;
     for (const c of this.critters) {
       c.age += dt;
-      if (c.age > K.life) c.dead = true;
+      if (c.age > (c.kind === 3 ? TUNING.lazyVolunteers.life : K.life)) c.dead = true;
       if (c.dead) continue;
       c.along += c.dir * K.speed[c.kind] * dt;
       if (track.closed) c.along = ((c.along % track.length) + track.length) % track.length;
@@ -372,6 +428,7 @@ export class HazardSystem {
       const hx = Math.cos(p.heading), hy = Math.sin(p.heading);
       for (const r of sim.racers) {
         if (r.sinkTimer > 0 || sim.isGhost(r)) continue;
+        if (c.owner === r.id && c.age < TUNING.lazyVolunteers.ownerImmunity) continue;
         // A rowing boat is long: test along its length.
         const hitIt = c.kind === 1
           ? [-28, 0, 28].some((o) => isTouching(r, p.x + hx * o, p.y + hy * o, 12))
@@ -381,7 +438,7 @@ export class HazardSystem {
         addEffect(r, 'splattered', K.slowTime);
         r.vx *= K.jolt;
         r.vy *= K.jolt;
-        sim.emit({ type: 'splat', racer: r.id, kind: c.kind, x: p.x, y: p.y });
+        sim.emit({ type: 'splat', racer: r.id, kind: c.kind, x: p.x, y: p.y, heading: p.heading });
         break;
       }
     }

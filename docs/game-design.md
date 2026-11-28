@@ -170,6 +170,10 @@ seeded like the rest of the race, so they run on the server too:
   along the canal. Running into them makes them explode in blood, bits (and feathers),
   leaves a stain on the water and blood on the bow (swimmers and rowers scream), and slows the boat down (top speed
   x 0.7 for 1.3 s, and a jolt); no damage. The AI swerves round them now and then.
+- **Set off by items.** A **Noise Complaint** sends a police boat after every opponent of its
+  user ("NOISE COMPLAINT!"; a hit costs "€68 fine for noise"), several at once, each like the
+  speeding police but chasing for 8 s. **Lazy Volunteers** drop floating couches that behave
+  like swimmers. These run even where the other hazards are turned off.
 
 With them, in AI races on Lock & Load, the lead changes hands about 4.4 times a race
 (2.3 without) and the first two finish under 2 s apart; a race takes about 5 s longer.

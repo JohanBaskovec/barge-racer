@@ -39,7 +39,15 @@ export type EffectKind =
   /** Caught on an angler's line: dragged towards the bank. */
   | 'hooked'
   /** Ran over birds, rowers or swimmers: slowed by the mess for a moment. */
-  | 'splattered';
+  | 'splattered'
+  /** Sauna, on the user: the one clear spot in the steam. */
+  | 'sauna'
+  /** Sauna, on the opponents: lost in thick steam, can't see where they are going. */
+  | 'steamed'
+  /** Painting workshop, on the user: leaving a trail of wet paint. */
+  | 'painting'
+  /** Drove through wet paint: paint all over the screen. */
+  | 'painted';
 
 export interface Effect {
   kind: EffectKind;

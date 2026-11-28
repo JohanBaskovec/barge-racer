@@ -197,10 +197,11 @@ export interface Boobs {
 }
 
 /** Something that lies on the water for a while: kind 0 is melted cheese, 1 is toxic smoke. */
+/** On the water: melted cheese (kind 0), toxic smoke (1) or wet paint (2). */
 export interface Cloud {
   id: number;
   owner: number;
-  kind: 0 | 1;
+  kind: 0 | 1 | 2;
   x: number;
   y: number;
   age: number;
@@ -245,12 +246,16 @@ export type RaceEvent =
   | { type: 'hit'; racer: number; by: number | null; source: HitSource; damage: number }
   | { type: 'shieldPop'; racer: number }
   /** The police after a leader: warned for speeding, chased, pulled over (ticket), gone. */
-  | { type: 'cops'; racer: number; phase: 'warn' | 'chase' | 'ticket' | 'leave' }
+  /** Drove through wet paint (painting workshop). */
+  | { type: 'painted'; racer: number; by: number }
+  /** `noise`: sent by a noise complaint (an item) rather than for speeding. */
+  | { type: 'cops'; racer: number; phase: 'warn' | 'chase' | 'ticket' | 'leave'; noise?: boolean }
   | { type: 'hooked'; racer: number }
   /** A police rocket exploded there (on a boat, the bank or a barge). */
   | { type: 'boom'; x: number; y: number }
   /** Ran into birds (kind 0), a rowing boat (1) or swimmers (2). */
-  | { type: 'splat'; racer: number; kind: 0 | 1 | 2; x: number; y: number }
+  /** Ran into a critter (kind as in Critter: 3 is a couch of lazy volunteers); `heading`: the critter's. */
+  | { type: 'splat'; racer: number; kind: 0 | 1 | 2 | 3; x: number; y: number; heading?: number }
   | { type: 'sunk'; racer: number }
   | { type: 'respawn'; racer: number }
   | { type: 'lap'; racer: number; lap: number; time: number }

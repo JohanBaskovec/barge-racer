@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { ITEM_INFO, type ItemId } from '../data/items';
+import { ITEM_INFO, TUNING, type ItemId } from '../data/items';
 import { FONT } from '../config';
 import { formatNumber, itemName, ordinal, t } from '../i18n';
 import type { EffectKind } from '../effects/effects';
@@ -59,6 +59,13 @@ export class HudScene extends Phaser.Scene {
   private watchText?: Phaser.GameObjects.Text;
   /** Melted cheese covering the view (raclette), and which status effects were on last frame (to announce new ones). */
   private cheese!: Phaser.GameObjects.Image;
+  /** Painting workshop: paint all over the screen. */
+  private paintScreen!: Phaser.GameObjects.Image;
+  /** Sauna: steam over everything, with one clear spot (round the sauna's owner). */
+  private steamGfx!: Phaser.GameObjects.Graphics;
+  private steamHole!: Phaser.GameObjects.Image;
+  private steamPuffs: Phaser.GameObjects.Image[] = [];
+  private steamLevel = 0;
   private seen = new Set<string>();
   private lastSplatPopup = 0;
   /** Rows taken by messages on screen. */
@@ -81,6 +88,11 @@ export class HudScene extends Phaser.Scene {
     const stroke = '#0b3a5b';
     // First, so everything else of the HUD is drawn over it: the cheese covers the race, not the buttons.
     this.cheese = this.add.image(640, 0, 'cheeseScreen').setOrigin(0.5, 0).setVisible(false);
+    this.paintScreen = this.add.image(640, 360, 'paintScreen').setVisible(false);
+    this.steamGfx = this.add.graphics();
+    this.steamHole = this.add.image(0, 0, 'steamHole').setVisible(false);
+    this.steamPuffs = Array.from({ length: 12 }, (_, i) => this.add.image((i * 233) % 1280, (i * 157) % 720, 'steamPuff').setDisplaySize(380, 380).setVisible(false));
+    this.steamLevel = 0;
     this.seen.clear();
     this.popupRows.clear();
     this.posText = text(this, 24, 22, '', 60).setOrigin(0, 0).setStroke(stroke, 8);
@@ -279,6 +291,7 @@ export class HudScene extends Phaser.Scene {
     });
     this.drawTrip(time);
     this.drawDrunk(time);
+    this.drawSteam(time, p);
     this.drawStick();
 
     this.drawMap();
@@ -292,10 +305,18 @@ export class HudScene extends Phaser.Scene {
     const now = new Set<string>();
     for (const e of p.effects) if (e.remaining > 0) now.add(e.kind);
     const announce: [EffectKind, string, string][] = [
-      ['blackout', 'hud.blackout', '#ffe04a'], ['cheesed', 'hud.cheese', '#ffd23f'], ['drunk', 'hud.drunk', '#9dff6a'], ['shrunk', 'hud.shrunk', '#bfe1f7'], ['hasty', 'hud.hasty', '#ffb0d9'],
+      ['blackout', 'hud.blackout', '#ffe04a'], ['cheesed', 'hud.cheese', '#ffd23f'], ['steamed', 'hud.steamed', '#eef6ff'], ['painted', 'hud.painted', '#ff9ad5'], ['sauna', 'hud.sauna', '#ffd9a0'], ['drunk', 'hud.drunk', '#9dff6a'], ['shrunk', 'hud.shrunk', '#bfe1f7'], ['hasty', 'hud.hasty', '#ffb0d9'],
     ];
     for (const [kind, key, color] of announce) if (now.has(kind) && !this.seen.has(kind)) this.popup(t(key as 'hud.blackout'), color);
     this.seen = now;
+
+    // Paint: splashed on all at once, it fades in the last second.
+    const pe = p.effects.find((x) => x.kind === 'painted' && x.remaining > 0);
+    this.paintScreen.setVisible(!!pe);
+    if (pe) {
+      const age = pe.duration - pe.remaining;
+      this.paintScreen.setScale(1 + Math.max(0, 0.15 - age) * 1.5).setAlpha(0.9 * Math.min(1, pe.remaining));
+    }
 
     const e = p.effects.find((x) => x.kind === 'cheesed' && x.remaining > 0);
     this.cheese.setVisible(!!e);
@@ -305,6 +326,47 @@ export class HudScene extends Phaser.Scene {
     const eased = 1 - (1 - drop) ** 3;
     const leave = Math.max(0, Math.min(1, 1 - e.remaining)); // the last second: it runs down
     this.cheese.setY(-900 * (1 - eased) + leave * leave * 760).setAlpha(1 - leave * 0.4);
+  }
+
+  /**
+   * Sauna. Lost in the steam: grey-white over the whole screen but for a clear spot round the boat
+   * that brought the sauna (if it is on screen). The owner sees a little steam round the edges.
+   */
+  private drawSteam(time: number, p: Racer): void {
+    const race = this.race;
+    const steamed = p.effects.find((x) => x.kind === 'steamed' && x.remaining > 0);
+    const own = p.effects.find((x) => x.kind === 'sauna' && x.remaining > 0);
+    const e = steamed ?? own;
+    const target = e ? Math.min(1, e.remaining / 0.8) : 0;
+    this.steamLevel += (target - this.steamLevel) * Math.min(1, this.game.loop.delta / 250);
+    const level = this.steamLevel;
+    const g = this.steamGfx.clear();
+    const on = level > 0.01;
+    this.steamHole.setVisible(on);
+    for (const puff of this.steamPuffs) puff.setVisible(on);
+    if (!on) return;
+    // The clear spot: round the sauna's owner (yourself if it's yours).
+    const owner = own ? p : race.sim.racers.find((r) => r.effects.some((x) => x.kind === 'sauna' && x.remaining > 0));
+    const at = owner ? race.boatOnScreen(owner.id) : null;
+    const R = TUNING.sauna.clear * race.cameras.main.zoom * (own ? 2.6 : 1.6);
+    const hx = at ? at.x : -9999, hy = at ? at.y : -9999;
+    const alpha = (own ? 0.6 : 0.95) * level;
+    const color = 0xe2e8ee;
+    this.steamHole.setPosition(hx, hy).setDisplaySize(R * 2, R * 2).setAlpha(alpha / 0.94);
+    // Everything outside the hole's square is plain steam.
+    const x0 = hx - R, x1 = hx + R, y0 = hy - R, y1 = hy + R;
+    g.fillStyle(color, alpha);
+    g.fillRect(0, 0, 1280, Math.max(0, y0));
+    g.fillRect(0, Math.min(720, y1), 1280, Math.max(0, 720 - y1));
+    g.fillRect(0, Math.max(0, y0), Math.max(0, x0), Math.max(0, Math.min(720, y1) - Math.max(0, y0)));
+    g.fillRect(Math.min(1280, x1), Math.max(0, y0), Math.max(0, 1280 - x1), Math.max(0, Math.min(720, y1) - Math.max(0, y0)));
+    // Puffs rolling slowly across (never over the clear spot).
+    this.steamPuffs.forEach((puff, i) => {
+      const x = ((i * 233 + time * (0.02 + (i % 3) * 0.008)) % 1600) - 160;
+      const y = ((i * 157) % 720) + Math.sin(time / 1700 + i) * 40;
+      const d = Math.hypot(x - hx, y - hy);
+      puff.setPosition(x, y).setAlpha(alpha * 0.8 * Math.max(0, Math.min(1, (d - R) / 200)));
+    });
   }
 
   /** Drunk: everything goes green, and soft bands roll across the screen like the floor at a party. */
@@ -377,6 +439,7 @@ export class HudScene extends Phaser.Scene {
         this.flashBig(e.value === 0 ? t('hud.go') : String(e.value), e.value === 0 ? '#62d26f' : '#ffffff');
         break;
       case 'itemUsed':
+        if (e.racer === me && e.item === 'noise') this.popup(t('hud.noiseCalled'), '#9fd8ff');
         break;
       case 'heal':
         if (e.racer === me) this.popup(t('hud.heal'), '#9dff9d');
@@ -410,6 +473,17 @@ export class HudScene extends Phaser.Scene {
         if (e.racer === me) this.popup(t('hud.foam'), '#ffe08a');
         break;
       case 'cops':
+        // A noise complaint: the police after everyone else, for the noise (others don't hear about each one).
+        if (e.noise) {
+          if (e.racer !== me) break;
+          if (e.phase === 'warn') this.flashBig(t('hud.noiseWarn'), '#ff5a4d', 80);
+          else if (e.phase === 'chase') this.popup(t('hud.noisePolice'), '#9fd8ff');
+          else if (e.phase === 'ticket') {
+            this.flashBig(t('hud.ticket'), '#9fd8ff', 92);
+            this.popup(t('hud.noiseFine'), '#ffe08a');
+          }
+          break;
+        }
         if (e.racer === me) {
           if (e.phase === 'warn') this.flashBig(t('hud.speeding'), '#ff5a4d', 92);
           else if (e.phase === 'chase') this.popup(t('hud.police'), '#9fd8ff');
@@ -427,7 +501,7 @@ export class HudScene extends Phaser.Scene {
         if (e.racer === me && e.kind !== 0) this.bloodOnScreen();
         if (e.racer === me && this.time.now - this.lastSplatPopup > 2500) {
           this.lastSplatPopup = this.time.now;
-          this.popup(t(e.kind === 0 ? 'hud.splatBirds' : e.kind === 1 ? 'hud.splatRowers' : 'hud.splatSwimmers'), '#ff6b6b');
+          this.popup(t(e.kind === 0 ? 'hud.splatBirds' : e.kind === 1 ? 'hud.splatRowers' : e.kind === 3 ? 'hud.splatCouch' : 'hud.splatSwimmers'), '#ff6b6b');
         }
         break;
       default:

@@ -1,7 +1,7 @@
 # Localization
 
 All text the player sees comes from `src/i18n/`. Languages so far: **English**
-(reference) and **French**.
+(reference), **French**, **German** and **Spanish** (ordinals "1st", "1er", "1.", "1.º").
 
 ## How it works
 

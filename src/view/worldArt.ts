@@ -1089,3 +1089,193 @@ export function drawRocket(c: Ctx): void {
   c.fill();
   disc(c, '#ffd23f', 3, 5, 1.6); // the burning nozzle
 }
+
+/** Paint colours: the painting workshop's trail and the paint on the screen. */
+export const PAINT_COLORS = ['#e8433a', '#2f8fe0', '#f2c12e', '#38b25a', '#b24ad8'];
+
+/** A splash of wet paint on the water (120 x 120): a blobby star with a glossy highlight. */
+export function drawPaintPuddle(c: Ctx, color: string, seed: number): void {
+  let s = seed * 7919 + 13;
+  const rnd = (): number => {
+    s = (s * 1664525 + 1013904223) >>> 0;
+    return s / 4294967296;
+  };
+  const n = 14;
+  const rad = Array.from({ length: n }, (_, k) => (k % 2 ? 34 + rnd() * 10 : 46 + rnd() * 12));
+  const shape = (k0: number): void => {
+    c.beginPath();
+    for (let k = 0; k <= n; k++) {
+      const a1 = (k / n) * Math.PI * 2, am = ((k - 0.5) / n) * Math.PI * 2;
+      const r1 = rad[k % n] * k0, rm = ((rad[(k - 1 + n) % n] + rad[k % n]) / 2) * k0 * 1.12;
+      const x1 = 60 + Math.cos(a1) * r1, y1 = 60 + Math.sin(a1) * r1;
+      if (k === 0) c.moveTo(x1, y1);
+      else c.quadraticCurveTo(60 + Math.cos(am) * rm, 60 + Math.sin(am) * rm, x1, y1);
+    }
+    c.closePath();
+  };
+  shadowed(c, 3, 0.3, () => {
+    shape(1);
+    c.fillStyle = color;
+    c.fill();
+  });
+  // droplets flung out
+  for (let k = 0; k < 6; k++) {
+    const a = rnd() * Math.PI * 2, d = 50 + rnd() * 8;
+    disc(c, color, 60 + Math.cos(a) * d, 60 + Math.sin(a) * d, 2.5 + rnd() * 2.5);
+  }
+  c.save();
+  shape(0.62);
+  c.fillStyle = 'rgba(255,255,255,0.18)';
+  c.fill();
+  c.restore();
+  // a glossy streak
+  c.beginPath();
+  c.ellipse(46, 44, 14, 5, -0.6, 0, Math.PI * 2);
+  c.fillStyle = 'rgba(255,255,255,0.45)';
+  c.fill();
+}
+
+/**
+ * Paint all over the screen (1280 x 720): big splats of every colour with drips running down,
+ * leaving gaps to peer through.
+ */
+export function drawPaintScreen(c: Ctx): void {
+  let s = 29;
+  const rnd = (): number => {
+    s = (s * 1664525 + 1013904223) >>> 0;
+    return s / 4294967296;
+  };
+  const splat = (x: number, y: number, r: number, color: string): void => {
+    // A soft blob: random radii joined by curves through the midpoints.
+    const n = 11;
+    const pts = Array.from({ length: n }, (_, k) => {
+      const a = (k / n) * Math.PI * 2, d = r * (0.72 + rnd() * 0.4);
+      return [x + Math.cos(a) * d, y + Math.sin(a) * d];
+    });
+    c.beginPath();
+    for (let k = 0; k <= n; k++) {
+      const [px, py] = pts[k % n], [qx, qy] = pts[(k + 1) % n];
+      const mx = (px + qx) / 2, my = (py + qy) / 2;
+      if (k === 0) c.moveTo(mx, my);
+      else c.quadraticCurveTo(px, py, mx, my);
+    }
+    c.closePath();
+    c.fillStyle = color;
+    c.fill();
+    // droplets flung round it
+    for (let k = 0; k < 7; k++) {
+      const a = rnd() * Math.PI * 2, d = r * (1.15 + rnd() * 0.45);
+      disc(c, color, x + Math.cos(a) * d, y + Math.sin(a) * d, r * (0.05 + rnd() * 0.08));
+    }
+    // drips
+    for (let k = 0; k < 3; k++) {
+      const dx = x + (rnd() - 0.5) * r * 1.2, w = 10 + rnd() * 14, len = r * (0.6 + rnd() * 1.1);
+      rr(c, dx - w / 2, y, w, len, w / 2);
+      c.fill();
+      disc(c, color, dx, y + len, w * 0.62);
+    }
+    // gloss
+    c.beginPath();
+    c.ellipse(x - r * 0.3, y - r * 0.35, r * 0.28, r * 0.1, -0.5, 0, Math.PI * 2);
+    c.fillStyle = 'rgba(255,255,255,0.35)';
+    c.fill();
+  };
+  for (let i = 0; i < 11; i++) splat(rnd() * 1280, rnd() * 600, 80 + rnd() * 100, PAINT_COLORS[i % PAINT_COLORS.length]);
+  for (let i = 0; i < 18; i++) splat(rnd() * 1280, rnd() * 720, 14 + rnd() * 30, PAINT_COLORS[(i * 3) % PAINT_COLORS.length]);
+}
+
+/**
+ * Lazy volunteers on a floating couch, seen from above (100 x 60): a red sofa, three volunteers
+ * in hi-vis vests sprawled on it, one with a drink, legs over the arms.
+ */
+export function drawCouch(c: Ctx, k: number): void {
+  const skin = '#f2c9a0';
+  // a ring of ripples round it
+  c.strokeStyle = 'rgba(255,255,255,0.5)';
+  c.lineWidth = 1.5;
+  c.beginPath();
+  c.ellipse(50, 30, 48, 28, 0, 0, Math.PI * 2);
+  c.stroke();
+  shadowed(c, 2.5, 0.4, () => {
+    // seat, back along the top, arms at the ends
+    rr(c, 8, 10, 84, 42, 8);
+    c.fillStyle = '#b8352b';
+    c.fill();
+  });
+  rr(c, 8, 8, 84, 13, 6);
+  c.fillStyle = '#d64a3d';
+  c.fill();
+  rr(c, 4, 12, 13, 40, 6);
+  c.fill();
+  rr(c, 83, 12, 13, 40, 6);
+  c.fill();
+  // cushions
+  c.strokeStyle = 'rgba(90,20,15,0.45)';
+  c.lineWidth = 1.4;
+  for (const x of [38, 62]) {
+    c.beginPath();
+    c.moveTo(x, 22);
+    c.lineTo(x, 50);
+    c.stroke();
+  }
+  // three volunteers lying back, heads on the backrest
+  const lazy = (x: number, legs: number, drink: boolean): void => {
+    c.strokeStyle = '#2b4a7a';
+    c.lineWidth = 4;
+    c.lineCap = 'round';
+    for (const dx of [-3, 3]) {
+      c.beginPath();
+      c.moveTo(x + dx, 34);
+      c.lineTo(x + dx + legs, 54);
+      c.stroke();
+    }
+    c.beginPath();
+    c.ellipse(x, 28, 7, 8, 0, 0, Math.PI * 2);
+    c.fillStyle = '#ff8a1f';
+    c.fill();
+    c.strokeStyle = '#e8f0f4';
+    c.lineWidth = 1.4;
+    c.beginPath();
+    c.moveTo(x - 6, 30);
+    c.lineTo(x + 6, 30);
+    c.stroke();
+    // arms behind the head
+    c.strokeStyle = '#ff8a1f';
+    c.lineWidth = 3;
+    c.beginPath();
+    c.moveTo(x - 6, 24);
+    c.lineTo(x - 7, 15);
+    c.moveTo(x + 6, 24);
+    c.lineTo(x + 7, 15);
+    c.stroke();
+    disc(c, skin, x, 16, 5);
+    disc(c, '#3a2a1c', x, 14, 3.4);
+    if (drink) {
+      disc(c, '#f2b81e', x + 10, 22, 3.2);
+      disc(c, '#ffffff', x + 10, 21, 1.4);
+    }
+  };
+  lazy(26, -6 + k * 2, k === 0);
+  lazy(50, 4, k === 1);
+  lazy(74, 7 - k * 2, true);
+}
+
+/** A soft puff of steam (128 x 128), white at the heart and fading out. */
+export function drawSteamPuff(c: Ctx): void {
+  const g = c.createRadialGradient(64, 64, 4, 64, 64, 62);
+  g.addColorStop(0, 'rgba(255,255,255,0.95)');
+  g.addColorStop(0.5, 'rgba(240,244,248,0.7)');
+  g.addColorStop(1, 'rgba(230,236,242,0)');
+  c.fillStyle = g;
+  c.fillRect(0, 0, 128, 128);
+}
+
+/** The clear spot in the steam (256 x 256): see-through in the middle, steam at the edges. */
+export function drawSteamHole(c: Ctx): void {
+  const g = c.createRadialGradient(128, 128, 40, 128, 128, 128);
+  g.addColorStop(0, 'rgba(226,232,238,0)');
+  g.addColorStop(0.55, 'rgba(226,232,238,0.25)');
+  g.addColorStop(1, 'rgba(226,232,238,0.94)');
+  c.fillStyle = g;
+  c.fillRect(0, 0, 256, 256);
+}

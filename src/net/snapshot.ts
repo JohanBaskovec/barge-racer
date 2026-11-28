@@ -1,6 +1,6 @@
 import type { ItemId } from '../data/items';
 import type { EffectKind } from '../effects/effects';
-import { POLICE_PHASES } from '../race/hazards';
+import { type Critter, POLICE_PHASES, type Police } from '../race/hazards';
 import type { RaceSimulation } from '../race/RaceSimulation';
 import { setRacerSize } from '../physics/BoatPhysics';
 import type { Racer, Slot } from '../race/types';
@@ -28,9 +28,11 @@ export interface SimState {
   drops: [number, number, number, number, number, number, number, number][]; // id, x, y, fromX, fromY, age, target, kind
   /** Hazards: the police boat (phase index, target, t, x, y, heading, side, fireT), bullets, anglers, critters. */
   pol: [number, number, number, number, number, number, number, number] | null;
+  /** Police boats sent by a noise complaint, like `pol`. */
+  npol?: [number, number, number, number, number, number, number, number][];
   bul: [number, number, number, number, number, number, number][]; // id, x, y, heading, travelled, target, near
   ang: [number, number, number, number, number, number][]; // id, target, side, along, age, hooked
-  cri: [number, number, number, number, number, number][]; // id, kind, along, lat, dir, age
+  cri: [number, number, number, number, number, number, number?][]; // id, kind, along, lat, dir, age, owner (couches)
 }
 
 export interface RacerState {
@@ -87,12 +89,21 @@ export function encodeState(sim: RaceSimulation): SimState {
     boobs: it.boobs.map((b) => [b.id, b.owner, b.target, r1(b.x), r1(b.y), r3(b.heading), r3(b.age), [...b.hit], b.turned ? 1 : 0]),
     clouds: it.clouds.map((c) => [c.id, c.owner, c.kind, r1(c.x), r1(c.y), r3(c.age)]),
     drops: it.drops.map((d) => [d.id, r1(d.x), r1(d.y), r1(d.fromX), r1(d.fromY), r3(d.age), d.target, d.kind]),
-    pol: hz.police && [POLICE_PHASES.indexOf(hz.police.phase), hz.police.target, r3(hz.police.t), r1(hz.police.x), r1(hz.police.y), r3(hz.police.heading), hz.police.side, r3(hz.police.fireT)],
+    pol: hz.police && encodePolice(hz.police),
+    npol: hz.noisePolice.map(encodePolice),
     bul: hz.bullets.map((b) => [b.id, r1(b.x), r1(b.y), r3(b.heading), r1(b.travelled), b.target, b.near]),
     ang: hz.anglers.map((a) => [a.id, a.target, a.side, r1(a.along), r3(a.age), a.hooked ? 1 : 0]),
-    cri: hz.critters.map((c) => [c.id, c.kind, r1(c.along), r1(c.lat), c.dir, r3(c.age)]),
+    cri: hz.critters.map((c) => (c.owner === undefined ? [c.id, c.kind, r1(c.along), r1(c.lat), c.dir, r3(c.age)] : [c.id, c.kind, r1(c.along), r1(c.lat), c.dir, r3(c.age), c.owner])),
   };
 }
+
+type PoliceTuple = [number, number, number, number, number, number, number, number];
+const encodePolice = (p: Police): PoliceTuple => [POLICE_PHASES.indexOf(p.phase), p.target, r3(p.t), r1(p.x), r1(p.y), r3(p.heading), p.side, r3(p.fireT)];
+const decodePolice = (pol: PoliceTuple, noise: boolean): Police => {
+  const p: Police = { phase: POLICE_PHASES[pol[0]], target: pol[1], t: pol[2], x: pol[3], y: pol[4], heading: pol[5], side: pol[6] as 1 | -1, fireT: pol[7] };
+  if (noise) p.noise = true;
+  return p;
+};
 
 function encodeRacer(r: Racer): RacerState {
   return {
@@ -152,12 +163,17 @@ export function applyState(sim: RaceSimulation, s: SimState, except = -1): void 
   it.blobs = s.blobs.map(([id, owner, x, y, heading, travelled, age, near]) => ({ id, owner, x, y, heading, travelled, age, near, dead: false }));
   it.shots = s.shots.map(([id, owner, kind, x, y, heading, travelled, age, near, wait]) => ({ id, owner, kind: kind as 0 | 1 | 2, x, y, heading, travelled, age, near, wait: wait ?? 0, dead: false }));
   it.boobs = (s.boobs ?? []).map(([id, owner, target, x, y, heading, age, hit, turned]) => ({ id, owner, target, x, y, heading, turned: turned === 1, age, hit: [...hit], dead: false }));
-  it.clouds = s.clouds.map(([id, owner, kind, x, y, age]) => ({ id, owner, kind: kind as 0 | 1, x, y, age, dead: false }));
+  it.clouds = s.clouds.map(([id, owner, kind, x, y, age]) => ({ id, owner, kind: kind as 0 | 1 | 2, x, y, age, dead: false }));
   it.drops = s.drops.map(([id, x, y, fromX, fromY, age, target, kind]) => ({ id, kind: (kind ?? 0) as 0 | 1, x, y, fromX, fromY, age, target, dead: false }));
   const hz = sim.hazards;
   const pol = s.pol ?? null;
-  hz.police = pol && { phase: POLICE_PHASES[pol[0]], target: pol[1], t: pol[2], x: pol[3], y: pol[4], heading: pol[5], side: pol[6] as 1 | -1, fireT: pol[7] };
+  hz.police = pol && decodePolice(pol, false);
+  hz.noisePolice = (s.npol ?? []).map((p) => decodePolice(p, true));
   hz.bullets = (s.bul ?? []).map(([id, x, y, heading, travelled, target, near]) => ({ id, x, y, heading, travelled, target, near: near ?? 0, dead: false }));
   hz.anglers = (s.ang ?? []).map(([id, target, side, along, age, hooked]) => ({ id, target, side: side as 1 | -1, along, age, hooked: hooked === 1, dead: false }));
-  hz.critters = (s.cri ?? []).map(([id, kind, along, lat, dir, age]) => ({ id, kind: kind as 0 | 1 | 2, along, lat, dir: dir as 1 | -1, age, dead: false }));
+  hz.critters = (s.cri ?? []).map(([id, kind, along, lat, dir, age, owner]) => {
+    const c: Critter = { id, kind: kind as Critter['kind'], along, lat, dir: dir as 1 | -1, age, dead: false };
+    if (owner !== undefined) c.owner = owner;
+    return c;
+  });
 }

@@ -38,13 +38,15 @@ export class DebugScene extends Phaser.Scene {
 
     // Every item: a click puts it in a free slot (or the first one when both are full).
     const ids = Object.keys(ITEM_INFO) as ItemId[];
-    const perRow = Math.ceil(ids.length / 2);
+    const rows = Math.ceil(ids.length / 11);
+    const perRow = Math.ceil(ids.length / rows);
     ids.forEach((id, i) => {
       const row = Math.floor(i / perRow), col = i % perRow;
-      const x = 640 + (col - (perRow - 1) / 2) * 106, y = 190 + row * 150;
+      const x = 640 + (col - (perRow - 1) / 2) * 106, y = (rows > 2 ? 150 : 190) + row * (rows > 2 ? 118 : 150);
       const bg = this.add.circle(x, y, 44, 0x0b3a5b, 1).setStrokeStyle(4, 0xffffff, 0.8).setInteractive({ useHandCursor: true });
       this.add.image(x, y, ITEM_INFO[id].icon).setDisplaySize(68, 68);
-      fitText(this.add.text(x, y + 52, itemName(id), { fontFamily: 'Trebuchet MS, Verdana, sans-serif', fontSize: '15px', fontStyle: 'bold', color: '#ffffff', align: 'center', wordWrap: { width: 100 }, resolution: 2 }).setOrigin(0.5, 0), 102);
+      // Three rows: names on one line (shrunk to fit), or they run into the row below.
+      fitText(this.add.text(x, y + 52, itemName(id), { fontFamily: 'Trebuchet MS, Verdana, sans-serif', fontSize: '15px', fontStyle: 'bold', color: '#ffffff', align: 'center', wordWrap: rows > 2 ? undefined : { width: 100 }, resolution: 2 }).setOrigin(0.5, 0), 102);
       bg.on('pointerover', () => bg.setStrokeStyle(5, 0xffe08a, 1));
       bg.on('pointerout', () => bg.setStrokeStyle(4, 0xffffff, 0.8));
       bg.on('pointerup', () => {

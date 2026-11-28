@@ -17,7 +17,11 @@ export type ItemId =
   | 'siphon'
   | 'tugboat'
   | 'beerDispenser'
-  | 'vacuum';
+  | 'vacuum'
+  | 'sauna'
+  | 'noise'
+  | 'lazyVolunteers'
+  | 'paint';
 
 export interface ItemInfo {
   id: ItemId;
@@ -47,10 +51,14 @@ export const ITEM_INFO: Record<ItemId, ItemInfo> = {
   tugboat: { id: 'tugboat', uses: 1, icon: 'icon_tugboat' },
   beerDispenser: { id: 'beerDispenser', uses: 1, icon: 'icon_beerDispenser' },
   vacuum: { id: 'vacuum', uses: 1, icon: 'icon_vacuum' },
+  sauna: { id: 'sauna', uses: 1, icon: 'icon_sauna' },
+  noise: { id: 'noise', uses: 1, icon: 'icon_noise' },
+  lazyVolunteers: { id: 'lazyVolunteers', uses: 1, icon: 'icon_lazyVolunteers' },
+  paint: { id: 'paint', uses: 1, icon: 'icon_paint' },
 };
 
 /** The strongest items, which hit every opponent at once: as a triple only for the last place, and rarely. */
-export const GLOBAL_ITEMS: ItemId[] = ['mushroom', 'blackout', 'siphon', 'titten', 'raclette'];
+export const GLOBAL_ITEMS: ItemId[] = ['mushroom', 'blackout', 'siphon', 'titten', 'raclette', 'sauna', 'noise'];
 /**
  * Chance per position (1st..4th) that an item comes as its better version, with three uses.
  * `global` is for GLOBAL_ITEMS. Never for the leader.
@@ -88,6 +96,10 @@ export const ITEM_ODDS: Record<ItemId, [number, number, number, number]> = {
   tugboat: [0, 2, 6, 9],
   beerDispenser: [3, 6, 7, 7],
   vacuum: [0, 5, 8, 8],
+  sauna: [0, 2, 4, 6],
+  noise: [0, 0, 3, 6],
+  lazyVolunteers: [10, 8, 4, 2],
+  paint: [9, 9, 6, 3],
 };
 
 /** How much an item helps whoever holds it (0-10). Used to check the odds really favour the back. */
@@ -97,6 +109,7 @@ export const ITEM_POWER: Record<ItemId, number> = {
   blackout: 10, raclette: 10, toilet: 4, karcher: 6,
   titten: 9, dildo: 3, nailGun: 6, siphon: 10, tugboat: 9,
   beerDispenser: 7, vacuum: 8,
+  sauna: 8, noise: 10, lazyVolunteers: 4, paint: 5,
 };
 
 export const TUNING = {
@@ -172,8 +185,30 @@ export const TUNING = {
    */
   critters: {
     every: 5, max: 8, weights: [5, 3, 2, 1], ahead: [650, 950], life: 28, startAfter: 4,
-    radius: [38, 30, 26], speed: [12, 70, 18], slowMult: 0.7, drag: 0.8, slowTime: 1.3, jolt: 0.8,
+    // kinds: birds, rowers, swimmers, and lazy volunteers on a couch (an item, never spawned by itself)
+    radius: [38, 30, 26, 40], speed: [12, 70, 18, 5], slowMult: 0.7, drag: 0.8, slowTime: 1.3, jolt: 0.8,
   },
+  /**
+   * Sauna: every opponent is in thick steam for `duration` s and can't see where they are going,
+   * except round the sauna's owner (`clear` px: the view leaves that hole in the steam).
+   */
+  sauna: { duration: 5, clear: 230 },
+  /**
+   * Noise complaint: a police boat for every opponent, warned `warn` s before it turns up, chasing
+   * for `chase` s and shooting rockets like the speeding police. A hit: stopped and fined for noise.
+   */
+  noise: { warn: 1.2, chase: 8 },
+  /**
+   * Lazy volunteers: `couches` floating couches full of volunteers chilling, dropped behind the owner
+   * across the canal (staggered, so there is a way through). Like swimmers: running into one makes
+   * a mess and slows the boat (`critters` slow), no damage. They drift for `life` s.
+   */
+  lazyVolunteers: { couches: 3, behind: 110, stagger: 95, life: 25, ownerImmunity: 1.5 },
+  /**
+   * Painting workshop: for `trailTime` s a trail of wet paint is left behind, a splash every `every`
+   * s. Driving through it: paint all over the screen for `paintTime` s (no damage).
+   */
+  paint: { radius: 58, life: 10, ownerImmunity: 1, trailTime: 3, every: 0.22, paintTime: 3.5 },
   /** Tugboat: tows its owner along the canal for `duration` s: steered for you, faster, and through glue. */
   tugboat: { duration: 4, topSpeed: 1.45, accel: 3, mass: 2 },
   powder: { duration: 2.5, topSpeedMult: 1.5, accelMult: 2, massMult: 2 },
@@ -197,7 +232,7 @@ export const TUNING = {
   fakeCrate: { damage: 30, life: 40, ownerImmunity: 1, radius: 26 },
   beer: { healFraction: 0.5, drunkTime: 4 },
   /** Drunk (beer, beer dispenser): the boat weaves, `sway` rad either side, a full sway every 2π / `rate` s. */
-  drunk: { sway: 0.55, rate: 2.6 },
+  drunk: { sway: 0.3, rate: 2.6 },
   /**
    * Magic mushrooms. For `duration` seconds: whoever was ahead of the user when it was eaten is
    * shrunk (smaller, lighter and a lot slower), whoever was behind is hasty (faster), and

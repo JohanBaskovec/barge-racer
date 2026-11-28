@@ -6,7 +6,7 @@ import { drawPeniche, drawPenicheAccent } from './peniche';
 import { drawBarge } from './bargeArt';
 import { CAR, CAR_COLORS, SHIRTS, STREET_ART_SCALE, drawAngler, drawCar, drawCyclist, drawDog, drawWalker } from './streetArt';
 import { TUNING } from '../data/items';
-import { drawRocket, drawDrillBit, drawBloodSplat, drawBullet, drawDuck, drawFeather, drawGib, drawNozzle, drawPolice, drawRowboat, drawSwimmer, drawBoobs, drawCheesePuddle, drawCheeseScreen, drawCrate, drawDildo, drawGlueBlob, drawGluePuddle, drawHam, drawNail, drawPotato, drawSaw, drawToxicSmoke, drawVolunteer, drawWaterTile } from './worldArt';
+import { drawRocket, drawDrillBit, drawBloodSplat, drawBullet, drawDuck, drawFeather, drawGib, drawNozzle, drawPolice, drawRowboat, drawSwimmer, drawBoobs, drawCheesePuddle, drawCheeseScreen, drawCrate, drawDildo, drawGlueBlob, drawGluePuddle, drawHam, drawNail, drawPotato, drawSaw, drawToxicSmoke, drawVolunteer, drawWaterTile, PAINT_COLORS, drawPaintPuddle, drawPaintScreen, drawCouch, drawSteamPuff, drawSteamHole } from './worldArt';
 
 type G = Phaser.GameObjects.Graphics;
 
@@ -98,6 +98,12 @@ export function generateTextures(scene: Phaser.Scene): void {
   world('cheese', 160, 160, drawCheesePuddle, 1);
   world('smoke', 220, 220, drawToxicSmoke, 1);
   world('cheeseScreen', 1280, 900, drawCheeseScreen, 1);
+  // The painting workshop, the lazy volunteers' couch and the sauna's steam
+  PAINT_COLORS.forEach((col, i) => world(`paint_${i}`, 120, 120, (c) => drawPaintPuddle(c, col, i), 1));
+  world('paintScreen', 1280, 720, drawPaintScreen, 1);
+  for (let k = 0; k < 2; k++) world(`couch_${k}`, 100, 60, (c) => drawCouch(c, k), 2.5);
+  world('steamPuff', 128, 128, drawSteamPuff, 1);
+  world('steamHole', 256, 256, drawSteamHole, 1);
   // Traffic barges, with a little margin round the hull
   const T = TUNING.traffic;
   for (let k = 0; k < 3; k++) world(`barge_${k}`, T.length + 4, T.width + 4, (c) => (c.translate(2, 2), drawBarge(c, k, T.length, T.width)), 2.5);

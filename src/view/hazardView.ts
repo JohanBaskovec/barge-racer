@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { TUNING } from '../data/items';
-import type { Angler, Critter, HazardSystem } from '../race/hazards';
+import type { Angler, Critter, HazardSystem, Police } from '../race/hazards';
 import type { RaceSimulation } from '../race/RaceSimulation';
 import type { RaceEvent } from '../race/types';
 import { STREET_ART_SCALE } from './streetArt';
@@ -14,10 +14,8 @@ type Img = Phaser.GameObjects.Image;
  * them. Reads the simulation's state each frame, like the rest of the view.
  */
 export class HazardView {
-  private police: Phaser.GameObjects.Container;
-  private policeHull: Img;
-  private lights: Phaser.GameObjects.Graphics;
-  private sirenT = 0;
+  /** Police boats: the speeding one ('s') and those sent by noise complaints ('n' + target). */
+  private polices = new Map<string, { box: Phaser.GameObjects.Container; lights: Phaser.GameObjects.Graphics; sirenT: number }>();
   private bullets = new Map<number, Img>();
   private anglers = new Map<number, { man: Img; line: Phaser.GameObjects.Graphics }>();
   private critters = new Map<number, { box: Phaser.GameObjects.Container; parts: Img[]; kind: number }>();
@@ -30,10 +28,6 @@ export class HazardView {
   private smoke: Phaser.GameObjects.Particles.ParticleEmitter;
 
   constructor(private scene: Phaser.Scene, private sim: RaceSimulation, private audio: RaceAudio) {
-    const C = TUNING.cops;
-    this.policeHull = scene.add.image(0, 0, 'police').setDisplaySize(C.length, C.width);
-    this.lights = scene.add.graphics();
-    this.police = scene.add.container(0, 0, [this.policeHull, this.lights]).setDepth(10.5).setVisible(false);
     this.blood = scene.add.particles(0, 0, 'droplet', {
       lifespan: 700, speed: { min: 60, max: 260 }, scale: { start: 1.1, end: 0.3 }, tint: [0xb3121c, 0x8a0a12, 0xd8262f], gravityY: 0, emitting: false,
     }).setDepth(15);
@@ -62,8 +56,7 @@ export class HazardView {
     this.updatePolice(time, dt);
     // Rockets, trailing flame and smoke (they explode on a 'boom' event).
     this.sync(this.bullets, this.hz.bullets, (b) => {
-      const p = this.hz.police;
-      if (p) this.audio.at('rocket', p.x, p.y, 0.9);
+      this.audio.at('rocket', b.x, b.y, 0.9);
       return this.scene.add.image(b.x, b.y, 'rocket').setDisplaySize(30, 10).setDepth(14);
     }, (img, b) => {
       img.setPosition(b.x, b.y).setRotation(b.heading);
@@ -75,24 +68,47 @@ export class HazardView {
     this.sync(this.critters, this.hz.critters, (c) => this.makeCritter(c), (v, c) => this.drawCritter(v, c, time), (v) => v.box.destroy());
   }
 
-  /** Police lights, the siren, and the boat fading in and out. */
+  /** Every police boat: lights, the siren, the boat fading in and out. */
   private updatePolice(time: number, dt: number): void {
-    const p = this.hz.police;
-    const shown = !!p && p.phase !== 'warn';
-    this.police.setVisible(shown);
-    if (!p || !shown) return;
+    const all: [string, Police][] = [];
+    if (this.hz.police) all.push(['s', this.hz.police]);
+    for (const p of this.hz.noisePolice) all.push([`n${p.target}`, p]);
+    const seen = new Set<string>();
+    for (const [key, p] of all) {
+      seen.add(key);
+      let v = this.polices.get(key);
+      if (!v) {
+        const C = TUNING.cops;
+        const lights = this.scene.add.graphics();
+        const box = this.scene.add.container(0, 0, [this.scene.add.image(0, 0, 'police').setDisplaySize(C.length, C.width), lights]).setDepth(10.5);
+        v = { box, lights, sirenT: 0 };
+        this.polices.set(key, v);
+      }
+      this.drawPolice(v, p, time, dt);
+    }
+    for (const [key, v] of this.polices) {
+      if (seen.has(key)) continue;
+      v.box.destroy();
+      this.polices.delete(key);
+    }
+  }
+
+  private drawPolice(v: { box: Phaser.GameObjects.Container; lights: Phaser.GameObjects.Graphics; sirenT: number }, p: Police, time: number, dt: number): void {
+    const shown = p.phase !== 'warn';
+    v.box.setVisible(shown);
+    if (!shown) return;
     const fade = p.phase === 'leave' ? Math.max(0, 1 - p.t / 1.6) : p.phase === 'chase' ? Math.min(1, p.t / 0.5) : 1;
-    this.police.setPosition(p.x, p.y).setRotation(p.heading).setAlpha(fade);
-    const g = this.lights.clear();
+    v.box.setPosition(p.x, p.y).setRotation(p.heading).setAlpha(fade);
+    const g = v.lights.clear();
     const blink = Math.floor(time / 140) % 2;
     // the light bar on the wheelhouse roof (local coords: x along the boat), and a glow on the water
     g.fillStyle(blink ? 0xff2a2a : 0x2a6bff, 0.25).fillCircle(5, 0, 26);
     g.fillStyle(0xff3030, blink ? 1 : 0.35).fillRect(3, -9, 4, 8);
     g.fillStyle(0x3a7bff, blink ? 0.35 : 1).fillRect(3, 1, 4, 8);
     if (p.phase === 'chase' || p.phase === 'ticket') {
-      this.sirenT -= dt;
-      if (this.sirenT <= 0) {
-        this.sirenT = 1.1;
+      v.sirenT -= dt;
+      if (v.sirenT <= 0) {
+        v.sirenT = 1.1;
         this.audio.at('siren', p.x, p.y, 0.9);
       }
     }
@@ -147,6 +163,9 @@ export class HazardView {
       }
     } else if (c.kind === 1) {
       parts.push(this.scene.add.image(0, 0, 'rowboat_0').setDisplaySize(96, 64));
+    } else if (c.kind === 3) {
+      // Lazy volunteers on their couch, across the canal.
+      parts.push(this.scene.add.image(0, 0, `couch_${c.id % 2}`).setDisplaySize(100, 60).setRotation(Math.PI / 2 + (rnd() - 0.5) * 0.6));
     } else {
       const n = 2 + Math.floor(rnd() * 2);
       for (let i = 0; i < n; i++) parts.push(this.scene.add.image((rnd() - 0.5) * 34, (rnd() - 0.5) * 34, `swimmer_${Math.floor(rnd() * 4)}_0`).setDisplaySize(26, 26).setData('cap', Math.floor(rnd() * 4)));
@@ -157,9 +176,11 @@ export class HazardView {
 
   private drawCritter(v: { box: Phaser.GameObjects.Container; parts: Img[]; kind: number }, c: Critter, time: number): void {
     const p = this.hz.critterPos(c);
-    const fade = Math.min(1, c.age / 0.5, (TUNING.critters.life - c.age) / 1);
+    const life = c.kind === 3 ? TUNING.lazyVolunteers.life : TUNING.critters.life;
+    const fade = Math.min(1, c.age / 0.5, (life - c.age) / 1);
     v.box.setPosition(p.x, p.y).setRotation(p.heading).setAlpha(Math.max(0, fade));
-    if (v.kind === 0) v.parts.forEach((d, i) => d.setY((d.getData('y0') as number) + Math.sin(time / 400 + i * 1.7) * 1.5));
+    if (v.kind === 3) v.parts[0].setY(Math.sin(time / 500 + c.id) * 1.5);
+    else if (v.kind === 0) v.parts.forEach((d, i) => d.setY((d.getData('y0') as number) + Math.sin(time / 400 + i * 1.7) * 1.5));
     else if (v.kind === 1) v.parts[0].setTexture(`rowboat_${Math.floor(time / 420 + c.id) % 2}`);
     else v.parts.forEach((s, i) => s.setTexture(`swimmer_${s.getData('cap')}_${Math.floor(time / 350 + i) % 2}`));
   }
@@ -181,12 +202,13 @@ export class HazardView {
     if (e.kind !== 0) {
       // people: a scream (a rowing four screams in chorus)
       this.audio.at('scream', e.x, e.y, 1.2);
-      if (e.kind === 1) this.scene.time.delayedCall(90, () => this.audio.at('scream', e.x, e.y, 0.9));
+      if (e.kind === 1 || e.kind === 3) this.scene.time.delayedCall(90, () => this.audio.at('scream', e.x, e.y, 0.9));
+      if (e.kind === 3) this.scene.time.delayedCall(200, () => this.audio.at('scream', e.x, e.y, 0.8));
     }
     const stain = this.scene.add.image(e.x, e.y, 'bloodSplat').setDisplaySize(120, 120).setDepth(4).setRotation(Math.random() * Math.PI * 2).setAlpha(0.9);
     this.scene.tweens.add({ targets: stain, alpha: 0, delay: 4000, duration: 3000, onComplete: () => stain.destroy() });
-    this.blood.emitParticleAt(e.x, e.y, 34);
-    this.gibs.emitParticleAt(e.x, e.y, e.kind === 0 ? 6 : 14);
+    this.blood.emitParticleAt(e.x, e.y, e.kind === 3 ? 60 : 34);
+    this.gibs.emitParticleAt(e.x, e.y, e.kind === 0 ? 6 : e.kind === 3 ? 26 : 14);
     if (e.kind === 0) this.feathers.emitParticleAt(e.x, e.y, 22);
     this.audio.at('splat', e.x, e.y, 1.1);
   }

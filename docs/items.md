@@ -167,7 +167,7 @@ straight into it.
 A crate of beer in a slot. Using it **heals 50 % of the boat's maximum hull** (never
 above full), with a green burst and a "Cheers!" message. And it goes to your head: for
 **4 s** you are drunk ("Hic!"): the boat weaves from side to side on its own (up to about
-30 degrees either way, a sway every 2.4 s), and your screen goes green, with soft waves
+17 degrees either way, a sway every 2.4 s), and your screen goes green, with soft waves
 rolling across it and the view swaying. Drink it when you need it:
 it can be kept for after the next hit. The AI drinks when its hull is under 55 %.
 
@@ -316,13 +316,42 @@ of straight ahead, is pulled back towards you, harder when closer and the lighte
 (up to 300 px/s towards you). A boat 700 px ahead gets about a quarter as far as it would
 have in those seconds. Useless for the leader: never given to 1st.
 
+### 21. Sauna
+
+Every opponent is lost in **thick steam** for 5 s: their screen goes grey-white except for
+a clear spot round the boat that brought the sauna, so they can see you but not where they
+are going. The AI wanders and lifts off, as when covered in cheese. Your own screen gets a
+little steam round the edges. Never given to 1st.
+
+### 22. Noise Complaint
+
+You call the police on everyone, for the noise: **a police boat after every opponent**
+(not one already chased). Each one turns up 1.2 s later, chases for 8 s and fires rockets,
+like the speeding police. A rocket that hits stops its target and fines it **€68 for
+noise** (3 s stopped). Only the back two places get it.
+
+### 23. Lazy Volunteers
+
+Three **floating couches** full of volunteers chilling (hi-vis vests, sunglasses, a drink)
+dropped behind you, staggered left, middle and right a little way apart, so there is
+always a way through. They behave like swimmers: running into one makes a mess (blood,
+screams) and slows the boat for 1.3 s, no damage. They drift for 25 s; you are immune for
+1.5 s after dropping them.
+
+### 24. Painting Workshop
+
+For 3 s you leave a **trail of wet paint** (a splash of a random colour every 0.22 s,
+10 s each). Whoever drives through gets **paint all over the screen** for 3.5 s (big
+splats with drips, gaps to peer through), no damage. The AI steers a little blind too.
+
 ### The better versions (x 3)
 
 Every item can come as its **better version, with three uses** (this replaced the old
 Volunteer Squad and Big Bag, which were exactly that for the Volunteers and the Powder). The
 chance depends on the position when the crate is broken: never for 1st, 8 % for 2nd,
 18 % for 3rd and 30 % for 4th (`TRIPLE_ODDS`). The strongest items, those that hit every
-opponent at once (Mushrooms, Electrical Failure, Gas Siphoning, Dicke Titten, Raclette),
+opponent at once (Mushrooms, Electrical Failure, Gas Siphoning, Dicke Titten, Raclette,
+Sauna, Noise Complaint),
 come as triples only for the last place, 12 % of the time. A triple shows a thicker
 orange ring round its button and its uses left.
 
@@ -350,6 +379,10 @@ orange ring round its button and its uses left.
 | Tugboat | Towed along the line, faster | 0 | 4 s | - |
 | Beer Dispenser | Full heal + a shield for the next hit | heals 100 % | until hit (45 s) | - |
 | Vacuum Cleaner | Pulls boats ahead back towards you | 0 | 3 s | Be far away |
+| Sauna | Opponents can't see (steam) | 0 | 5 s | Follow the boat that brought it |
+| Noise Complaint | A police boat after every opponent | 15 per rocket, stopped 3 s | 8 s chase | Dodge the rockets |
+| Lazy Volunteers | 3 floating couches behind, slow like swimmers | 0, slows | 25 s | Go through the gaps |
+| Painting Workshop | Trail of paint, paint on the screen | 0 | 3 s trail, 10 s each splash | Drive round it |
 
 ## Who gets what: position-based odds
 
@@ -358,8 +391,9 @@ crate is broken. **The leader gets the weakest items, the back gets the stronges
 leaders mostly draw beer, the dildo and a few traps, never the big boosts; the last boats
 get most of the Volunteers and the Powder, the Tugboat, Dicke Titten and Gas Siphoning. The weights
 are per position (1st to 4th); the item is drawn at random using them. The items that
-hit every opponent at once (Electrical Failure, Raclette, Gas Siphoning) go only to the
-back two positions. Leaders used to get mostly traps to drop behind (glue, fake crates,
+hit every opponent at once (Electrical Failure, Raclette, Gas Siphoning, Noise Complaint)
+go only to the back two positions; the Sauna also reaches 2nd now and then. The two new traps
+dropped behind (Lazy Volunteers, Painting Workshop) mostly go to the front. Leaders used to get mostly traps to drop behind (glue, fake crates,
 the toilet), which is how they kept the lead: they get half as many now.
 
 | Item | 1st | 2nd | 3rd | 4th |
@@ -384,12 +418,16 @@ the toilet), which is how they kept the lead: they get half as many now.
 | Tugboat | 0 | 2 | 6 | 9 |
 | Beer Dispenser | 3 | 6 | 7 | 7 |
 | Vacuum Cleaner | 0 | 5 | 8 | 8 |
+| Sauna | 0 | 2 | 4 | 6 |
+| Noise Complaint | 0 | 0 | 3 | 6 |
+| Lazy Volunteers | 10 | 8 | 4 | 2 |
+| Painting Workshop | 9 | 9 | 6 | 3 |
 
 Every item has a **power** rating (`ITEM_POWER` in `src/data/items.ts`: Electrical
-Failure, Raclette and Gas Siphoning 10, Mushrooms, Dicke Titten and Tugboat 9,
-Silicone Gun and Vacuum Cleaner 8, Beer Dispenser 7, Volunteers 7, Jigsaw, Powder, Drill, Glue, Kärcher and Nail Gun 6, Beer 5,
-Fake Crate and Toilet 4, Dildo 3). The average power of a draw is about **5.2 for 1st,
-6.0 for 2nd, 6.6 for 3rd and 7.1 for 4th** (before the better versions, which only add
+Failure, Raclette, Gas Siphoning and Noise Complaint 10, Mushrooms, Dicke Titten and Tugboat 9,
+Silicone Gun, Vacuum Cleaner and Sauna 8, Beer Dispenser 7, Volunteers 7, Jigsaw, Powder, Drill, Glue, Kärcher and Nail Gun 6,
+Beer and Painting Workshop 5, Fake Crate, Toilet and Lazy Volunteers 4, Dildo 3). The average power of a draw is about **5.1 for 1st,
+5.9 for 2nd, 6.6 for 3rd and 7.2 for 4th** (before the better versions, which only add
 to the back), and tests check that it rises from the front to the back, that the
 mushroom stays the rarest item in every column, and that 1st place never gets the
 ultimate items or the catch-up items.

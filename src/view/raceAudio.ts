@@ -17,6 +17,7 @@ const ITEM_SOUND: Partial<Record<ItemId, SfxName>> = {
   drill: 'drill', siliconeGun: 'silicone', fakeCrate: 'drop', mushroom: 'mushroom',
   blackout: 'blackout', raclette: 'raclette', toilet: 'toilet', karcher: 'karcher',
   titten: 'titten', dildo: 'dildo', nailGun: 'nailGun', siphon: 'siphon', tugboat: 'tugboat', beerDispenser: 'beer', vacuum: 'vacuum',
+  sauna: 'steam', noise: 'partyNoise', lazyVolunteers: 'drop', paint: 'paint',
   // glue: the sound plays when the puddle appears (also for the silicone gun's shots)
 };
 
@@ -126,6 +127,9 @@ export class RaceAudio {
         this.at(e.source === 'fakeCrate' ? 'trap' : e.source === 'bank' ? 'bank' : e.source === 'toilet' ? 'toxic' : 'hit', r.x, r.y, e.racer === me ? 1.2 : 1);
         break;
       }
+      case 'painted':
+        this.at('paint', racers[e.racer].x, racers[e.racer].y, e.racer === me ? 1.1 : 0.8);
+        break;
       case 'shieldPop':
         this.at('pop', racers[e.racer].x, racers[e.racer].y, 1.1);
         break;

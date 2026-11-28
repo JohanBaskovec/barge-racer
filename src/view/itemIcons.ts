@@ -1019,6 +1019,214 @@ const ICONS: Record<string, (c: C) => void> = {
     c.arc(26, 49, 11, Math.PI * 1.08, Math.PI * 1.92);
     paint(c, null, 3.4);
   },
+  // A sauna: a wooden bucket and ladle beside a basket of hot stones, steam rolling up.
+  icon_sauna: (c) => {
+    // steam
+    c.save();
+    c.lineCap = 'round';
+    for (const [x, a] of [[52, 0], [66, 1.4], [80, 2.6]] as const) {
+      const wave = (): void => {
+        c.beginPath();
+        c.moveTo(x, 52);
+        for (let y = 52; y >= 6; y -= 2) c.lineTo(x + Math.sin(y / 7 + a) * 5, y);
+      };
+      wave();
+      c.lineWidth = 9;
+      c.strokeStyle = 'rgba(120,140,160,0.35)';
+      c.stroke();
+      wave();
+      c.lineWidth = 5;
+      c.strokeStyle = 'rgba(255,255,255,0.95)';
+      c.stroke();
+    }
+    c.restore();
+    // the stove's basket of stones
+    rr(c, 44, 60, 46, 28, 5);
+    paint(c, DARK(c, 44, 60, 44, 88));
+    for (const [x, y, r] of [[52, 60, 8], [64, 57, 9], [77, 59, 8.5], [58, 52, 6.5], [72, 50, 7]] as const) {
+      el(c, x, y, r, r * 0.78);
+      paint(c, rg(c, x - r * 0.3, y - r * 0.3, r * 1.3, '#d8dde2', '#8b939c', '#4f565e'), 1.8);
+    }
+    el(c, 66, 55, 4, 2.6);
+    paint(c, 'rgba(255,140,60,0.75)', 0);
+    // the bucket: wooden staves, two steel bands
+    pl(c, [6, 54, 40, 54, 36, 90, 10, 90]);
+    paint(c, lg(c, 6, 54, 40, 54, '#e3a865', '#b9773a', '#8c5424'));
+    c.save();
+    pl(c, [6, 54, 40, 54, 36, 90, 10, 90]);
+    c.clip();
+    for (let x = 12; x < 40; x += 6) line(c, x, 54, x - 1, 90, 1.3, 'rgba(80,40,10,0.45)');
+    line(c, 4, 62, 42, 62, 3.4, '#9aa3ad');
+    line(c, 4, 82, 42, 82, 3.4, '#9aa3ad');
+    c.restore();
+    el(c, 23, 54, 17, 4.5);
+    paint(c, lg(c, 6, 50, 40, 58, '#6fb8e8', '#2f78b0'), 2);
+    // the ladle
+    tube(c, () => {
+      c.beginPath();
+      c.moveTo(22, 54);
+      c.lineTo(44, 24);
+    }, 4.5, '#c58a4c');
+    el(c, 20, 56, 7, 4);
+    paint(c, lg(c, 13, 52, 27, 60, '#d79a5a', '#9b6230'), 2);
+  },
+
+  // A noise complaint: a loudspeaker blasting sound waves, a police light flashing.
+  icon_noise: (c) => {
+    // sound waves
+    c.save();
+    c.lineCap = 'round';
+    for (const [r, a] of [[16, 1], [27, 0.85], [38, 0.65]] as const) {
+      c.beginPath();
+      c.arc(46, 60, r, -0.75, 0.75);
+      c.lineWidth = 6.5;
+      c.strokeStyle = OUT;
+      c.stroke();
+      c.beginPath();
+      c.arc(46, 60, r, -0.75, 0.75);
+      c.lineWidth = 3.6;
+      c.strokeStyle = `rgba(255,214,74,${a})`;
+      c.stroke();
+    }
+    c.restore();
+    // the speaker box
+    rr(c, 6, 32, 40, 58, 6);
+    paint(c, DARK(c, 6, 32, 46, 90));
+    for (const [y, r] of [[47, 9], [74, 13]] as const) {
+      el(c, 26, y, r);
+      paint(c, rg(c, 24, y - 2, r, '#6d7680', '#3a414a', '#20252c'), 2);
+      el(c, 26, y, r * 0.38);
+      paint(c, rg(c, 25, y - 1, r * 0.4, '#c9d0d7', '#7d868f'), 1.4);
+    }
+    rr(c, 10, 35, 30, 5, 2.5);
+    shine(c, 0.25);
+    // the police light
+    rr(c, 62, 22, 26, 6, 2);
+    paint(c, DARK(c, 62, 22, 62, 28), 2);
+    c.beginPath();
+    c.moveTo(64, 23);
+    c.lineTo(65, 10);
+    c.quadraticCurveTo(75, 0, 85, 10);
+    c.lineTo(86, 23);
+    c.closePath();
+    paint(c, lg(c, 64, 4, 86, 22, '#9fd8ff', '#2f7fd8', '#1d4f9a'), 2.2);
+    c.beginPath();
+    c.moveTo(69, 18);
+    c.quadraticCurveTo(70, 8, 76, 7);
+    c.lineWidth = 2.6;
+    c.strokeStyle = 'rgba(255,255,255,0.75)';
+    c.stroke();
+    for (const [x0, y0, x1, y1] of [[58, 8, 52, 3], [92, 8, 96, 2], [56, 18, 50, 18], [94, 18, 99, 18]] as const) line(c, x0, y0, x1, y1, 2.4, '#9fd8ff');
+  },
+
+  // Lazy volunteers: a floating couch, a volunteer lounging on it with a drink.
+  icon_lazyVolunteers: (c) => {
+    // the water under it
+    el(c, 48, 86, 44, 7);
+    paint(c, 'rgba(90,170,230,0.75)', 0);
+    c.save();
+    c.lineCap = 'round';
+    for (const [x0, x1, y] of [[8, 22, 86], [30, 46, 89], [60, 78, 87], [82, 90, 84]] as const) line(c, x0, y, x1, y, 2, 'rgba(255,255,255,0.8)');
+    c.restore();
+    // couch: back, seat, arms
+    rr(c, 10, 40, 76, 26, 8);
+    paint(c, lg(c, 10, 40, 10, 66, '#e2574a', '#b2342a'));
+    rr(c, 8, 60, 80, 20, 7);
+    paint(c, lg(c, 8, 60, 8, 80, '#d24538', '#8f2820'));
+    rr(c, 4, 52, 15, 28, 6);
+    paint(c, lg(c, 4, 52, 19, 80, '#e2574a', '#9c2b22'));
+    rr(c, 77, 52, 15, 28, 6);
+    paint(c, lg(c, 77, 52, 92, 80, '#e2574a', '#9c2b22'));
+    rr(c, 14, 43, 68, 6, 3);
+    shine(c, 0.25);
+    // the volunteer, lying along the seat: legs over the arm, hands behind the head
+    tube(c, () => {
+      c.beginPath();
+      c.moveTo(56, 60);
+      c.lineTo(80, 54);
+      c.lineTo(90, 60);
+    }, 7, '#3c5a8c');
+    el(c, 92, 61, 4, 3);
+    paint(c, '#2b2f36', 1.6);
+    rr(c, 26, 50, 34, 15, 7);
+    paint(c, lg(c, 26, 50, 26, 65, '#ffd23f', '#f29a1d'), 2.2);
+    line(c, 38, 51, 38, 64, 2.2, 'rgba(255,255,255,0.9)');
+    line(c, 48, 51, 48, 64, 2.2, 'rgba(255,255,255,0.9)');
+    el(c, 20, 52, 8.5);
+    paint(c, rg(c, 18, 49, 10, '#ffd9b0', '#e3a878'), 2.2);
+    // sunglasses and a smile
+    rr(c, 13, 48, 13, 4.5, 2);
+    paint(c, '#1b2330', 0);
+    c.beginPath();
+    c.arc(20, 55, 3, 0.2, Math.PI - 0.2);
+    paint(c, null, 1.4);
+    // a drink in hand
+    pl(c, [56, 36, 66, 36, 64, 50, 58, 50]);
+    paint(c, lg(c, 56, 36, 66, 50, '#ffe58a', '#f2b81e'), 2);
+    rr(c, 55, 33, 12, 4, 2);
+    paint(c, '#ffffff', 1.4);
+    line(c, 63, 34, 68, 22, 2, '#ff6f9a');
+    // zzz
+    c.font = 'bold 13px sans-serif';
+    c.fillStyle = '#ffffff';
+    c.strokeStyle = OUT;
+    c.lineWidth = 3;
+    for (const [ch, x, y] of [['z', 26, 30], ['z', 33, 22], ['Z', 41, 13]] as const) {
+      c.strokeText(ch, x, y);
+      c.fillText(ch, x, y);
+    }
+  },
+
+  // A painting workshop: a tipped pot pouring paint, a brush, splashes of every colour.
+  icon_paint: (c) => {
+    // splashes
+    for (const [x, y, r, col] of [[20, 80, 14, '#e8433a'], [50, 86, 12, '#2f8fe0'], [78, 78, 13, '#38b25a'], [84, 52, 8, '#f2c12e'], [12, 54, 7, '#b24ad8']] as const) {
+      c.beginPath();
+      for (let k = 0; k <= 10; k++) {
+        const a = (k / 10) * Math.PI * 2, rr2 = r * (k % 2 ? 0.72 : 1.05);
+        if (k === 0) c.moveTo(x + Math.cos(a) * rr2, y + Math.sin(a) * rr2 * 0.6);
+        else c.lineTo(x + Math.cos(a) * rr2, y + Math.sin(a) * rr2 * 0.6);
+      }
+      c.closePath();
+      paint(c, col, 1.8);
+    }
+    // the pot, tipped over to the right, pouring
+    c.save();
+    c.translate(36, 38);
+    c.rotate(0.55);
+    rr(c, -16, -18, 32, 36, 4);
+    paint(c, STEEL(c, -16, -18, 16, 18));
+    rr(c, -16, -6, 32, 13, 0);
+    paint(c, lg(c, -16, -6, 16, 7, '#ff8a6a', '#e8433a'), 1.6);
+    el(c, 0, -18, 16, 4.5);
+    paint(c, '#e8433a', 2);
+    c.beginPath();
+    c.arc(0, -10, 19, Math.PI * 1.1, Math.PI * 1.9);
+    paint(c, null, 2.4);
+    c.restore();
+    // the pour
+    tube(c, () => {
+      c.beginPath();
+      c.moveTo(48, 26);
+      c.quadraticCurveTo(62, 34, 60, 62);
+    }, 7, '#e8433a');
+    // the brush, laid across
+    c.save();
+    c.translate(70, 30);
+    c.rotate(-0.85);
+    rr(c, -4, -26, 8, 26, 3);
+    paint(c, lg(c, -4, -26, 4, -26, '#d79a5a', '#9b6230'), 2);
+    rr(c, -6, 0, 12, 7, 1.5);
+    paint(c, STEEL(c, -6, 0, 6, 7), 1.8);
+    c.beginPath();
+    c.moveTo(-6, 7);
+    c.lineTo(6, 7);
+    c.lineTo(5, 20);
+    c.quadraticCurveTo(0, 24, -5, 20);
+    c.closePath();
+    paint(c, lg(c, -6, 7, 6, 22, '#4fb0ff', '#2f6fd0'), 2);
+    c.restore();
+  },
 };
 
 /** Draw every icon into its own canvas texture (once). */
