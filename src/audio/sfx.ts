@@ -188,6 +188,13 @@ export const SFX = {
     }
     noise(c, d, { dur: len, filter: 'bandpass', freq: 1400, freqEnd: 900, q: 2, gain: 0.12, attack: 0.03 });
   },
+  /** A taunt: two cheeky toots of a car horn */
+  honk: (c: Ctx, d: AudioNode) => {
+    for (const at of [0, 0.22]) {
+      tone(c, d, { type: 'square', freq: 415, dur: 0.16, gain: 0.07, lowpass: 1800, attack: 0.01, release: 0.04, at });
+      tone(c, d, { type: 'square', freq: 523, dur: 0.16, gain: 0.06, lowpass: 1800, attack: 0.01, release: 0.04, at });
+    }
+  },
   /** A barge's horn: one long, low blast */
   horn: (c: Ctx, d: AudioNode) => {
     tone(c, d, { type: 'sawtooth', freq: 110, dur: 0.9, gain: 0.16, lowpass: 600, attack: 0.08, release: 0.2 });

@@ -12,6 +12,8 @@ import { BUILDING, type SceneryData, TOWPATH } from './scenery';
  *   container yards.
  * - **bayou**: swamp forest right down to the water, bushes on the banks, a dirt trail, a few
  *   tin-roofed shacks, lily pads.
+ * - **vineyard**: parcels of vines on both banks, a country road along one of them, a village
+ *   with its church, champagne cellars, poplars on the banks, woods further out.
  *
  * Everything is placed with a seeded random generator, so a track always looks the same.
  */
@@ -30,6 +32,8 @@ interface Obb {
 const REACH = 1150;
 const GREENS = [0x4f7a32, 0x5d8a3a, 0x3f6a2a, 0x6a9442, 0x557f36];
 const SWAMP = [0x2f5f2c, 0x3b6e33, 0x27522a, 0x47783a, 0x335f3f, 0x2a5a36];
+/** Vegetation kinds, as in mapArt.ts (VEG), which can't be imported here (it needs Phaser). */
+const VEG = { forest: 1, vineyard: 2, orchard: 3, meadow: 5 } as const;
 
 const cache = new Map<string, SceneryData>();
 
@@ -81,6 +85,7 @@ class Generator {
     const theme = this.track.def.theme;
     if (theme === 'bayou') this.bayou();
     else if (theme === 'industrial') this.industrial();
+    else if (theme === 'vineyard') this.vineyard();
     else this.town();
     return this.data;
   }
@@ -525,5 +530,92 @@ class Generator {
         this.data.pads!.push([Math.round(sm.x + sm.nx * lat + sm.tx * rng.range(-8, 8)), Math.round(sm.y + sm.ny * lat + sm.ty * rng.range(-8, 8)), Math.round(rng.range(7, 12))]);
       }
     }
+  }
+
+  /** Champagne Hills: vineyards, a village, champagne cellars. */
+  private vineyard(): void {
+    const rng = this.rng;
+    this.data.style = { quay: 0x8f9a5e, tiled: 0.55 };
+    const ROAD = TOWPATH + 14 + 22;
+    const n = this.n;
+    // The village and the cellars each take a stretch of the river.
+    const village = { from: Math.floor(n * 0.38), to: Math.floor(n * 0.52) };
+    const cellars = { from: Math.floor(n * 0.05), to: Math.floor(n * 0.2) };
+    const inside = (i: number, r: { from: number; to: number }) => i >= r.from && i <= r.to;
+
+    // A country road along one bank; in the village a street along the other.
+    for (const run of this.along(1, ROAD)) this.road(1, 38, run.map((r) => r.p));
+    for (const run of this.along(-1, ROAD)) {
+      const part = run.filter((r) => inside(r.i, village));
+      if (part.length > 1) this.road(1, 34, part.map((r) => r.p));
+    }
+    this.crossStreets(1, ROAD, 80, 30, 260, 520);
+
+    // The village: a church in the middle, houses along its street and behind them.
+    const mid = Math.floor((village.from + village.to) / 2);
+    for (const off of [ROAD + 34 + 70, ROAD + 34 + 260]) {
+      const c = this.at(mid, -1, off);
+      const sm = this.s[mid];
+      if (this.building({ cx: c.x, cy: c.y, ux: sm.tx, uy: sm.ty, hu: 52, hv: 30 }, BUILDING.church, 16, 16)) break;
+    }
+    const house = (depth: number) => (c: Pt, ux: number, uy: number, i: number): number => {
+      if (!inside(i, village)) return 30;
+      const w = rng.range(56, 100);
+      return this.building({ cx: c.x, cy: c.y, ux, uy, hu: w / 2, hv: depth / 2 }, BUILDING.house, rng.range(6, 11), 3) ? w + rng.range(2, 14) : 20;
+    };
+    this.row(-1, ROAD + 25 + 48, house(84));
+    this.row(-1, ROAD + 25 + 160, house(80));
+    this.row(1, ROAD + 25 + 48, house(84));
+    // ...and a cluster of houses round the church, facing every which way.
+    const heart = this.at(mid, -1, ROAD + 260);
+    for (let k = 0; k < 500; k++) {
+      const a = rng.range(0, Math.PI * 2), r = Math.sqrt(rng.next()) * 520;
+      const x = heart.x + Math.cos(a) * r, y = heart.y + Math.sin(a) * r;
+      const c = this.clear(x, y);
+      if (c.i < 0) continue;
+      const sm = this.s[c.i];
+      const turn = rng.chance(0.5);
+      const w = rng.range(40, 80);
+      this.building({ cx: x, cy: y, ux: turn ? sm.nx : sm.tx, uy: turn ? sm.ny : sm.ty, hu: w / 2, hv: rng.range(24, 40) }, BUILDING.house, rng.range(5, 10), 12);
+    }
+
+    // Champagne cellars: big houses with long roofs along the road, in their own stretch.
+    this.row(1, ROAD + 25 + 110, (c, ux, uy, i) => {
+      if (!inside(i, cellars)) return 30;
+      const w = rng.range(200, 300);
+      return this.building({ cx: c.x, cy: c.y, ux, uy, hu: w / 2, hv: rng.range(70, 95) }, BUILDING.industrial, rng.range(10, 14), 14) ? w + rng.range(60, 140) : 40;
+    });
+
+    // Poplars on the banks, here and there.
+    for (const side of [1, -1]) {
+      this.row(side, TOWPATH - 10, (c) => {
+        if (rng.chance(0.45)) this.tree(c.x, c.y, rng.range(13, 17), [0x4f7a32, 0x5d8a3a, 0x557f36]);
+        return rng.range(90, 200);
+      });
+    }
+
+    // The vines: parcels lined up with the river, a wood or a meadow now and then.
+    this.infill(120, (x, y, d, i) => {
+      if (d < TOWPATH + 22) return;
+      const sm = this.s[i];
+      const turn = rng.chance(0.3);
+      const ux = turn ? sm.nx : sm.tx, uy = turn ? sm.ny : sm.ty;
+      const b: Obb = { cx: x, cy: y, ux, uy, hu: rng.range(80, 150), hv: rng.range(55, 100) };
+      for (let k = 0; k < 4 && !this.free(b, 12, TOWPATH + 16); k++) {
+        b.hu *= 0.72;
+        b.hv *= 0.72;
+      }
+      if (b.hv < 24 || !this.free(b, 12, TOWPATH + 16)) return;
+      this.reserve(b);
+      const pick = rng.next();
+      const kind = d > 450 && pick < 0.12 ? VEG.forest : pick < 0.2 ? VEG.meadow : pick < 0.24 ? VEG.orchard : VEG.vineyard;
+      this.data.vegetation.push([kind, this.ring(b)]);
+    });
+    // Lone trees in what's left.
+    this.infill(110, (x, y) => {
+      if (!rng.chance(0.18)) return;
+      const r = rng.range(12, 20);
+      if (this.freeSpot(x, y, r * 0.7)) this.tree(x, y, r);
+    });
   }
 }

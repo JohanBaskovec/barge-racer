@@ -34,7 +34,9 @@ Canal de Reims is built from map data rather than drawn by hand; see
 
 ## Track format
 
-Tracks are data, not code. **Current state:** the three implemented tracks are
+Tracks are data, not code. **Current state:** the four implemented invented tracks
+(Lock & Load, Industrial Estuary, Bayou Bends and Champagne Hills, a river winding through
+vineyards with a tight chicane and a hairpin) are
 plain `TrackDef` objects in `src/data/tracks.ts` (centre line control points with
 widths, checkpoints, crate rows and colours), turned into a `Track` by
 `src/track/Track.ts`. The JSON/Tiled format below is the plan for when there are
@@ -182,6 +184,7 @@ make the game stutter on a phone:
 | `canal` | Lock & Load | A brick town: a quay street on each bank with plane trees, cross streets and a back street forming blocks, terraces of houses (mostly tiled roofs, a few slate, the odd church) with gardens, more houses and trees further out, a football pitch where there is room |
 | `industrial` | Industrial Estuary | A dock road on one bank and a two-track railway on the other, then warehouses with rooftop units, groups of round storage tanks and yards of stacked shipping containers, scrub on the waste ground |
 | `bayou` | Bayou Bends | Swamp forest down to the water: bushes crowding both banks, a canopy of big crowns everywhere else, a dirt trail along one bank, a few tin-roofed shacks in clearings, lily pads in the slack water |
+| `vineyard` | Champagne Hills | Parcels of vines lined up with the river on both banks (now and then an orchard, a meadow or, further out, a wood), a country road along one bank with a few side roads, a village with its church and a cluster of houses round it, champagne cellars (long buildings) along the road, poplars on the banks |
 
   Rules that keep it tidy: nothing is built on the towpath or in the water; a line
   along a bank (a street, a row of houses) is left out where the land is too narrow

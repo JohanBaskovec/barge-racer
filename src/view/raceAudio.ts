@@ -10,7 +10,7 @@ import type { RaceEvent } from '../race/types';
 import type { TrackDef } from '../track/Track';
 
 /** Which music plays on which kind of track. */
-export const MUSIC_FOR: Record<TrackDef['theme'], ThemeName> = { canal: 'race', industrial: 'industrial', bayou: 'bayou', city: 'city' };
+export const MUSIC_FOR: Record<TrackDef['theme'], ThemeName> = { canal: 'race', industrial: 'industrial', bayou: 'bayou', city: 'city', vineyard: 'vineyard' };
 
 const ITEM_SOUND: Partial<Record<ItemId, SfxName>> = {
   volunteer: 'volunteer', jigsaw: 'jigsaw', whitePowder: 'powder',

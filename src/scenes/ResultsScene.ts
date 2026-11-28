@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { boatName, ordinal, t, trackName } from '../i18n';
 import { audio } from '../audio/AudioManager';
 import { net } from '../net/client';
+import { type CupState, pointsFor } from '../cup/championship';
 import type { Selection } from '../session';
 import { background, button, fitText, fmtTime, text } from '../view/ui';
 
@@ -19,7 +20,8 @@ export class ResultsScene extends Phaser.Scene {
     super('Results');
   }
 
-  create(data: { rows: ResultRow[]; trackId: string; selection: Selection; online?: boolean }): void {
+  /** `cup`: a championship race, with the standings after it; `you`: your key in them. */
+  create(data: { rows: ResultRow[]; trackId: string; selection: Selection; online?: boolean; cup?: CupState; you?: string }): void {
     background(this);
     const pos = data.rows.findIndex((r) => r.isPlayer);
     audio.playMusic(null);
@@ -28,7 +30,9 @@ export class ResultsScene extends Phaser.Scene {
     // pos -1: watched the race online without racing in it.
     const title = pos < 0 ? t('results.over') : pos === 0 ? t('results.won') : t('results.finished', { place: ordinal(pos + 1) });
     fitText(text(this, 640, 70, title, 64, pos === 0 ? '#ffe08a' : '#ffffff'), 1150).setStroke('#0b3a5b', 10);
-    text(this, 640, 130, trackName(data.trackId), 28, '#bfe1f7', false);
+    const sub = data.cup ? `${t('cup.title')} · ${t('cup.race', { n: data.cup.done, total: data.cup.total })} · ${trackName(data.trackId)}` : trackName(data.trackId);
+    fitText(text(this, 640, 130, sub, 28, '#bfe1f7', false), 1100);
+    const timeX = data.cup ? 850 : 900;
 
     // Up to eight rows: smaller ones when there are many, so they fit above the buttons.
     const n = data.rows.length;
@@ -49,9 +53,23 @@ export class ResultsScene extends Phaser.Scene {
         if (nm.width > 230) nm.setScale(230 / nm.width);
         this.add.text(670, y, boatName(r.boatId), { fontSize: '17px', color: '#bfe1f7', fontFamily: 'Trebuchet MS, Verdana, sans-serif', resolution: 2 }).setOrigin(0, 0.5);
       }
-      text(this, 900, y, (r.finished ? '' : '~') + fmtTime(r.time), Math.round(30 * Math.max(0.8, k)), r.finished ? '#ffffff' : '#9fc7e2');
+      text(this, timeX, y, (r.finished ? '' : '~') + fmtTime(r.time), Math.round(30 * Math.max(0.8, k)), r.finished ? '#ffffff' : '#9fc7e2');
+      // Championship points for the place.
+      if (data.cup) text(this, 970, y, `+${pointsFor(i)}`, Math.round(30 * Math.max(0.8, k)), '#9dff9d');
     });
 
+    if (data.cup) {
+      // The standings next: from there, the next race (or back to the room online).
+      const cup = data.cup;
+      button(this, data.online ? 460 : 640, 640, 340, 72, t('cup.standings'), () => this.scene.start('Standings', { cup, you: data.you, online: data.online }), { fill: 0x2d9d5a, textSize: 32 });
+      if (data.online) {
+        button(this, 840, 640, 300, 72, t('lobby.leave'), () => {
+          net.leave();
+          this.scene.start('Title');
+        }, { fill: 0x8a4a4a, textSize: 30 });
+      }
+      return;
+    }
     if (data.online) {
       button(this, 460, 640, 340, 72, t('results.backToLobby'), () => this.scene.start(net.inRoom ? 'Lobby' : 'Online'), { fill: 0x2d9d5a, textSize: 30 });
       button(this, 840, 640, 300, 72, t('lobby.leave'), () => {

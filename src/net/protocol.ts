@@ -1,4 +1,6 @@
+import type { CupState } from '../cup/championship';
 import type { Difficulty } from '../data/difficulty';
+import type { TauntId } from '../data/taunts';
 import type { Section } from '../data/tracks';
 import type { RaceEvent } from '../race/types';
 import type { SimState } from './snapshot';
@@ -37,6 +39,8 @@ export interface RoomSettings {
   size?: number;
   /** For a track whose stretch can be picked: the stretch (otherwise absent). */
   section?: Section;
+  /** A championship: the room races the cup's tracks in turn and keeps the points (the track follows the cup). */
+  cup?: boolean;
 }
 
 export interface LobbyPlayer {
@@ -85,14 +89,19 @@ export type ClientMsg =
   | { t: 'removeBot'; id: string }
   | { t: 'start' }
   | { t: 'in'; i: InputTuple[] }
+  | { t: 'taunt'; id: TauntId }
   | { t: 'ping'; c: number };
 
 export type ServerMsg =
   /** `key` lets this player rejoin (see join). */
   | { t: 'welcome'; you: string; code: string; key: string }
-  | { t: 'lobby'; players: LobbyPlayer[]; bots: LobbyBot[]; settings: RoomSettings; racing: boolean }
+  /** `cup`: the championship's standings while the room is racing one. */
+  | { t: 'lobby'; players: LobbyPlayer[]; bots: LobbyBot[]; settings: RoomSettings; racing: boolean; cup?: CupState }
   | { t: 'start'; seed: number; settings: RoomSettings; roster: StartEntry[] }
   | { t: 'snap'; s: number; ack: number; state: SimState; ev: RaceEvent[] }
-  | { t: 'results'; rows: ResultRowNet[] }
+  /** `cup`: in a championship, the standings with this race counted. */
+  | { t: 'results'; rows: ResultRowNet[]; cup?: CupState }
+  /** Someone taunted (`from`: their player id). */
+  | { t: 'taunt'; from: string; id: TauntId }
   | { t: 'error'; reason: 'full' | 'racing' | 'bad' }
   | { t: 'pong'; c: number };

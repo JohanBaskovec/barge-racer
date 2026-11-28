@@ -83,6 +83,17 @@ own boat and **interpolation** of everyone else.
     until the race ends.
 - The race has exactly the people and the AI boats in the list, in that order on the grid (two
   abreast, four rows) and in those colours.
+- **Championship**: the host turns it on (the button beside "Race"). The room then races the
+  championship's tracks in turn (the track arrows go away; "Race 2/4" shows which one), the
+  server keeps the points (people by player id, AI boats by their id) and each race's grid is
+  set by the standings, the leader at the back. The lobby shows everyone's points; after a race
+  the results show the points of each place and lead to the standings. After the last race the
+  champion is shown and the room starts a new championship; turning it off forgets the points.
+  Someone who joins in the middle starts with no points; someone who leaves keeps theirs in the
+  standings.
+- **Taunts**: "Taunt…" under the list, or the taunt button in a race. The server sends the taunt
+  to everyone (at most one per player every 1.2 s); it appears beside the name in the lobby and
+  over the boat in a race.
 - With more than four boats the position-based rules (item odds, better versions, birds
   and swimmers) spread the places over their four columns: in a race of eight, 1st and
   2nd use the first column, 7th and 8th the last.
@@ -113,7 +124,8 @@ deploy (Cloudflare builds from `main` as before):
 | File | What it does |
 | --- | --- |
 | `src/net/protocol.ts` | Message types, room codes, timing constants |
-| `src/net/room.ts` | `RoomCore`: lobby, start, the authoritative race, snapshots, results, leaving. Plain TypeScript, tested without a server |
+| `src/net/room.ts` | `RoomCore`: lobby, start, the authoritative race, snapshots, results, leaving, the championship's points, taunts. Plain TypeScript, tested without a server |
+| `src/cup/championship.ts` | The championship's tracks, points, standings and grid order, shared with the single-player game |
 | `src/net/remote.ts` | `RemoteController`: a person's boat on the server, fed by their controls |
 | `src/net/snapshot.ts` | Encode the race state (rounded, compact) and apply it to a local copy |
 | `src/net/client.ts` | The browser side of the connection, shared by the online screens |
@@ -149,7 +161,7 @@ with fake connections and a fake clock (joining, the lobby, a full race, someone
 checks that a snapshot recreates the race on another screen. It also covers connection trouble:
 a seat kept and given back with the key, a reconnection replacing a connection not yet noticed
 as dead, someone joining mid-race to watch, the AI standing in when controls stop, and a race
-everyone left.
+everyone left. A whole four-race championship runs there too, and taunts.
 
 ## Not done yet
 

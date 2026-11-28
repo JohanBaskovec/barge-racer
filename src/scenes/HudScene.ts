@@ -12,6 +12,8 @@ import { button, fitText, fmtTime, text } from '../view/ui';
 import type { RaceScene } from './RaceScene';
 import { DebugScene } from './DebugScene';
 import { STICK } from '../control/PointerController';
+import { endOfflineCup } from '../cup/offlineCup';
+import { TAUNTS } from '../data/taunts';
 
 /**
  * Two item buttons: the first is fired with right click, the second with middle click. Bottom left
@@ -30,6 +32,8 @@ const TAP_MS = 300;
 const TAP_MOVE = 30;
 const PAUSE_BTN = { x: 640, y: 46, r: 30 };
 const MAP = { x: 1060, y: 24, w: 200, h: 140 };
+/** The taunt button, left of pause; its menu opens below the top of the screen. */
+const TAUNT_BTN = { x: 560, y: 46, r: 30 };
 
 export class HudScene extends Phaser.Scene {
   private race!: RaceScene;
@@ -186,7 +190,36 @@ export class HudScene extends Phaser.Scene {
 
     const fs = addFullscreenButton(this, PAUSE_BTN.x + 80, PAUSE_BTN.y);
     const zones = slotBtns.map((b) => ({ ...b, r: b.r * HIT_SCALE }));
-    race.pointer.hudZones = fs ? [...zones, PAUSE_BTN, fs] : [...zones, PAUSE_BTN];
+    const baseZones = fs ? [...zones, PAUSE_BTN, TAUNT_BTN, fs] : [...zones, PAUSE_BTN, TAUNT_BTN];
+    race.pointer.hudZones = baseZones;
+
+    // Taunts: a speech-bubble button opens two rows of phrases; picking one says it (and closes them).
+    const tb = this.add.circle(TAUNT_BTN.x, TAUNT_BTN.y, TAUNT_BTN.r, 0x0b3a5b, 0.7).setStrokeStyle(4, 0xffffff, 0.9);
+    const icon = this.add.graphics();
+    icon.fillStyle(0xffffff, 1).fillRoundedRect(TAUNT_BTN.x - 15, TAUNT_BTN.y - 13, 30, 20, 7);
+    icon.fillTriangle(TAUNT_BTN.x - 8, TAUNT_BTN.y + 5, TAUNT_BTN.x + 1, TAUNT_BTN.y + 5, TAUNT_BTN.x - 10, TAUNT_BTN.y + 15);
+    icon.fillStyle(0x0b3a5b, 1);
+    for (const dx of [-7, 0, 7]) icon.fillCircle(TAUNT_BTN.x + dx, TAUNT_BTN.y - 3, 2.2);
+    let menu: Phaser.GameObjects.Container | null = null;
+    const closeMenu = (): void => {
+      menu?.destroy();
+      menu = null;
+      race.pointer.hudZones = baseZones;
+    };
+    const chips = TAUNTS.map((id, k) => ({ id, x: 480 + (k % 3) * 160, y: 112 + Math.floor(k / 3) * 46 }));
+    let tauntPress = -1;
+    tb.setInteractive({ useHandCursor: true })
+      .on('pointerdown', (p: Phaser.Input.Pointer) => (tauntPress = p.id))
+      .on('pointerup', (p: Phaser.Input.Pointer) => {
+        if (p.id !== tauntPress || this.paused) return;
+        tauntPress = -1;
+        if (menu) return closeMenu();
+        menu = this.add.container(0, 0, chips.map((c) => button(this, c.x, c.y, 150, 38, t(`taunt.${c.id}`), () => {
+          race.taunt(c.id);
+          closeMenu();
+        }, { fill: 0x3d5266, textSize: 18 }))).setDepth(60);
+        race.pointer.hudZones = [...baseZones, ...chips.map((c) => ({ x: c.x, y: c.y, r: 78 }))];
+      });
 
     this.big = text(this, 640, 300, '', 160).setStroke(stroke, 16);
     this.endsText = text(this, 640, 104, '', 30, '#ffe08a').setStroke(stroke, 6);
@@ -472,7 +505,10 @@ export class HudScene extends Phaser.Scene {
       if (online) {
         net.leave();
         this.scene.start('Online');
-      } else this.scene.start('BoatSelect');
+      } else {
+        endOfflineCup(); // quitting a championship race gives the championship up
+        this.scene.start('BoatSelect');
+      }
     }, { fill: 0x8a4a4a, textSize: 36 });
     const items: Phaser.GameObjects.GameObject[] = [shade, title, resume, restart, opts, quit];
     // Debug menu: single player, on a computer only.

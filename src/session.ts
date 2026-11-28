@@ -7,6 +7,8 @@ export interface Selection {
   difficulty: Difficulty;
   /** The stretch picked for each track that has one (the Reims canal). */
   sections?: Record<string, Section>;
+  /** The track screen is set to a championship rather than a single race. */
+  cup?: boolean;
 }
 
 const KEY = 'barge-racer-selection';

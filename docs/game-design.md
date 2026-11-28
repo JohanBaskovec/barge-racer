@@ -178,8 +178,8 @@ With them, in AI races on Lock & Load, the lead changes hands about 4.4 times a 
 
 | Mode | Description |
 | --- | --- |
-| **Single Race** | Pick a boat and an unlocked track, race once. |
-| **Cup** | 4 tracks in a row against the same 3 opponents. Points per race: 10 / 6 / 3 / 1. Highest total wins the cup; ties broken by the last race. |
+| **Single Race** | Pick a boat and a track, race once. |
+| **Championship** | Every track with laps in a row (Lock & Load, Industrial Estuary, Bayou Bends, Champagne Hills) against the same 3 opponents. Points by place: 10 / 8 / 6 / 5 / 4 / 3 / 2 / 1. The grid of each race is set by the standings, **fewest points in front, the leader at the back**. Most points at the end wins; level on points, the better place in the latest race goes first. Online too (see [Multiplayer](multiplayer.md#rooms-and-lobby)). |
 | **Time Trial** *(later)* | Alone on the track, no items, best lap and best total time saved locally. Ghost replay is a stretch goal. |
 
 ## Difficulty
@@ -214,11 +214,15 @@ No accounts, no server, no purchases.
 2. **Main menu**: Single Race, Cup, Options.
 3. **Boat select**: carousel of boats with a stat chart, locked boats shown as
    silhouettes.
-4. **Track / cup select**: thumbnails of the track layout, best time, lock state.
+4. **Track select**: thumbnails of the track layout. A **Championship** button switches to the
+   championship: its tracks are numbered and lit, the others faded, and the green button
+   starts it.
 5. **Race**: the game itself with the HUD.
 6. **Pause**: Resume, Restart, Quit. Opens with the pause button or `Esc`, and
    automatically when the page loses focus.
-7. **Results**: finishing order, times, points (cup), Continue / Retry / Menu.
+7. **Results**: finishing order, times, and in a championship the points of each place, then
+   **Standings**: the points of each race and the total, with the next race (or Give up); after
+   the last race, the champion, New championship / Menu.
 8. **Options**: music and sound volume, steering mode (see
    [Controls](controls.md)), left-handed layout, reduced screen shake.
 
@@ -230,6 +234,18 @@ No accounts, no server, no purchases.
   button that shows the held item and fires it when tapped.
 - Hull bar above the player's boat, only shown after taking damage.
 - Short pop-up texts: "Hit!", "Sunk!", "Boost!", "Final lap!".
+- Top centre, left of pause: the **taunt** button (a speech bubble), see below.
+
+## Taunts
+
+Six phrases: *HONK HONK!*, *Bye bye!*, *Too slow!*, *Sorry, not sorry*, *Nice boat… NOT* and
+*Cheers!* (`src/data/taunts.ts`). The taunt button opens them; the one picked appears in a
+speech bubble over your boat for about 2.6 seconds (the honk also honks).
+
+- **Online** everyone sees it over your boat, and in the lobby beside your name ("Taunt…" at
+  the bottom of the list). The server passes on at most one taunt per player every 1.2 s.
+- **AI boats taunt too**: one that overtakes you close by sometimes says *Bye bye!*, *Too slow!*
+  or honks (at most every 7 s), and offline one answers your taunt now and then.
 
 ## Audio
 
@@ -239,7 +255,8 @@ no audio files to download or license, and engines can follow the boat exactly.
 - **Music**: a small step sequencer plays loops written as text in
   `src/audio/music.ts`. Menu theme (calm, C major), race theme (Lock & Load),
   the same tune lower with a heavier beat (Industrial Estuary), a swampy blues
-  (Bayou Bends) and a **musette waltz on the accordion** for the Canal de Reims.
+  (Bayou Bends), a quick **accordion galop** (Champagne Hills) and a **musette waltz on the
+  accordion** for the Canal de Reims.
   The results screen plays a win or lose jingle, then the menu theme.
 - **Engines**: one voice per boat, its pitch and loudness following speed and
   throttle. A chugging diesel for the barges, tug, canal boat and fire boat, an

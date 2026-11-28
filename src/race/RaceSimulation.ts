@@ -17,7 +17,7 @@ export const STEP = 1 / 60;
 /** How fast a boat shrinks and grows back, in size per second. */
 const SIZE_RATE = 1.8;
 export const RACER_COLORS = [0xff5a4d, 0x4da3ff, 0xffd23f, 0x62d26f, 0xb36bff, 0xff9a3c, 0xff6fb5, 0x3fd6c8];
-const AI_NAMES = ['Captain Bob', 'Molly Moor', 'Dredge', 'Admiral Fizz', 'Bilge', 'Skipper Sue'];
+export const AI_NAMES = ['Captain Bob', 'Molly Moor', 'Dredge', 'Admiral Fizz', 'Bilge', 'Skipper Sue'];
 /** Starting slots behind the line, two abreast; rows are far enough apart for the longest boat (150 px). */
 const GRID = [
   { along: -90, across: -60 },

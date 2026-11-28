@@ -1,4 +1,8 @@
 import Phaser from 'phaser';
+import type { TauntId } from '../data/taunts';
+import { tauntBubble } from '../view/tauntBubble';
+import { type CupState, cupGrid, cupTrack, scoreRace } from '../cup/championship';
+import { activeCup } from '../cup/offlineCup';
 import { DEBUG } from '../config';
 import { PointerController } from '../control/PointerController';
 import { TUNING } from '../data/items';
@@ -29,6 +33,10 @@ import { RaceAudio } from '../view/raceAudio';
 import { audio } from '../audio/AudioManager';
 
 type Sprite = Phaser.GameObjects.Image;
+
+/** What AI boats say when they overtake you, and when they answer your taunt. */
+const AI_PASS: TauntId[] = ['bye', 'slow', 'honk'];
+const AI_REPLIES: TauntId[] = ['sorry', 'nice', 'cheers', 'honk', 'slow'];
 
 export class RaceScene extends Phaser.Scene {
   sim!: RaceSimulation;
@@ -78,14 +86,27 @@ export class RaceScene extends Phaser.Scene {
   /** Online, joined during the race: no boat of your own; the camera follows `sim.player`, which a tap changes. */
   spectating = false;
   private onlineStart: Extract<ServerMsg, { t: 'start' }> | null = null;
+  /** Taunt bubbles following their boats. */
+  private taunts: { c: Phaser.GameObjects.Container; racer: number; dy: number }[] = [];
+  private lastPositions: number[] = [];
+  private aiTauntAt = -1e9;
+  /** A single-player championship race: who is in each seat (null: not a championship race). */
+  private cupKeys: string[] | null = null;
 
-  init(data: Selection & { online?: Extract<ServerMsg, { t: 'start' }> }): void {
+  init(data: Selection & { online?: Extract<ServerMsg, { t: 'start' }>; cup?: boolean }): void {
     // Online, the room's settings say which stretch is raced; offline, the stretch saved for the track.
     this.onlineStart = data.online ?? null;
     this.online = null;
     this.spectating = false;
-    this.selection = data.online ? { ...session, trackId: data.online.settings.trackId, difficulty: data.online.settings.difficulty } : data;
+    // A single-player championship: the cup says which track is next.
+    this.cupKeys = data.cup && activeCup && !data.online ? [] : null;
+    this.selection = data.online
+      ? { ...session, trackId: data.online.settings.trackId, difficulty: data.online.settings.difficulty }
+      : this.cupKeys && activeCup ? { ...data, trackId: cupTrack(activeCup.state), difficulty: activeCup.difficulty } : data;
     this.views = [];
+    this.taunts = [];
+    this.lastPositions = [];
+    this.aiTauntAt = -1e9;
     this.accumulator = 0;
     this.over = false;
     this.crateSprites.clear();
@@ -136,6 +157,10 @@ export class RaceScene extends Phaser.Scene {
       online.onCorrection = (dx, dy, dh) => this.views[this.sim.player!.id]?.correct(dx, dy, dh);
       net.on(this, 'snap', (m) => online.onSnap(m, performance.now()));
       net.on(this, 'results', (m) => this.finishOnline(m));
+      net.on(this, 'taunt', (m) => {
+        const i = start.roster.findIndex((e) => e.playerId === m.from);
+        if (i >= 0) this.showTaunt(i, m.id);
+      });
       net.on(this, 'closed', () => this.scene.start('Online', { error: t('online.lost') }));
       // Back after losing the connection: the same race carries on; a different one starts afresh.
       net.on(this, 'start', (m) => {
@@ -152,6 +177,17 @@ export class RaceScene extends Phaser.Scene {
           if (p.leftButtonDown() || p.wasTouch) this.watchNext();
         });
       }
+    } else if (this.cupKeys && activeCup) {
+      // A championship race: always the same boats, the leader at the back of the grid.
+      const grid = cupGrid(activeCup.state, activeCup.boats, (b) => b.key);
+      this.cupKeys = grid.map((b) => b.key);
+      this.sim = new RaceSimulation({
+        track,
+        difficulty: activeCup.difficulty,
+        seed: DEBUG.seed ?? (Date.now() & 0xffff),
+        forcedItem: DEBUG.item,
+        roster: grid.map((b) => ({ name: b.name, boatId: b.boatId, human: b.human, controller: b.human ? this.pointer : undefined })),
+      });
     } else {
       this.sim = new RaceSimulation({
         track,
@@ -247,8 +283,59 @@ export class RaceScene extends Phaser.Scene {
     this.updateDrunk(time, dt);
     this.raceAudio.update(dt);
     this.updateCamera(dt, time);
+    this.updateTaunts(time);
     for (const e of this.online ? this.online.takeEvents() : this.sim.takeEvents()) this.handleEvent(e);
     if (this.fpsText) this.fpsText.setText(`${this.game.loop.actualFps.toFixed(0)} fps`);
+  }
+
+  /** A taunt in a bubble over a boat (one bubble per boat at a time). */
+  showTaunt(racer: number, id: TauntId): void {
+    const v = this.views[racer];
+    if (!v) return;
+    for (const b of this.taunts) if (b.racer === racer) b.c.destroy();
+    this.taunts = this.taunts.filter((b) => b.racer !== racer);
+    const c = tauntBubble(this, v.x, v.y - 42, id, 'down').setDepth(60);
+    this.taunts.push({ c, racer, dy: c.y - v.y });
+  }
+
+  /** The player taunts (the HUD's taunt menu). Online it goes to everyone; offline an AI boat may answer. */
+  taunt(id: TauntId): void {
+    if (this.online) {
+      net.send({ t: 'taunt', id });
+      return;
+    }
+    const me = this.sim.player;
+    if (!me) return;
+    this.showTaunt(me.id, id);
+    const ais = this.sim.racers.filter((r) => !r.human && !r.finished);
+    if (ais.length && Math.random() < 0.5) {
+      const ai = ais[Math.floor(Math.random() * ais.length)];
+      const replies = AI_REPLIES.filter((x) => x !== id);
+      this.time.delayedCall(1300, () => this.showTaunt(ai.id, replies[Math.floor(Math.random() * replies.length)]));
+    }
+  }
+
+  /** Bubbles follow their boats; an AI boat that overtakes you close by sometimes rubs it in. */
+  private updateTaunts(time: number): void {
+    this.taunts = this.taunts.filter((b) => b.c.active);
+    for (const b of this.taunts) {
+      const v = this.views[b.racer];
+      b.c.setPosition(v.x, v.y + b.dy);
+    }
+    const me = this.sim.player;
+    const prev = this.lastPositions;
+    if (me && !this.spectating && this.sim.phase === 'racing' && prev.length && time - this.aiTauntAt > 7000) {
+      for (const r of this.sim.racers) {
+        if (r.human || r.finished || prev[r.id] === undefined) continue;
+        const passed = prev[r.id] > prev[me.id] && r.position < me.position;
+        if (passed && Math.hypot(r.x - me.x, r.y - me.y) < 450 && Math.random() < 0.45) {
+          this.aiTauntAt = time;
+          this.showTaunt(r.id, AI_PASS[Math.floor(Math.random() * AI_PASS.length)]);
+          break;
+        }
+      }
+    }
+    this.lastPositions = this.sim.racers.map((r) => r.position);
   }
 
   /** Online: your controls drive your boat locally each step (and go to the server); the others follow the snapshots. */
@@ -293,7 +380,7 @@ export class RaceScene extends Phaser.Scene {
         isPlayer: r.playerId === net.you,
       };
     });
-    this.time.delayedCall(1200, () => this.scene.start('Results', { rows, trackId: this.sim.track.def.id, selection: this.selection, online: true }));
+    this.time.delayedCall(1200, () => this.scene.start('Results', { rows, trackId: this.sim.track.def.id, selection: this.selection, online: true, cup: m.cup, you: net.you }));
   }
 
   private updateCamera(dt: number, time: number): void {
@@ -639,8 +726,15 @@ export class RaceScene extends Phaser.Scene {
       finished: r.finished,
       isPlayer: r.racer.isPlayer,
     }));
+    // A championship race counts for the standings.
+    let cup: CupState | undefined;
+    if (this.cupKeys && activeCup) {
+      const keys = this.cupKeys;
+      const boats = new Map(activeCup.boats.map((b) => [b.key, b]));
+      cup = activeCup.state = scoreRace(activeCup.state, this.sim.results().map((r) => ({ ...boats.get(keys[r.racer.id])! })));
+    }
     this.time.delayedCall(400, () => {
-      this.scene.start('Results', { rows, trackId: this.sim.track.def.id, selection: this.selection });
+      this.scene.start('Results', { rows, trackId: this.sim.track.def.id, selection: this.selection, cup, you: 'you' });
     });
   }
 

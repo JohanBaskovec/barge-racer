@@ -41,17 +41,21 @@ barge-racer/
 │   │   ├── RaceScene.ts      # the race world
 │   │   ├── HudScene.ts       # runs on top of RaceScene
 │   │   ├── PauseScene.ts
-│   │   └── ResultsScene.ts
+│   │   ├── ResultsScene.ts
+│   │   └── StandingsScene.ts # championship points after a race, the champion at the end
 │   ├── data/
 │   │   ├── boats.ts          # BoatDef[] (see boats.md)
 │   │   ├── items.ts          # item tuning values and odds table
 │   │   ├── tracks.ts         # track registry, cups, unlocks
+│   │   ├── taunts.ts         # the taunt phrases players and AI boats send
 │   │   └── difficulty.ts
+│   ├── cup/
+│   │   ├── championship.ts   # tracks, points, standings, grid order (pure, shared with the server)
+│   │   └── offlineCup.ts     # the single-player championship in progress
 │   ├── race/
 │   │   ├── RaceState.ts      # racers, laps, positions, timer, phase
 │   │   ├── RaceManager.ts    # countdown, checkpoints, finish, results
-│   │   ├── Racer.ts          # one boat + its controller + held item
-│   │   └── CupState.ts
+│   │   └── Racer.ts          # one boat + its controller + held item
 │   ├── physics/
 │   │   ├── BoatPhysics.ts    # the boat model (pure functions)
 │   │   ├── collisions.ts     # circle/capsule/polygon tests, impulses
@@ -80,6 +84,7 @@ barge-racer/
 │   │   ├── BoatView.ts       # sprite, wake, damage overlays
 │   │   ├── streetLife.ts     # decorative cars and people round the camera
 │   │   ├── hazardView.ts     # police boat, anglers, birds, rowers, swimmers
+│   │   ├── tauntBubble.ts    # speech bubbles over boats and beside names
 │   │   ├── CameraController.ts
 │   │   └── Minimap.ts
 │   ├── audio/

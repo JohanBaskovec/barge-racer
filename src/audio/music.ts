@@ -154,7 +154,34 @@ const CITY: Theme = {
   drums: { hat: '..x.x.' },
 };
 
-export const THEMES = { menu: MENU, race: RACE, industrial: INDUSTRIAL, bayou: BAYOU, city: CITY };
+/** Champagne Hills: a quick galop on the accordion, bass and chords on the beat and off it. */
+const VINEYARD: Theme = {
+  bpm: 152,
+  stepsPerBar: 8,
+  bars: 8,
+  tracks: [
+    {
+      inst: 'bass',
+      notes: `D3 A2 D3 A2 D3 A2 D3 A2  D3 A2 D3 A2 D3 A2 D3 A2  G2 D3 G2 D3 G2 D3 G2 D3  A2 E3 A2 E3 A2 E3 A2 E3
+              D3 A2 D3 A2 D3 A2 D3 A2  B2 F#3 B2 F#3 B2 F#3 B2 F#3  E3 B2 E3 B2 A2 E3 A2 E3  D3 A2 D3 A2 D3:4`,
+    },
+    {
+      inst: 'stab',
+      notes: `. D4+F#4+A4 . D4+F#4+A4 . D4+F#4+A4 . D4+F#4+A4  . D4+F#4+A4 . D4+F#4+A4 . D4+F#4+A4 . D4+F#4+A4
+              . D4+G4+B4 . D4+G4+B4 . D4+G4+B4 . D4+G4+B4  . C#4+E4+A4 . C#4+E4+A4 . C#4+E4+A4 . C#4+E4+A4
+              . D4+F#4+A4 . D4+F#4+A4 . D4+F#4+A4 . D4+F#4+A4  . B3+D4+F#4 . B3+D4+F#4 . B3+D4+F#4 . B3+D4+F#4
+              . E4+G4+B4 . E4+G4+B4 . C#4+E4+A4 . C#4+E4+A4  . D4+F#4+A4 . D4+F#4+A4 .:4`,
+    },
+    {
+      inst: 'acc',
+      notes: `A4 D5 F#5 A5 F#5:2 D5:2  E5 F#5 E5 D5 A4:4  B4 D5 G5 B5 G5:2 D5:2  C#5 E5 A5 G5 F#5:2 E5:2
+              F#5 A5 D6:2 C#6 B5 A5:2  B5 A5 F#5 D5 B4:4  G5 F#5 E5 G5 C#5:2 E5:2  D5:4 .:2 A4:2`,
+    },
+  ],
+  drums: { kick: 'x...x...', snare: '..x...x.', hat: 'x.x.x.x.' },
+};
+
+export const THEMES = { menu: MENU, race: RACE, industrial: INDUSTRIAL, bayou: BAYOU, city: CITY, vineyard: VINEYARD };
 export type ThemeName = keyof typeof THEMES;
 
 // ---------------------------------------------------------------------------- instruments

@@ -49,10 +49,10 @@ good way.
 
 ## M4: Content (partly done)
 
-Done: all 8 boats (including Cabourg, a real péniche) and Boat Select, 3 of 8
-drawn tracks plus the real Canal de Reims, Track Select, difficulty levels and
-rubber-banding, thirteen items in two slots. Still to do: the other 5 tracks and their
-hazards, cup mode, save data (unlocks, best times, options).
+Done: all 8 boats (including Cabourg, a real péniche) and Boat Select, 4 invented
+tracks plus the real Canal de Reims, Track Select, difficulty levels and
+rubber-banding, the items in two slots, the championship (offline and online). Still to do:
+more tracks and their hazards, save data (unlocks, best times).
 
 - All boats with stats and placeholder sprites; Boat Select scene.
 - All 8 tracks with their features and hazards; Track Select scene.

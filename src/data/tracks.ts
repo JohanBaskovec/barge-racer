@@ -61,6 +61,20 @@ export const TRACK_DEFS: TrackDef[] = [
     colors: { land: 0x35542e, shore: 0x65703a, water: 0x4d7a4a, waterDeep: 0x3a6140 },
   },
   {
+    // Invented: a river winding through champagne vineyards, past a village and the cellars.
+    id: 'champagneHills',
+    laps: 3,
+    theme: 'vineyard',
+    centerLine: pts([
+      [1300, 500, 280], [1900, 750, 230], [2200, 1250, 200], [2800, 1150, 220], [3400, 1400, 260],
+      [3500, 2000, 280], [3000, 2450, 260], [2300, 2350, 220], [1800, 2700, 200], [1100, 2600, 220],
+      [700, 2100, 240], [1300, 1700, 220], [900, 1250, 240], [600, 700, 300],
+    ]),
+    checkpoints: [0.25, 0.5, 0.75],
+    crateRows: [{ at: 0.1, count: 8 }, { at: 0.32, count: 8 }, { at: 0.55, count: 8 }, { at: 0.78, count: 8 }],
+    colors: { land: 0xd8cfa4, shore: 0xc9bd92, water: 0x3d86a8, waterDeep: 0x2c6d8f },
+  },
+  {
     // Canal de l'Aisne à la Marne, from Passage Marx Dormoy (la Neuvillette) to the Sillery lock, at
     // true scale. Any stretch can be raced; by default boulevard Paul Doumer to the lock.
     // Generated from IGN open data by scripts/import-reims.mjs.

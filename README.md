@@ -8,7 +8,7 @@ jigsaws, electric drills, glue and a mysterious white powder.
 The whole game is played with **one pointer**: a mouse or a single finger.
 
 > **Status:** playable prototype (milestones M0 to M3 of the [roadmap](docs/roadmap.md)).
-> You can pick one of 8 boats, race 3 AI opponents on 3 tracks at 3 difficulty
+> You can pick one of 8 boats, race 3 AI opponents on 5 tracks (or all the lap tracks in a championship) at 3 difficulty
 > levels, and use thirteen items (two at a time). Art is placeholder (drawn in code) and there
 > is no sound yet. See [what is implemented](#implemented-so-far).
 
@@ -71,7 +71,10 @@ Debug URL parameters (see [Architecture](docs/architecture.md#debug-flags)):
   `Space` to fire, swipe down on the item button to fire backwards.
 - 8 boats with different stats, starting with **Cabourg**, a real péniche
   from the canal drawn from an aerial photo; boat select with stat bars.
-- 3 tracks (Lock & Load, Industrial Estuary, Bayou Bends) and track select.
+- 4 tracks (Lock & Load, Industrial Estuary, Bayou Bends, Champagne Hills) and track select.
+- **Championship**: the four lap tracks in a row, points by place, the leader starting at the
+  back; offline against the same three AI boats, or online with the room keeping the points.
+- **Taunts**: six phrases in a speech bubble over your boat (AI boats taunt back).
 - **Canal de Reims**: the real canal from boulevard Paul Doumer to the Sillery
   lock at true scale (9.9 km, point-to-point), built from IGN open data
   (BD TOPO®, Licence Ouverte Etalab 2.0).
@@ -94,7 +97,7 @@ Debug URL parameters (see [Architecture](docs/architecture.md#debug-flags)):
   item and event.
 - Options: music and effects volume, left-handed layout, auto-fire, reduced shake.
 
-- **Online multiplayer**: rooms of up to 8 people (and AI boats the host adds), invite
+- **Online multiplayer**: rooms of up to 8 boats (AI boats fill the seats people leave free), invite
   links, a lobby where the host picks the race, server-run races with your boat
   predicted and the others smoothed. Hosted on the same Cloudflare Worker, one
   Durable Object per room.

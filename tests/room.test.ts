@@ -8,6 +8,7 @@ import type { InputTuple, ServerMsg } from '../src/net/protocol';
 import { TICK_MS, isRoomCode, randomRoomCode } from '../src/net/protocol';
 import { RoomCore, cleanName } from '../src/net/room';
 import { applyState } from '../src/net/snapshot';
+import { CUP_TRACKS } from '../src/cup/championship';
 
 /** A fake screen that records what the room sends it. */
 function client(id: string) {
@@ -362,3 +363,63 @@ describe('connection trouble', () => {
   });
 });
 
+
+describe('championship and taunts online', () => {
+  it('a championship: the cup picks the tracks, the room keeps the points, the leader starts at the back', { timeout: 240000 }, () => {
+    const { r, advance } = room();
+    const a = client('a');
+    r.message(a.conn, JSON.stringify({ t: 'join', name: 'A', boatId: 'tugboat' }));
+    r.message(a.conn, JSON.stringify({ t: 'settings', settings: { trackId: 'reimsCanal', difficulty: 'river', size: 3, cup: true } }));
+    expect(r.settings).toMatchObject({ trackId: CUP_TRACKS[0], cup: true });
+    expect(r.settings.section).toBeUndefined();
+    expect(a.last('lobby')!.cup).toEqual({ done: 0, total: CUP_TRACKS.length, standings: [] });
+    // While it lasts, the host can't pick another track.
+    r.message(a.conn, JSON.stringify({ t: 'settings', settings: { trackId: 'bayouBends', difficulty: 'ocean', cup: true } }));
+    expect(r.settings).toMatchObject({ trackId: CUP_TRACKS[0], difficulty: 'ocean' });
+    for (let race = 0; race < CUP_TRACKS.length; race++) {
+      r.message(a.conn, JSON.stringify({ t: 'start' }));
+      const start = a.last('start')!;
+      expect(start.settings.trackId).toBe(CUP_TRACKS[race]);
+      if (race > 0) {
+        // The grid: fewest points in front, the leader last.
+        const standings = a.last('results')!.cup!.standings;
+        const pts = start.roster.map((e) => standings.find((s) => s.name === e.name)!.points);
+        expect([...pts].sort((x, y) => x - y)).toEqual(pts);
+      }
+      // Nobody steers: the AI drives the idle player's boat too.
+      for (let i = 0; i < 40000 && r.racing; i++) {
+        advance(TICK_MS);
+        r.tick();
+      }
+      const res = a.last('results')!;
+      expect(res.cup!.done).toBe(race + 1);
+      expect(res.cup!.standings.reduce((n, e) => n + e.points, 0)).toBe((race + 1) * (10 + 8 + 6));
+    }
+    // After the last race: the final standings went out, and the room starts a new championship.
+    expect(a.last('results')!.cup!.done).toBe(CUP_TRACKS.length);
+    expect(a.last('lobby')!.cup!.done).toBe(0);
+    expect(r.settings.trackId).toBe(CUP_TRACKS[0]);
+    // Turning it off forgets the points.
+    r.message(a.conn, JSON.stringify({ t: 'settings', settings: { trackId: 'bayouBends', difficulty: 'river' } }));
+    expect(r.cup).toBeNull();
+    expect(a.last('lobby')!.cup).toBeUndefined();
+    expect(r.settings.trackId).toBe('bayouBends');
+  });
+
+  it('taunts go to everyone, not too often, and only known ones', () => {
+    const { r, advance } = room();
+    const [a, b] = ['a', 'b'].map(client);
+    r.message(a.conn, JSON.stringify({ t: 'join', name: 'A', boatId: 'tugboat' }));
+    r.message(b.conn, JSON.stringify({ t: 'join', name: 'B', boatId: 'tugboat' }));
+    r.message(a.conn, JSON.stringify({ t: 'taunt', id: 'slow' }));
+    expect(b.last('taunt')).toEqual({ t: 'taunt', from: 'a', id: 'slow' });
+    expect(a.last('taunt')).toEqual({ t: 'taunt', from: 'a', id: 'slow' });
+    r.message(a.conn, JSON.stringify({ t: 'taunt', id: 'bye' }));
+    expect(b.last('taunt')!.id).toBe('slow'); // too soon
+    advance(1500);
+    r.message(a.conn, JSON.stringify({ t: 'taunt', id: 'whatever' }));
+    expect(b.last('taunt')!.id).toBe('slow');
+    r.message(a.conn, JSON.stringify({ t: 'taunt', id: 'bye' }));
+    expect(b.last('taunt')!.id).toBe('bye');
+  });
+});

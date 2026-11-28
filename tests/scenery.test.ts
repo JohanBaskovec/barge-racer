@@ -19,8 +19,20 @@ describe('generated scenery of the invented tracks', () => {
       // eslint-disable-next-line no-console
       console.log(def.id, `${ms.toFixed(0)} ms`, `${data.buildings.length} buildings, ${data.roads.length} road pieces, ${data.trees!.length} trees, ${data.pads!.length} lily pads`);
       expect(ms).toBeLessThan(3000);
-      expect(data.trees!.length).toBeGreaterThan(200);
-      if (def.theme !== 'bayou') expect(data.buildings.length).toBeGreaterThan(100);
+      if (def.theme === 'vineyard') {
+        // Vines rather than trees, and a village rather than a town.
+        expect(data.vegetation.filter(([kind]) => kind === 2).length).toBeGreaterThan(250);
+        expect(data.trees!.length).toBeGreaterThan(100);
+        expect(data.buildings.length).toBeGreaterThan(40);
+        expect(data.buildings.some(([, kind]) => kind === 1)).toBe(true); // the church
+      } else {
+        expect(data.trees!.length).toBeGreaterThan(200);
+        if (def.theme !== 'bayou') expect(data.buildings.length).toBeGreaterThan(100);
+      }
+      // Fields and woods stay out of the water too.
+      for (const [, ring] of data.vegetation) {
+        for (let k = 0; k < ring.length; k += 2) expect(clearance(track, ring[k], ring[k + 1])).toBeGreaterThan(20);
+      }
       // Buildings and road points keep clear of the channel.
       for (const [, , ring] of data.buildings) {
         for (let k = 0; k < ring.length; k += 2) expect(clearance(track, ring[k], ring[k + 1])).toBeGreaterThan(20);
