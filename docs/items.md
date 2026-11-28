@@ -48,7 +48,8 @@ It works like a **homing missile**.
 - **Damage**: 35 hull and a spin-out (1.2 s, shortened by mass).
 - **Count**: 1 volunteer per crate, or 3 in its better version (each throw uses one).
 - **Backwards throw**: flies straight back without homing.
-- **After the hit**: the volunteer bobs in the water and waves. Purely visual.
+- **On impact**: the volunteer bursts in blood and bits with a scream, leaving a stain on the
+  water; the boat it hit gets blood splashed on its screen. Purely visual.
 
 ### 2. Jigsaw
 
@@ -344,6 +345,20 @@ For 3 s you leave a **trail of wet paint** (a splash of a random colour every 0.
 10 s each). Whoever drives through gets **paint all over the screen** for 3.5 s (big
 splats with drips, gaps to peer through), no damage. The AI steers a little blind too.
 
+### 25. Lost in Translation
+
+Completely useless, for the leader alone. Every opponent's game switches to **another
+language** (picked at random among the others) for 20 s: the HUD, the pause menu, and the
+menus too if the race ends before then. It asks them, in that language, "Do you speak
+English?", "Parlez-vous français ?", "Sprechen Sie Deutsch?" or "¿Habla usted español?".
+Then their own language comes back (it is never saved). Nothing else happens.
+
+### 26. Premature Celebration
+
+Completely useless, for the leader alone: a bottle of champagne, popped before the finish
+(a cork pop and a spray of foam). It repairs nothing and makes you a little drunker than a
+beer: 5 s instead of 4, weaving 1.3 times as far.
+
 ### The better versions (x 3)
 
 Every item can come as its **better version, with three uses** (this replaced the old
@@ -383,6 +398,8 @@ orange ring round its button and its uses left.
 | Noise Complaint | A police boat after every opponent | 15 per rocket, stopped 3 s | 8 s chase | Dodge the rockets |
 | Lazy Volunteers | 3 floating couches behind, slow like swimmers | 0, slows | 25 s | Go through the gaps |
 | Painting Workshop | Trail of paint, paint on the screen | 0 | 3 s trail, 10 s each splash | Drive round it |
+| Lost in Translation | Opponents' games in another language | 0 | 20 s | Speak languages |
+| Premature Celebration | Nothing (you get drunk) | 0 | 5 s | - |
 
 ## Who gets what: position-based odds
 
@@ -422,11 +439,15 @@ the toilet), which is how they kept the lead: they get half as many now.
 | Noise Complaint | 0 | 0 | 3 | 6 |
 | Lazy Volunteers | 10 | 8 | 4 | 2 |
 | Painting Workshop | 9 | 9 | 6 | 3 |
+| Lost in Translation | 7 | 0 | 0 | 0 |
+| Premature Celebration | 8 | 0 | 0 | 0 |
 
 Every item has a **power** rating (`ITEM_POWER` in `src/data/items.ts`: Electrical
 Failure, Raclette, Gas Siphoning and Noise Complaint 10, Mushrooms, Dicke Titten and Tugboat 9,
 Silicone Gun, Vacuum Cleaner and Sauna 8, Beer Dispenser 7, Volunteers 7, Jigsaw, Powder, Drill, Glue, Kärcher and Nail Gun 6,
-Beer and Painting Workshop 5, Fake Crate, Toilet and Lazy Volunteers 4, Dildo 3). The average power of a draw is about **5.1 for 1st,
+Beer and Painting Workshop 5, Fake Crate, Toilet and Lazy Volunteers 4, Dildo 3, Lost in
+Translation and Premature Celebration 0: they do nothing, and only the leader gets them).
+The average power of a draw is about **4.7 for 1st,
 5.9 for 2nd, 6.6 for 3rd and 7.2 for 4th** (before the better versions, which only add
 to the back), and tests check that it rises from the front to the back, that the
 mushroom stays the rarest item in every column, and that 1st place never gets the

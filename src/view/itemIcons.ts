@@ -1227,6 +1227,92 @@ const ICONS: Record<string, (c: C) => void> = {
     paint(c, lg(c, -6, 7, 6, 22, '#4fb0ff', '#2f6fd0'), 2);
     c.restore();
   },
+
+  // Lost in Translation: two speech bubbles that don't understand each other.
+  icon_translation: (c) => {
+    const bubble = (x: number, y: number, w: number, h: number, tailX: number, tailDir: number, fill: Fill): void => {
+      c.beginPath();
+      c.moveTo(x + 10, y);
+      c.arcTo(x + w, y, x + w, y + h, 10);
+      c.arcTo(x + w, y + h, x, y + h, 10);
+      c.lineTo(tailX + 8 * tailDir, y + h);
+      c.lineTo(tailX - 2 * tailDir, y + h + 13);
+      c.lineTo(tailX - 4 * tailDir, y + h);
+      c.arcTo(x, y + h, x, y, 10);
+      c.arcTo(x, y, x + w, y, 10);
+      c.closePath();
+      paint(c, fill);
+    };
+    bubble(4, 8, 56, 40, 20, 1, lg(c, 4, 8, 4, 48, '#7cc4ff', '#2f7fd8'));
+    bubble(36, 42, 56, 38, 76, -1, lg(c, 36, 42, 36, 80, '#ffe58a', '#f2a81e'));
+    c.font = 'bold 26px sans-serif';
+    c.textAlign = 'center';
+    c.textBaseline = 'middle';
+    c.lineWidth = 4;
+    c.strokeStyle = OUT;
+    c.fillStyle = '#ffffff';
+    c.strokeText('Hi!', 32, 29);
+    c.fillText('Hi!', 32, 29);
+    c.fillStyle = '#5a3a00';
+    c.font = 'bold 24px sans-serif';
+    c.fillText('¿Was?', 64, 62);
+    c.textAlign = 'start';
+    c.textBaseline = 'alphabetic';
+  },
+
+  // Premature Celebration: a bottle of champagne, the cork flying off, foam everywhere.
+  icon_champagne: (c) => {
+    // foam spraying out
+    c.save();
+    c.lineCap = 'round';
+    for (const [x1, y1] of [[70, 6], [84, 16], [90, 32], [58, 4]]) line(c, 62, 30, x1, y1, 5, 'rgba(255,250,220,0.95)');
+    c.restore();
+    for (const [x, y, r] of [[72, 10, 4], [86, 22, 3.5], [64, 8, 3], [88, 36, 3]] as const) {
+      el(c, x, y, r);
+      paint(c, '#fffbe6', 1.2, 'rgba(150,120,40,0.8)');
+    }
+    // the cork, flying
+    c.save();
+    c.translate(84, 8);
+    c.rotate(0.6);
+    rr(c, -5, -6, 10, 12, 3);
+    paint(c, lg(c, -5, -6, 5, 6, '#e8c08a', '#b07a3a'), 2);
+    c.restore();
+    // the bottle, tilted
+    c.save();
+    c.translate(36, 62);
+    c.rotate(0.65);
+    c.beginPath();
+    c.moveTo(-6, -40);
+    c.lineTo(6, -40);
+    c.lineTo(6, -24);
+    c.quadraticCurveTo(15, -18, 15, -6);
+    c.lineTo(15, 30);
+    c.quadraticCurveTo(15, 34, 11, 34);
+    c.lineTo(-11, 34);
+    c.quadraticCurveTo(-15, 34, -15, 30);
+    c.lineTo(-15, -6);
+    c.quadraticCurveTo(-15, -18, -6, -24);
+    c.closePath();
+    paint(c, lg(c, -15, 0, 15, 0, '#2f7a3a', '#165a26', '#0b3a18'));
+    // gold foil on the neck, a label
+    c.beginPath();
+    c.moveTo(-6, -40);
+    c.lineTo(6, -40);
+    c.lineTo(7, -26);
+    c.lineTo(-7, -26);
+    c.closePath();
+    paint(c, lg(c, -6, -40, 6, -40, '#ffe58a', '#d9a520'), 1.8);
+    rr(c, -12, 2, 24, 18, 3);
+    paint(c, '#fdf6e0', 1.8);
+    line(c, -8, 8, 8, 8, 1.6, '#c9a030');
+    line(c, -8, 14, 8, 14, 1.6, '#c9a030');
+    rr(c, -11, -4, 4, 34, 2);
+    shine(c, 0.25);
+    c.restore();
+    spark(c, 18, 18, 4);
+    spark(c, 88, 54, 3.5);
+  },
 };
 
 /** Draw every icon into its own canvas texture (once). */

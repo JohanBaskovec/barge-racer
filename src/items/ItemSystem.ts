@@ -205,6 +205,15 @@ export class ItemSystem {
       case 'lazyVolunteers':
         this.sim.hazards.dropCouches(r);
         break;
+      case 'translation':
+        // Useless: the others' games switch language for a while (the view's part).
+        for (const o of this.sim.racers) if (o !== r && !o.finished) addEffect(o, 'translated', TUNING.translation.duration);
+        break;
+      case 'champagne':
+        // Useless: popping the champagne before the finish. A little drunker than a beer, nothing repaired.
+        addEffect(r, 'drunk', TUNING.champagne.drunkTime);
+        addEffect(r, 'bubbly', TUNING.champagne.drunkTime);
+        break;
       case 'paint':
         // A trail of wet paint behind, for a few seconds (see updateFlushing).
         addEffect(r, 'painting', TUNING.paint.trailTime);

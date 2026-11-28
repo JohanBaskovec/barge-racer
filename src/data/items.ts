@@ -21,7 +21,9 @@ export type ItemId =
   | 'sauna'
   | 'noise'
   | 'lazyVolunteers'
-  | 'paint';
+  | 'paint'
+  | 'translation'
+  | 'champagne';
 
 export interface ItemInfo {
   id: ItemId;
@@ -55,6 +57,8 @@ export const ITEM_INFO: Record<ItemId, ItemInfo> = {
   noise: { id: 'noise', uses: 1, icon: 'icon_noise' },
   lazyVolunteers: { id: 'lazyVolunteers', uses: 1, icon: 'icon_lazyVolunteers' },
   paint: { id: 'paint', uses: 1, icon: 'icon_paint' },
+  translation: { id: 'translation', uses: 1, icon: 'icon_translation' },
+  champagne: { id: 'champagne', uses: 1, icon: 'icon_champagne' },
 };
 
 /** The strongest items, which hit every opponent at once: as a triple only for the last place, and rarely. */
@@ -100,6 +104,9 @@ export const ITEM_ODDS: Record<ItemId, [number, number, number, number]> = {
   noise: [0, 0, 3, 6],
   lazyVolunteers: [10, 8, 4, 2],
   paint: [9, 9, 6, 3],
+  // Completely useless, for the leader alone.
+  translation: [7, 0, 0, 0],
+  champagne: [8, 0, 0, 0],
 };
 
 /** How much an item helps whoever holds it (0-10). Used to check the odds really favour the back. */
@@ -110,6 +117,7 @@ export const ITEM_POWER: Record<ItemId, number> = {
   titten: 9, dildo: 3, nailGun: 6, siphon: 10, tugboat: 9,
   beerDispenser: 7, vacuum: 8,
   sauna: 8, noise: 10, lazyVolunteers: 4, paint: 5,
+  translation: 0, champagne: 0,
 };
 
 export const TUNING = {
@@ -209,6 +217,13 @@ export const TUNING = {
    * s. Driving through it: paint all over the screen for `paintTime` s (no damage).
    */
   paint: { radius: 58, life: 10, ownerImmunity: 1, trailTime: 3, every: 0.22, paintTime: 3.5 },
+  /**
+   * Lost in Translation (useless, for the leader): every opponent's game switches to another
+   * language, menus and all, for `duration` s. Nothing else happens.
+   */
+  translation: { duration: 20 },
+  /** Premature Celebration (useless, for the leader): a bottle of champagne: a little drunker than a beer (`sway` x the beer's), no repair. */
+  champagne: { drunkTime: 5, sway: 1.3 },
   /** Tugboat: tows its owner along the canal for `duration` s: steered for you, faster, and through glue. */
   tugboat: { duration: 4, topSpeed: 1.45, accel: 3, mass: 2 },
   powder: { duration: 2.5, topSpeedMult: 1.5, accelMult: 2, massMult: 2 },

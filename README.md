@@ -9,7 +9,7 @@ The whole game is played with **one pointer**: a mouse or a single finger.
 
 > **Status:** playable prototype (milestones M0 to M3 of the [roadmap](docs/roadmap.md)).
 > You can pick one of 8 boats, race 3 AI opponents on 5 tracks (or all the lap tracks in a championship) at 3 difficulty
-> levels, and use twenty-four items (two at a time). Art is placeholder (drawn in code) and there
+> levels, and use twenty-six items (two at a time). Art is placeholder (drawn in code) and there
 > is no sound yet. See [what is implemented](#implemented-so-far).
 
 ## Pitch
@@ -81,12 +81,13 @@ Debug URL parameters (see [Architecture](docs/architecture.md#debug-flags)):
 - 4-boat races with countdown, start boost, laps, ranking, results screen.
 - AI opponents (racing line, avoidance, stuck recovery, item use, rubber-banding,
   3 difficulty levels).
-- Crates, item roulette and **twenty-four items** in **two slots** (right click and middle
+- Crates, item roulette and **twenty-six items** in **two slots** (right click and middle
   click, or two on-screen buttons): Volunteers, Jigsaw, Flour, Electric
   Drill, Glue, Silicone Gun, Fake Crate, Beer Crate, Magic Mushrooms, Electrical
   Failure, Ultimate Raclette, Clogged Toilet, Kärcher, Dicke Titten, Giant Black Dildo,
   Nail Gun, Gas Siphoning, Tugboat, Beer Dispenser, Vacuum Cleaner, Sauna, Noise
-  Complaint, Lazy Volunteers and Painting Workshop (see [Items](docs/items.md)). Leaders get weaker items
+  Complaint, Lazy Volunteers, Painting Workshop, and two useless ones for the leader, Lost in
+  Translation and Premature Celebration (see [Items](docs/items.md)). Leaders get weaker items
   than the boats behind. Hull, spin-outs,
   sinking, respawn; blinking boats pass through other boats.
 - HUD: position, lap, time, minimap, item slot, pause menu.

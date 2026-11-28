@@ -610,6 +610,11 @@ export class RaceScene extends Phaser.Scene {
           break;
         }
         if (e.source === 'raclette') this.fx.cheese(r.x, r.y);
+        // A thrown volunteer bursts on impact, screaming.
+        if (e.source === 'volunteer') {
+          this.hazardView?.gore(r.x, r.y, 40, 16);
+          this.raceAudio.at('scream', r.x, r.y, 1.1);
+        }
         this.sparks.setParticleTint(e.source === 'bank' ? 0xcccccc : 0xfff2a0);
         this.sparks.emitParticleAt(r.x, r.y, 14);
         if (e.source !== 'bank') this.fx.splash(r.x, r.y, 0.8);
@@ -651,6 +656,12 @@ export class RaceScene extends Phaser.Scene {
       case 'itemUsed': {
         const r = this.sim.racers[e.racer];
         if (e.racer === player.id && e.item === 'mushroom') this.tripT = TUNING.mushroom.duration;
+        if (e.item === 'champagne') {
+          // The cork pops and the foam sprays everywhere.
+          this.sparks.setParticleTint(0xfff6d0);
+          this.sparks.emitParticleAt(r.x, r.y, 30);
+          this.fx.splash(r.x, r.y, 0.6);
+        }
         if (e.item === 'blackout') {
           // Sparks on every boat that lost its controls
           for (const o of this.sim.racers) {

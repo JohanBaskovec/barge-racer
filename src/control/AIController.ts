@@ -298,6 +298,13 @@ export class AIController implements Controller {
         // They hit every opponent: best from behind, with someone worth passing not too far ahead.
         if (r.position > 0 && others.some((o) => o.progress > r.progress && o.progress - r.progress < 1800)) return 'forward';
         break;
+      case 'translation':
+        // Useless, but it does no harm either: out of the way, to make room for a real item.
+        return 'forward';
+      case 'champagne':
+        // Popped a moment after it turns up (it frees the slot).
+        if (heldFor > 2) return 'forward';
+        break;
       case 'sauna':
         // Steam for everyone else: best from behind, with boats ahead to pass.
         if (r.position > 0 && others.some((o) => o.progress > r.progress && o.progress - r.progress < 1800)) return 'forward';

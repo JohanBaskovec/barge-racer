@@ -38,7 +38,8 @@ export function stepBoat(r: Racer, intent: ControlIntent, dt: number, canDrive: 
   const drunk = r.effects.find((e) => e.kind === 'drunk' && e.remaining > 0);
   if (drunk && !stuck) {
     const D = TUNING.drunk;
-    desiredHeading = (desiredHeading ?? r.heading) + Math.sin(drunk.remaining * D.rate) * D.sway * Math.min(1, drunk.remaining);
+    const sway = D.sway * (r.effects.some((e) => e.kind === 'bubbly' && e.remaining > 0) ? TUNING.champagne.sway : 1);
+    desiredHeading = (desiredHeading ?? r.heading) + Math.sin(drunk.remaining * D.rate) * sway * Math.min(1, drunk.remaining);
   }
   const throttle = clamp(stuck ? r.throttle : intent.throttle, -1, 1) * control;
 

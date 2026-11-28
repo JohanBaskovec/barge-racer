@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { ITEM_INFO, TUNING, type ItemId } from '../data/items';
 import { FONT } from '../config';
-import { formatNumber, itemName, ordinal, t } from '../i18n';
+import { LANGUAGES, borrowLanguage, formatNumber, getLanguage, itemName, ordinal, t } from '../i18n';
 import type { EffectKind } from '../effects/effects';
 import type { RaceEvent, Racer } from '../race/types';
 import { audio } from '../audio/AudioManager';
@@ -328,6 +328,14 @@ export class HudScene extends Phaser.Scene {
       ['blackout', 'hud.blackout', '#ffe04a'], ['cheesed', 'hud.cheese', '#ffd23f'], ['steamed', 'hud.steamed', '#eef6ff'], ['painted', 'hud.painted', '#ff9ad5'], ['sauna', 'hud.sauna', '#ffd9a0'], ['drunk', 'hud.drunk', '#9dff6a'], ['shrunk', 'hud.shrunk', '#bfe1f7'], ['hasty', 'hud.hasty', '#ffb0d9'],
     ];
     for (const [kind, key, color] of announce) if (now.has(kind) && !this.seen.has(kind)) this.popup(t(key as 'hud.blackout'), color);
+    // Lost in Translation: the whole game switches to another language for a while, and asks
+    // (in that language) whether you speak it.
+    if (now.has('translated') && !this.seen.has('translated') && !this.race.spectating) {
+      const e = p.effects.find((x) => x.kind === 'translated')!;
+      const others = LANGUAGES.filter((l) => l.code !== getLanguage().code);
+      borrowLanguage(others[Math.floor(Math.random() * others.length)].code, e.remaining);
+      this.flashBig(t('hud.speak'), '#ffe08a', 70);
+    }
     this.seen = now;
 
     // Paint: splashed on all at once, it fades in the last second.
@@ -463,6 +471,8 @@ export class HudScene extends Phaser.Scene {
         break;
       case 'itemUsed':
         if (e.racer === me && e.item === 'noise') this.popup(t('hud.noiseCalled'), '#9fd8ff');
+        if (e.racer === me && e.item === 'translation') this.popup(t('hud.translationUsed'), '#ffe08a');
+        if (e.racer === me && e.item === 'champagne') this.popup(t('hud.champagne'), '#ffe08a');
         break;
       case 'heal':
         if (e.racer === me) this.popup(t('hud.heal'), '#9dff9d');
@@ -471,6 +481,7 @@ export class HudScene extends Phaser.Scene {
         if (e.racer === me) this.popup(t('hud.gift'), '#9dff9d');
         break;
       case 'hit':
+        if (e.racer === me && e.source === 'volunteer') this.bloodOnScreen();
         if (e.racer === me) {
           if (e.source === 'toilet') {
             // The smoke hurts every step: say so now and then, not every time.

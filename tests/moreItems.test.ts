@@ -152,3 +152,36 @@ describe('fair odds for the new items', () => {
     }
   });
 });
+
+describe('useless items for the leader', () => {
+  it('Lost in Translation: every opponent is "translated" for 20 s, nothing else', () => {
+    const sim = lone();
+    const [me, ...rest] = sim.racers;
+    const before = rest.map((o) => [o.hull, Math.hypot(o.vx, o.vy)]);
+    use(sim, me, 'translation');
+    expect(hasEffect(me, 'translated')).toBe(false);
+    rest.forEach((o, i) => {
+      expect(o.effects.find((e) => e.kind === 'translated')?.remaining).toBe(TUNING.translation.duration);
+      expect(o.hull).toBe(before[i][0]);
+    });
+  });
+
+  it('Premature Celebration: a little drunker than a beer, and nothing repaired', () => {
+    const sim = lone();
+    const r = sim.racers[0];
+    r.hull = 20;
+    use(sim, r, 'champagne');
+    expect(r.hull).toBe(20);
+    expect(hasEffect(r, 'drunk') && hasEffect(r, 'bubbly')).toBe(true);
+    expect(TUNING.champagne.drunkTime).toBeGreaterThan(TUNING.beer.drunkTime);
+    expect(TUNING.champagne.sway).toBeGreaterThan(1);
+  });
+
+  it('only the leader gets them, and they are worth nothing', () => {
+    for (const id of ['translation', 'champagne'] as ItemId[]) {
+      expect(ITEM_ODDS[id][0]).toBeGreaterThan(0);
+      expect(ITEM_ODDS[id].slice(1)).toEqual([0, 0, 0]);
+      expect(ITEM_POWER[id]).toBe(0);
+    }
+  });
+});

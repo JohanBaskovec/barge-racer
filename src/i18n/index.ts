@@ -53,9 +53,37 @@ function applyToDocument(): void {
 
 export const getLanguage = (): Language => current;
 
+/** Lost in Translation: the player's own language while another one is borrowed (null: none borrowed). */
+let home: Language | null = null;
+let borrowTimer: ReturnType<typeof setTimeout> | undefined;
+
+/** The player's own language (the one chosen), even while another is borrowed. */
+export const homeLanguage = (): Language => home ?? current;
+
+/**
+ * Lost in Translation: the whole game in another language for `seconds` (menus too, whatever
+ * screen the player is on by then), then back. Not saved.
+ */
+export function borrowLanguage(code: string, seconds: number): void {
+  const lang = byCode(code);
+  if (!lang) return;
+  home ??= current;
+  current = lang;
+  applyToDocument();
+  clearTimeout(borrowTimer);
+  borrowTimer = setTimeout(() => {
+    if (home) current = home;
+    home = null;
+    applyToDocument();
+  }, seconds * 1000);
+}
+
 export function setLanguage(code: string): void {
   const lang = byCode(code);
   if (!lang) return;
+  // Choosing a language ends a borrowed one.
+  clearTimeout(borrowTimer);
+  home = null;
   current = lang;
   try {
     localStorage.setItem(KEY, lang.code);

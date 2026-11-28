@@ -1,10 +1,10 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { BOATS } from '../src/data/boats';
 import { DIFFICULTIES } from '../src/data/difficulty';
 import { ITEM_INFO } from '../src/data/items';
 import { TRACK_DEFS } from '../src/data/tracks';
 import { en } from '../src/i18n/en';
-import { LANGUAGES, boatDesc, boatName, difficultyName, itemName, ordinal, setLanguage, t, trackDesc, trackName, type TranslationKey } from '../src/i18n';
+import { LANGUAGES, borrowLanguage, getLanguage, homeLanguage, boatDesc, boatName, difficultyName, itemName, ordinal, setLanguage, t, trackDesc, trackName, type TranslationKey } from '../src/i18n';
 
 const placeholders = (s: string): string[] => [...s.matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort();
 const keys = Object.keys(en) as TranslationKey[];
@@ -53,6 +53,25 @@ describe('t()', () => {
     setLanguage('fr');
     expect(t('hud.lap', { n: 2, total: 3 })).toBe('Tour 2/3');
     expect(trackName('lockAndLoad')).toBe('Écluse Express');
+  });
+
+  it('Lost in Translation: a borrowed language for a while, then back to your own (never saved)', () => {
+    vi.useFakeTimers();
+    setLanguage('fr');
+    borrowLanguage('de', 20);
+    expect(getLanguage().code).toBe('de');
+    expect(homeLanguage().code).toBe('fr');
+    expect(t('hud.speak')).toBe('Sprechen Sie Deutsch?');
+    vi.advanceTimersByTime(19000);
+    expect(getLanguage().code).toBe('de');
+    vi.advanceTimersByTime(1500);
+    expect(getLanguage().code).toBe('fr');
+    // choosing a language yourself ends a borrowed one
+    borrowLanguage('es', 20);
+    setLanguage('en');
+    vi.advanceTimersByTime(30000);
+    expect(getLanguage().code).toBe('en');
+    vi.useRealTimers();
   });
 
   it('speaks German and Spanish too, with their own ordinals', () => {

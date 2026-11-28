@@ -205,12 +205,17 @@ export class HazardView {
       if (e.kind === 1 || e.kind === 3) this.scene.time.delayedCall(90, () => this.audio.at('scream', e.x, e.y, 0.9));
       if (e.kind === 3) this.scene.time.delayedCall(200, () => this.audio.at('scream', e.x, e.y, 0.8));
     }
-    const stain = this.scene.add.image(e.x, e.y, 'bloodSplat').setDisplaySize(120, 120).setDepth(4).setRotation(Math.random() * Math.PI * 2).setAlpha(0.9);
-    this.scene.tweens.add({ targets: stain, alpha: 0, delay: 4000, duration: 3000, onComplete: () => stain.destroy() });
-    this.blood.emitParticleAt(e.x, e.y, e.kind === 3 ? 60 : 34);
-    this.gibs.emitParticleAt(e.x, e.y, e.kind === 0 ? 6 : e.kind === 3 ? 26 : 14);
+    this.gore(e.x, e.y, e.kind === 3 ? 60 : 34, e.kind === 0 ? 6 : e.kind === 3 ? 26 : 14);
     if (e.kind === 0) this.feathers.emitParticleAt(e.x, e.y, 22);
-    this.audio.at('splat', e.x, e.y, 1.1);
+  }
+
+  /** Someone bursts: blood and bits flying, a stain left on the water, a splat. */
+  gore(x: number, y: number, blood = 34, bits = 14): void {
+    const stain = this.scene.add.image(x, y, 'bloodSplat').setDisplaySize(120, 120).setDepth(4).setRotation(Math.random() * Math.PI * 2).setAlpha(0.9);
+    this.scene.tweens.add({ targets: stain, alpha: 0, delay: 4000, duration: 3000, onComplete: () => stain.destroy() });
+    this.blood.emitParticleAt(x, y, blood);
+    this.gibs.emitParticleAt(x, y, bits);
+    this.audio.at('splat', x, y, 1.1);
   }
 
   private sync<T extends { id: number }, V>(map: Map<number, V>, list: T[], make: (e: T) => V, draw: (v: V, e: T) => void, drop: (v: V) => void): void {

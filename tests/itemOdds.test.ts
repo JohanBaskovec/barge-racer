@@ -69,9 +69,10 @@ describe('balance: the leader gets worse items than the boats behind', () => {
 
   it('1st place gets mostly defensive or weak items and never the strongest boosts', () => {
     const total = items.reduce((s, id) => s + ITEM_ODDS[id][0], 0);
-    // (the dildo is weak, and smashes what flies at it)
-    const defensive = ITEM_ODDS.glue[0] + ITEM_ODDS.fakeCrate[0] + ITEM_ODDS.beer[0] + ITEM_ODDS.toilet[0] + ITEM_ODDS.dildo[0];
-    expect(defensive / total).toBeGreaterThan(0.45);
+    // (the dildo is weak, and smashes what flies at it; two items do nothing at all)
+    const defensive = ITEM_ODDS.glue[0] + ITEM_ODDS.fakeCrate[0] + ITEM_ODDS.beer[0] + ITEM_ODDS.toilet[0] + ITEM_ODDS.dildo[0]
+      + ITEM_ODDS.lazyVolunteers[0] + ITEM_ODDS.paint[0] + ITEM_ODDS.translation[0] + ITEM_ODDS.champagne[0];
+    expect(defensive / total).toBeGreaterThan(0.5);
     expect(ITEM_ODDS.blackout[0] + ITEM_ODDS.raclette[0] + ITEM_ODDS.siphon[0]).toBe(0);
     expect(ITEM_ODDS.whitePowder[0]).toBeLessThan(ITEM_ODDS.whitePowder[3]);
     expect(ITEM_ODDS.volunteer[0]).toBeLessThan(ITEM_ODDS.volunteer[2]);

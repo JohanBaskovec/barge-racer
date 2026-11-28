@@ -47,7 +47,11 @@ export type EffectKind =
   /** Painting workshop, on the user: leaving a trail of wet paint. */
   | 'painting'
   /** Drove through wet paint: paint all over the screen. */
-  | 'painted';
+  | 'painted'
+  /** Lost in Translation: this player's game is in another language for a while. */
+  | 'translated'
+  /** Premature Celebration: champagne on top of being drunk: the boat weaves a little more. */
+  | 'bubbly';
 
 export interface Effect {
   kind: EffectKind;
