@@ -6,17 +6,17 @@ import { TRACK_DEFS, getTrackDef, hasSections } from '../data/tracks';
 import { describeSection } from '../view/sectionInfo';
 import { boatName, difficultyName, t, trackName } from '../i18n';
 import { net } from '../net/client';
-import type { ServerMsg } from '../net/protocol';
+import { MAX_PLAYERS, type ServerMsg } from '../net/protocol';
+import { RACER_COLORS as COLORS } from '../race/RaceSimulation';
 import { saveSession, session } from '../session';
 import { createBoatSprite } from '../view/boatSprite';
 import { background, button, fitText, setSelected, text } from '../view/ui';
 
-const COLORS = [0xff5a4d, 0x4da3ff, 0xffd23f, 0x62d26f];
 
 /**
- * The room before a race: its code and an invite link, who is in (up to four), each player's boat,
- * and the track and difficulty, which the host picks. The host starts once everyone is ready;
- * empty seats are filled with AI boats.
+ * The room before a race: its code and an invite link, who is in (up to eight people), each
+ * player's boat, the AI boats that race too, and the track and difficulty. The host picks the
+ * track, how many people may join, adds and removes AI boats, and starts once everyone is ready.
  */
 export class LobbyScene extends Phaser.Scene {
   private dyn!: Phaser.GameObjects.Container;
@@ -62,6 +62,12 @@ export class LobbyScene extends Phaser.Scene {
     const me = this.me(lobby);
     const host = !!me?.host;
 
+    // The host's settings: a new track brings the host's saved stretch for it; the rest stays.
+    const send = (trackId: string, difficulty: Difficulty, size = lobby.settings.size): void => net.send({
+      t: 'settings',
+      settings: { trackId, difficulty, size, section: trackId === lobby.settings.trackId ? lobby.settings.section : session.sections?.[trackId] },
+    });
+
     add(fitText(text(this, 640, 56, t('lobby.room', { code: net.code }), 54), 900).setStroke('#0b3a5b', 8));
     const invite = `${location.origin}${location.pathname}?room=${net.code}`;
     add(button(this, 640, 122, 380, 50, t('lobby.copy'), () => {
@@ -69,22 +75,42 @@ export class LobbyScene extends Phaser.Scene {
     }, { textSize: 22, fill: 0x3d5266 }));
     const copied = add(text(this, 640, 162, '', 18, '#bfe1f7', false));
 
-    // Players
-    add(this.add.rectangle(330, 380, 540, 380, 0x0b3a5b, 0.65).setStrokeStyle(3, 0xffffff, 0.5));
-    for (let i = 0; i < 4; i++) {
-      const p = lobby.players[i];
-      const y = 230 + i * 92;
-      if (!p) {
-        add(text(this, 330, y, t('lobby.aiSeat'), 22, '#7fa6c4', false));
-        continue;
-      }
-      add(this.add.circle(100, y, 14, COLORS[i]).setStrokeStyle(3, 0xffffff));
-      const nm = add(this.add.text(130, y - 26, p.name + (p.id === net.you ? ` (${t('you')})` : ''), { fontFamily: 'Trebuchet MS, Verdana, sans-serif', fontSize: '26px', fontStyle: 'bold', color: '#ffffff', resolution: 2 }));
-      if (nm.width > 300) nm.setScale(300 / nm.width);
-      add(this.add.text(130, y + 6, boatName(p.boatId), { fontFamily: 'Trebuchet MS, Verdana, sans-serif', fontSize: '20px', color: '#bfe1f7', resolution: 2 }));
-      const tag = p.away ? t('lobby.away') : p.watching ? t('lobby.watching') : p.host ? t('lobby.host') : p.ready ? t('lobby.ready') : t('lobby.notReady');
-      add(text(this, 530, y, tag, 22, p.away || p.watching ? '#bfe1f7' : p.host ? '#ffe08a' : p.ready ? '#9dff9d' : '#ffb0a0'));
+    // Players, then the AI boats: in the order of the starting grid (and its colours).
+    const F = 'Trebuchet MS, Verdana, sans-serif';
+    add(this.add.rectangle(330, 395, 560, 400, 0x0b3a5b, 0.65).setStrokeStyle(3, 0xffffff, 0.5));
+    const boats = lobby.players.length + lobby.bots.length;
+    add(this.add.text(72, 220, t('lobby.boats', { n: boats, max: MAX_PLAYERS }), { fontFamily: F, fontSize: '22px', fontStyle: 'bold', color: '#ffe08a', resolution: 2 }).setOrigin(0, 0.5));
+    // Room size: how many people may join (the host sets it)
+    const size = lobby.settings.size ?? MAX_PLAYERS;
+    add(this.add.text(host ? 418 : 590, 220, host ? t('lobby.size') : `${t('lobby.size')} ${size}`, { fontFamily: F, fontSize: '19px', color: '#bfe1f7', resolution: 2 }).setOrigin(1, 0.5));
+    if (host) {
+      const setSize = (n: number): void => send(lobby.settings.trackId, lobby.settings.difficulty, Math.max(2, Math.min(MAX_PLAYERS, n)));
+      add(button(this, 448, 220, 40, 34, '−', () => setSize(size - 1), { textSize: 24 }));
+      add(text(this, 497, 220, String(size), 24));
+      add(button(this, 546, 220, 40, 34, '+', () => setSize(size + 1), { textSize: 24 }));
     }
+    const rows: { name: string; boatId: string; tag: string; tagColor: string; bot?: string; me?: boolean }[] = [
+      ...lobby.players.map((p) => ({
+        name: p.name + (p.id === net.you ? ` (${t('you')})` : ''),
+        boatId: p.boatId,
+        me: p.id === net.you,
+        tag: p.away ? t('lobby.away') : p.watching ? t('lobby.watching') : p.host ? t('lobby.host') : p.ready ? t('lobby.ready') : t('lobby.notReady'),
+        tagColor: p.away || p.watching ? '#bfe1f7' : p.host ? '#ffe08a' : p.ready ? '#9dff9d' : '#ffb0a0',
+      })),
+      ...lobby.bots.map((b) => ({ name: b.name, boatId: b.boatId, tag: t('lobby.ai'), tagColor: '#bfe1f7', bot: b.id })),
+    ];
+    rows.forEach((r, i) => {
+      const y = 262 + i * 40;
+      if (r.me) add(this.add.rectangle(330, y, 548, 36, 0x2d6a9d, 0.7));
+      add(this.add.circle(86, y, 11, COLORS[i % COLORS.length]).setStrokeStyle(2, 0xffffff));
+      const nm = add(this.add.text(106, y, r.name, { fontFamily: F, fontSize: '21px', fontStyle: 'bold', color: r.bot ? '#d6e6f2' : '#ffffff', resolution: 2 }).setOrigin(0, 0.5));
+      if (nm.width > 215) nm.setScale(215 / nm.width);
+      const bn = add(this.add.text(330, y, boatName(r.boatId), { fontFamily: F, fontSize: '17px', color: '#bfe1f7', resolution: 2 }).setOrigin(0, 0.5));
+      if (bn.width > 150) bn.setScale(150 / bn.width);
+      add(fitText(text(this, r.bot && host ? 520 : 540, y, r.tag, 17, r.tagColor), 110));
+      if (r.bot && host) add(button(this, 582, y, 34, 30, '✕', () => net.send({ t: 'removeBot', id: r.bot! }), { fill: 0x8a4a4a, textSize: 24 }));
+    });
+    if (host && boats < MAX_PLAYERS) add(button(this, 330, 574, 230, 36, t('lobby.addAi'), () => net.send({ t: 'addBot' }), { fill: 0x3d5266, textSize: 20 }));
 
     // My boat
     const bi = Math.max(0, BOATS.findIndex((b) => b.id === (me?.boatId ?? session.boatId)));
@@ -107,11 +133,6 @@ export class LobbyScene extends Phaser.Scene {
     const ti = Math.max(0, TRACK_DEFS.findIndex((d) => d.id === lobby.settings.trackId));
     add(fitText(text(this, 950, 440, trackName(lobby.settings.trackId), 28), 300));
     const diffs = Object.keys(DIFFICULTIES) as Difficulty[];
-    // A new track brings the host's saved stretch for it; a new difficulty keeps the stretch.
-    const send = (trackId: string, difficulty: Difficulty): void => net.send({
-      t: 'settings',
-      settings: { trackId, difficulty, section: trackId === lobby.settings.trackId ? lobby.settings.section : session.sections?.[trackId] },
-    });
     if (host) {
       add(button(this, 760, 440, 60, 56, '‹', () => send(TRACK_DEFS[(ti - 1 + TRACK_DEFS.length) % TRACK_DEFS.length].id, lobby.settings.difficulty), { textSize: 36 }));
       add(button(this, 1140, 440, 60, 56, '›', () => send(TRACK_DEFS[(ti + 1) % TRACK_DEFS.length].id, lobby.settings.difficulty), { textSize: 36 }));
@@ -137,10 +158,10 @@ export class LobbyScene extends Phaser.Scene {
     if (host) {
       const everyoneReady = lobby.players.every((p) => p.host || p.ready);
       add(button(this, 1060, 660, 340, 72, t('lobby.start'), () => everyoneReady && net.send({ t: 'start' }), { fill: everyoneReady ? 0x2d9d5a : 0x4a5a66, textSize: 32 }));
-      if (!everyoneReady) add(text(this, 640, 600, t('lobby.waiting'), 22, '#bfe1f7', false));
+      if (!everyoneReady) add(text(this, 950, 606, t('lobby.waiting'), 20, '#bfe1f7', false));
     } else if (me) {
       add(button(this, 1060, 660, 340, 72, me.ready ? t('lobby.notReadyBtn') : t('lobby.readyBtn'), () => net.send({ t: 'ready', ready: !me.ready }), { fill: me.ready ? 0x3d5266 : 0x2d9d5a, textSize: 30 }));
-      add(text(this, 640, 600, t('lobby.hostStarts'), 22, '#bfe1f7', false));
+      add(text(this, 950, 606, t('lobby.hostStarts'), 20, '#bfe1f7', false));
     }
     if (lobby.racing) add(text(this, 640, 560, t('online.racing'), 22, '#ffd0c4', false));
   }

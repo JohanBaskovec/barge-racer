@@ -8,7 +8,7 @@ import { bargeCapsule } from '../race/traffic';
 import { clamp, turnTowards } from '../physics/math';
 import type { RaceSimulation } from '../race/RaceSimulation';
 import type { Boobs, Cloud, Crate, Drill, Drop, FakeCrate, GlueBlob, GluePuddle, Racer, Shot, Volunteer } from '../race/types';
-import { drawItem } from './itemOdds';
+import { drawItem, oddsColumn } from './itemOdds';
 
 /** Crates, item roulette, item activation and the entities items spawn. */
 export class ItemSystem {
@@ -304,6 +304,7 @@ export class ItemSystem {
     const leader = this.sim.racers.reduce((m, o) => Math.max(m, o.progress), -Infinity);
     const item = drawItem(this.sim.rng, {
       position: r.position,
+      count: this.sim.racers.length,
       farBehind: leader - r.progress > this.sim.track.lapLength,
       volunteersInFlight: this.volunteersInFlight,
       recentItems: r.recentItems,
@@ -317,7 +318,7 @@ export class ItemSystem {
   /** Whether an item comes as its better version (three uses): likelier further back, never for the leader. */
   private rollTriple(id: ItemId, position: number, farBehind: boolean): boolean {
     if (ITEM_INFO[id].uses >= 3) return false;
-    const col = farBehind ? 3 : Math.max(0, Math.min(3, position));
+    const col = farBehind ? 3 : oddsColumn(position, this.sim.racers.length);
     const odds = (GLOBAL_ITEMS.includes(id) ? TRIPLE_ODDS.global : TRIPLE_ODDS.normal)[col];
     return odds > 0 && this.sim.rng.next() < odds;
   }

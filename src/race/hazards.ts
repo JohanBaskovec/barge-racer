@@ -4,6 +4,7 @@ import { isTouching, resolveStatic } from '../physics/collisions';
 import { TOWPATH } from '../view/scenery';
 import type { RaceSimulation } from './RaceSimulation';
 import type { Racer } from './types';
+import { oddsColumn } from '../items/itemOdds';
 
 /**
  * Hazards that are not items: they come by themselves.
@@ -303,11 +304,12 @@ export class HazardSystem {
       const pool = sim.racers.filter((r) => !r.finished && r.sinkTimer <= 0);
       if (pool.length && this.critters.length < K.max) {
         let total = 0;
-        for (const r of pool) total += K.weights[Math.min(3, r.position)];
+        const col = (r: Racer): number => oddsColumn(r.position, sim.racers.length);
+        for (const r of pool) total += K.weights[col(r)];
         let roll = sim.rng.next() * total;
         let pick = pool[0];
         for (const r of pool) {
-          roll -= K.weights[Math.min(3, r.position)];
+          roll -= K.weights[col(r)];
           if (roll < 0) {
             pick = r;
             break;

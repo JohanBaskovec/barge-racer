@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MIN_SECTION_M, clampSection, defaultSection, getTrackDef, hasSections, loadTrack } from '../src/data/tracks';
+import { MIN_SECTION_M, clampSection, defaultSection, getTrackDef, hasSections, loadTrack, START_ROOM } from '../src/data/tracks';
 import { RaceSimulation, STEP } from '../src/race/RaceSimulation';
 import { RoomCore } from '../src/net/room';
 import type { ServerMsg } from '../src/net/protocol';
@@ -19,8 +19,8 @@ describe('stretches of the Reims canal', () => {
     expect(reims.places!.map((p) => p[3])).toEqual(expect.arrayContaining(['Passage Marx Dormoy', 'Boulevard Paul Doumer', 'Pont de Venise']));
   });
 
-  it('keeps any stretch valid: inside the range, in order, at least 1 km', () => {
-    expect(clampSection(reims, { start: -1e9, finish: 1e9 })).toEqual({ start: lo, finish: hi });
+  it('keeps any stretch valid: inside the range (with room for the grid behind the start), in order, at least 1 km', () => {
+    expect(clampSection(reims, { start: -1e9, finish: 1e9 })).toEqual({ start: lo + START_ROOM, finish: hi });
     const short = clampSection(reims, { start: 50000, finish: 50010 });
     expect(short.finish - short.start).toBe(MIN_SECTION_M * M);
     const backwards = clampSection(reims, { start: 80000, finish: 60000 });

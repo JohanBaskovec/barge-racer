@@ -5,7 +5,7 @@ import { Rng } from '../physics/math';
 import { RaceSimulation, STEP } from '../race/RaceSimulation';
 import type { RaceEvent } from '../race/types';
 import {
-  type ClientMsg, EMPTY_RACE_MS, IDLE_STEPS, type LobbyPlayer, MAX_PLAYERS, type ResultRowNet, type RoomSettings, type ServerMsg,
+  type ClientMsg, EMPTY_RACE_MS, IDLE_STEPS, type LobbyBot, type LobbyPlayer, MAX_PLAYERS, type ResultRowNet, type RoomSettings, type ServerMsg,
   type StartEntry,
 } from './protocol';
 import { RemoteController } from './remote';
@@ -38,7 +38,9 @@ interface Player {
   idle: boolean;
 }
 
-const AI_NAMES = ['Captain Bob', 'Molly Moor', 'Dredge', 'Admiral Fizz', 'Bilge', 'Skipper Sue'];
+const AI_NAMES = ['Captain Bob', 'Molly Moor', 'Dredge', 'Admiral Fizz', 'Bilge', 'Skipper Sue', 'Barnacle Ben', 'Lady Lock', 'Rusty Rudder', 'Marge'];
+/** AI boats in a new room (with its host, the four boats of a single-player race). */
+const DEFAULT_BOTS = 3;
 
 /** Clean up a player name: printable, trimmed, at most 16 characters. */
 export function cleanName(raw: unknown): string {
@@ -53,9 +55,10 @@ function randomKey(): string {
 }
 
 /**
- * One multiplayer room: a lobby where up to four people pick boats, then a race simulated here
- * (the authoritative copy), with AI boats in the empty seats. The host (first to join) picks the
- * track and starts. Pure TypeScript: the Cloudflare Durable Object only feeds it connections,
+ * One multiplayer room: a lobby where up to eight people pick boats, then a race simulated here
+ * (the authoritative copy). The host (first to join) picks the track, how many people may join
+ * (the room size) and which AI boats race too (added and removed one by one; people and AI boats
+ * together at most MAX_PLAYERS), and starts. Pure TypeScript: the Cloudflare Durable Object only feeds it connections,
  * messages and a timer (see server/worker.ts).
  *
  * Someone who loses the connection during a race keeps their seat (the AI drives meanwhile) and
@@ -65,7 +68,10 @@ export class RoomCore {
   private players = new Map<string, Player>();
   private order: string[] = [];
   private byConn = new Map<string, string>();
-  settings: RoomSettings = { trackId: TRACK_DEFS[0].id, difficulty: 'river' };
+  settings: RoomSettings = { trackId: TRACK_DEFS[0].id, difficulty: 'river', size: MAX_PLAYERS };
+  /** The AI boats that race too. */
+  bots: LobbyBot[] = [];
+  private botCount = 0;
   sim: RaceSimulation | null = null;
   private startMsg: Extract<ServerMsg, { t: 'start' }> | null = null;
   private stepsDone = 0;
@@ -76,6 +82,28 @@ export class RoomCore {
 
   constructor(readonly code: string, private now: () => number = () => Date.now(), seed = Date.now()) {
     this.rng = new Rng(seed);
+    for (let i = 0; i < DEFAULT_BOTS; i++) this.addBot();
+  }
+
+  /** How many people may be in the room. */
+  get size(): number {
+    return this.settings.size ?? MAX_PLAYERS;
+  }
+
+  /** An AI boat, with a name and a boat nobody has taken yet (when there is one). */
+  private addBot(): boolean {
+    if (this.order.length + this.bots.length >= MAX_PLAYERS) return false;
+    const usedNames = new Set(this.bots.map((b) => b.name));
+    const names = AI_NAMES.filter((n) => !usedNames.has(n));
+    const taken = new Set([...this.bots.map((b) => b.boatId), ...this.order.map((id) => this.players.get(id)!.boatId)]);
+    const free = BOATS.map((b) => b.id).filter((id) => !taken.has(id));
+    const boats = free.length ? free : BOATS.map((b) => b.id);
+    this.bots.push({
+      id: `ai${++this.botCount}`,
+      name: names.length ? names[this.rng.int(0, names.length - 1)] : `AI ${this.botCount}`,
+      boatId: boats[this.rng.int(0, boats.length - 1)],
+    });
+    return true;
   }
 
   get racing(): boolean {
@@ -127,7 +155,7 @@ export class RoomCore {
       if (p.watching) row.watching = true;
       return row;
     });
-    return { t: 'lobby', players, settings: this.settings, racing: this.racing };
+    return { t: 'lobby', players, bots: this.bots.map((b) => ({ ...b })), settings: this.settings, racing: this.racing };
   }
 
   /** A message from a screen. Anything malformed is ignored. */
@@ -168,8 +196,23 @@ export class RoomCore {
       case 'settings':
         if (!this.racing && p.id === this.hostId && msg.settings && TRACK_DEFS.some((t) => t.id === msg.settings.trackId) && msg.settings.difficulty in DIFFICULTIES) {
           const def = getTrackDef(msg.settings.trackId);
-          this.settings = { trackId: def.id, difficulty: msg.settings.difficulty as Difficulty };
+          const size = Number(msg.settings.size);
+          this.settings = {
+            trackId: def.id,
+            difficulty: msg.settings.difficulty as Difficulty,
+            // People already in stay, even if the room is made smaller: nobody new gets in then.
+            size: Number.isFinite(size) ? Math.max(2, Math.min(MAX_PLAYERS, Math.round(size))) : this.size,
+          };
           if (hasSections(def)) this.settings.section = clampSection(def, msg.settings.section);
+          this.broadcast(this.lobbyState());
+        }
+        break;
+      case 'addBot':
+        if (!this.racing && p.id === this.hostId && this.addBot()) this.broadcast(this.lobbyState());
+        break;
+      case 'removeBot':
+        if (!this.racing && p.id === this.hostId && this.bots.some((b) => b.id === msg.id)) {
+          this.bots = this.bots.filter((b) => b.id !== msg.id);
           this.broadcast(this.lobbyState());
         }
         break;
@@ -213,7 +256,9 @@ export class RoomCore {
       this.welcome(back);
       return;
     }
-    if (this.order.length >= MAX_PLAYERS) return this.send(conn, { t: 'error', reason: 'full' });
+    if (this.order.length >= this.size) return this.send(conn, { t: 'error', reason: 'full' });
+    // People first: an AI boat makes way if the race would have too many boats.
+    if (this.order.length + this.bots.length >= MAX_PLAYERS) this.bots.pop();
     const player: Player = {
       id: conn.id, conn, key: randomKey(), name: cleanName(msg.name),
       boatId: BOATS.some((b) => b.id === msg.boatId) ? msg.boatId : BOATS[0].id,
@@ -260,24 +305,21 @@ export class RoomCore {
     this.players.clear();
     this.byConn.clear();
     this.order = [];
+    this.settings = { trackId: TRACK_DEFS[0].id, difficulty: 'river', size: MAX_PLAYERS };
+    this.bots = [];
+    for (let i = 0; i < DEFAULT_BOTS; i++) this.addBot();
   }
 
   private startRace(): void {
     const humans = this.order.map((id) => this.players.get(id)!);
-    const taken = new Set(humans.map((h) => h.boatId));
-    const pool = BOATS.map((b) => b.id).filter((id) => !taken.has(id));
-    const names = [...AI_NAMES];
     const roster: (StartEntry & { input?: RemoteController })[] = humans.map((h, i) => {
       h.racer = i;
       h.input = new RemoteController();
       h.idle = false;
       return { name: h.name, boatId: h.boatId, human: true, playerId: h.id, input: h.input };
     });
-    while (roster.length < MAX_PLAYERS) {
-      const boatId = pool.splice(this.rng.int(0, pool.length - 1), 1)[0] ?? BOATS[1].id;
-      const name = names.splice(this.rng.int(0, names.length - 1), 1)[0];
-      roster.push({ name, boatId, human: false, playerId: null });
-    }
+    // The AI boats the host chose (people first, at most MAX_PLAYERS boats).
+    for (const b of this.bots.slice(0, MAX_PLAYERS - roster.length)) roster.push({ name: b.name, boatId: b.boatId, human: false, playerId: null });
     const seed = this.rng.int(1, 2 ** 30);
     this.sim = new RaceSimulation({
       track: loadTrack(this.settings.trackId, this.settings.section),

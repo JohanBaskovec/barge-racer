@@ -470,3 +470,29 @@ describe('more crates, and people pushing crates in', () => {
     expect(forOthers).toBeGreaterThan(5);
   });
 });
+
+describe('eight boats', () => {
+  it('the places of a bigger race are spread over the four columns of the item tables', async () => {
+    const { oddsColumn } = await import('../src/items/itemOdds');
+    expect([0, 1, 2, 3].map((p) => oddsColumn(p, 4))).toEqual([0, 1, 2, 3]);
+    expect([0, 1, 2, 3, 4, 5, 6, 7].map((p) => oddsColumn(p, 8))).toEqual([0, 0, 1, 1, 2, 2, 3, 3]);
+    expect([0, 1].map((p) => oddsColumn(p, 2))).toEqual([0, 1]);
+  });
+
+  it('eight boats start on separate places of the grid, on the water, and finish the race', { timeout: 60000 }, () => {
+    for (const id of ['lockAndLoad', 'bayouBends', 'reimsCanal']) {
+      const sim = new RaceSimulation({ track: loadTrack(id, { start: 0, finish: 30000 }), difficulty: 'river', seed: 2, roster: BOATS.map((b, i) => ({ name: `p${i}`, boatId: b.id, human: false })) });
+      expect(sim.racers).toHaveLength(8);
+      for (const a of sim.racers) {
+        const n = sim.track.nearest(a.x, a.y, -1);
+        expect(Math.abs(n.lateral), id).toBeLessThan(sim.track.halfWidth(n.index));
+        for (const b of sim.racers) if (a !== b) expect(Math.hypot(a.x - b.x, a.y - b.y), id).toBeGreaterThan(60);
+      }
+      if (id === 'lockAndLoad') {
+        for (let t = 0; t < 400 && sim.phase !== 'over'; t += STEP) sim.step(STEP);
+        expect(sim.phase).toBe('over');
+        expect(sim.racers.filter((r) => r.finished).length).toBeGreaterThanOrEqual(7);
+      }
+    }
+  });
+});

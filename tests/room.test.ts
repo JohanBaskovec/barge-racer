@@ -35,17 +35,53 @@ describe('room codes and names', () => {
 });
 
 describe('lobby', () => {
-  it('lets four people in, makes the first one host, and refuses a fifth', () => {
+  it('lets eight people in, makes the first one host, and refuses a ninth', () => {
     const { r } = room();
-    const cs = ['a', 'b', 'c', 'd', 'e'].map(client);
+    const cs = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i'].map(client);
     for (const c of cs) r.message(c.conn, JSON.stringify({ t: 'join', name: c.conn.id, boatId: 'tugboat' }));
     expect(cs[0].last('welcome')).toMatchObject({ t: 'welcome', you: 'a', code: 'ABCD' });
     expect(cs[0].last('welcome')!.key).toMatch(/^[0-9a-f]{32}$/);
     expect(cs[0].last('welcome')!.key).not.toBe(cs[1].last('welcome')!.key);
     const lobby = cs[0].last('lobby')!;
-    expect(lobby.players.map((p) => p.id)).toEqual(['a', 'b', 'c', 'd']);
+    expect(lobby.players.map((p) => p.id)).toEqual(['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']);
     expect(lobby.players[0].host).toBe(true);
-    expect(cs[4].last('error')).toEqual({ t: 'error', reason: 'full' });
+    expect(lobby.bots).toEqual([]); // the AI boats made way for people
+    expect(cs[8].last('error')).toEqual({ t: 'error', reason: 'full' });
+  });
+
+  it('the host sets the room size and adds and removes AI boats; nobody else can', () => {
+    const { r } = room();
+    const [a, b, c] = ['a', 'b', 'c'].map(client);
+    r.message(a.conn, JSON.stringify({ t: 'join', name: 'A', boatId: 'cabourg' }));
+    r.message(b.conn, JSON.stringify({ t: 'join', name: 'B', boatId: 'tugboat' }));
+    expect(a.last('lobby')!.bots).toHaveLength(3); // a new room has three AI boats
+    // the room size: two people
+    r.message(b.conn, JSON.stringify({ t: 'settings', settings: { ...r.settings, size: 2 } }));
+    expect(r.settings.size).toBe(8);
+    r.message(a.conn, JSON.stringify({ t: 'settings', settings: { ...r.settings, size: 2 } }));
+    expect(r.settings.size).toBe(2);
+    r.message(c.conn, JSON.stringify({ t: 'join', name: 'C', boatId: 'tugboat' }));
+    expect(c.last('error')).toEqual({ t: 'error', reason: 'full' });
+    r.message(a.conn, JSON.stringify({ t: 'settings', settings: { ...r.settings, size: 99 } }));
+    expect(r.settings.size).toBe(8);
+    // AI boats: only the host adds and removes them, up to eight boats in all
+    r.message(b.conn, JSON.stringify({ t: 'addBot' }));
+    expect(a.last('lobby')!.bots).toHaveLength(3);
+    for (let i = 0; i < 10; i++) r.message(a.conn, JSON.stringify({ t: 'addBot' }));
+    const bots = a.last('lobby')!.bots;
+    expect(bots).toHaveLength(6); // 2 people + 6 AI = 8 boats
+    expect(new Set(bots.map((x) => x.name)).size).toBe(6);
+    r.message(b.conn, JSON.stringify({ t: 'removeBot', id: bots[0].id }));
+    expect(a.last('lobby')!.bots).toHaveLength(6);
+    r.message(a.conn, JSON.stringify({ t: 'removeBot', id: bots[0].id }));
+    r.message(a.conn, JSON.stringify({ t: 'removeBot', id: bots[1].id }));
+    expect(a.last('lobby')!.bots.map((x) => x.id)).toEqual(bots.slice(2).map((x) => x.id));
+    // the race has exactly those boats: the people, then the AI boats
+    r.message(b.conn, JSON.stringify({ t: 'ready', ready: true }));
+    r.message(a.conn, JSON.stringify({ t: 'start' }));
+    const start = a.last('start')!;
+    expect(start.roster.map((e) => e.name)).toEqual(['A', 'B', ...bots.slice(2).map((x) => x.name)]);
+    expect(start.roster.filter((e) => !e.human)).toHaveLength(4);
   });
 
   it('only the host changes the track and starts, once everyone is ready', () => {
@@ -56,7 +92,7 @@ describe('lobby', () => {
     r.message(b.conn, JSON.stringify({ t: 'settings', settings: { trackId: 'bayouBends', difficulty: 'ocean' } }));
     expect(r.settings.trackId).not.toBe('bayouBends');
     r.message(a.conn, JSON.stringify({ t: 'settings', settings: { trackId: 'bayouBends', difficulty: 'ocean' } }));
-    expect(r.settings).toEqual({ trackId: 'bayouBends', difficulty: 'ocean' });
+    expect(r.settings).toEqual({ trackId: 'bayouBends', difficulty: 'ocean', size: 8 });
     r.message(a.conn, JSON.stringify({ t: 'start' }));
     expect(r.racing).toBe(false); // B isn't ready
     r.message(b.conn, JSON.stringify({ t: 'ready', ready: true }));
@@ -65,7 +101,7 @@ describe('lobby', () => {
     r.message(a.conn, JSON.stringify({ t: 'start' }));
     expect(r.racing).toBe(true);
     const start = b.last('start')!;
-    expect(start.roster).toHaveLength(4);
+    expect(start.roster).toHaveLength(5); // two people and the three AI boats a room starts with
     expect(start.roster.slice(0, 2).map((e) => e.playerId)).toEqual(['a', 'b']);
     expect(start.roster.slice(2).every((e) => !e.human && e.playerId === null)).toBe(true);
   });
@@ -133,7 +169,7 @@ describe('race', () => {
     expect(snaps[200].ack).toBeGreaterThan(snaps[100].ack);
     expect(snaps.some((s) => s.ev.some((e) => e.type === 'countdown' && e.value === 0))).toBe(true);
     const results = b.last('results')!;
-    expect(results.rows).toHaveLength(4);
+    expect(results.rows).toHaveLength(5);
     expect(results.rows.filter((row) => row.playerId).map((row) => row.playerId).sort()).toEqual(['a', 'b']);
     expect(results.rows.filter((row) => row.playerId).every((row) => row.finished)).toBe(true);
     expect(b.last('lobby')!.racing).toBe(false); // back to the lobby
@@ -142,7 +178,7 @@ describe('race', () => {
   it('when a player leaves mid-race the AI takes over their boat and the race goes on', { timeout: 30000 }, () => {
     const { a } = race({ dropB: 300 });
     const results = a.last('results')!;
-    expect(results.rows).toHaveLength(4);
+    expect(results.rows).toHaveLength(5);
     expect(results.rows.find((row) => row.name === 'B')?.playerId).toBeNull();
     expect(results.rows.find((row) => row.playerId === 'a')?.finished).toBe(true);
   });

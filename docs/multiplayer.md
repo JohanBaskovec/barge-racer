@@ -1,7 +1,7 @@
 # Online multiplayer
 
-Up to four people race together in a **room** identified by a 4-letter code. Empty seats are
-filled with AI boats. The server runs the race; each screen shows it and sends its player's
+Up to eight people race together in a **room** identified by a 4-letter code, with the AI
+boats the host adds (eight boats at most). The server runs the race; each screen shows it and sends its player's
 controls.
 
 ## How it works
@@ -13,7 +13,7 @@ own boat and **interpolation** of everyone else.
  screen A ──controls (30/s)──▶ ┌──────────────────────────┐ ──snapshots (20/s)──▶ screen A
  screen B ──controls (30/s)──▶ │ room ABCD                │ ──snapshots (20/s)──▶ screen B
                                │ the real race, 60 steps/s│
-                               │ AI boats in empty seats  │
+                               │ + the host's AI boats    │
                                └──────────────────────────┘
 ```
 
@@ -69,7 +69,18 @@ own boat and **interpolation** of everyone else.
 - In the lobby everyone picks a boat. The host picks the race (and, on the Reims canal, the
   stretch) and the AI difficulty, and starts
   once everyone else is ready. Alone, the host races the AI.
-- A room is full at 4 people (including anyone watching or reconnecting).
+- **Room size**: the host sets how many people may join, 2 to 8 (8 by default). People
+  already in stay if it is made smaller; nobody new gets in then. A full room refuses the
+  next person (watchers and reconnecting players count).
+- **AI boats**: a new room has 3 (with its host, the four boats of a single-player race).
+  The host adds them one by one ("+ AI boat") and takes them out (the ✕ on their row);
+  each gets a name and a boat nobody has taken yet. People and AI boats together are at
+  most 8: when someone joins a room with 8 boats, the last AI boat makes way. The race has
+  exactly the people and the AI boats in the list, in that order on the grid (two abreast,
+  four rows) and in those colours.
+- With more than four boats the position-based rules (item odds, better versions, birds
+  and swimmers) spread the places over their four columns: in a race of eight, 1st and
+  2nd use the first column, 7th and 8th the last.
 - **Joining during a race**: you watch it. The camera follows a boat with its HUD (position,
   items); tap to watch the next one. You race in the next race. The lobby shows you as watching.
 - The pause button doesn't pause an online race; its menu has Options and "Leave the race".
@@ -116,7 +127,9 @@ size (mushrooms) and the crates a mushroom has pulled away from home (only those
 others sit at home on every screen). Moving shots and pulled crates glide between
 snapshots like the other projectiles.
 
-Messages are JSON. A snapshot is about 1.2 KB, so about 24 KB/s per player. That could be made
+Messages are JSON. A snapshot is about 1.6 KB with four boats and 2.9 KB with eight, so about
+32 to 60 KB/s per player (the server simulates an eight-boat race in about 0.25 ms a step,
+some 15 ms of CPU a second). That could be made
 much smaller with a binary format if ever needed.
 
 ## Developing

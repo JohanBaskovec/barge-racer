@@ -94,6 +94,8 @@ export interface Section {
 
 /** The shortest stretch that can be picked, in metres. */
 export const MIN_SECTION_M = 1000;
+/** Water needed behind a start line for the starting grid (px). */
+export const START_ROOM = 650;
 
 /** Whether this track's stretch can be picked. */
 export const hasSections = (def: TrackDef): boolean => !!def.range;
@@ -112,7 +114,8 @@ export function clampSection(def: TrackDef, s: unknown): Section {
   const { start, finish } = s as Record<string, unknown>;
   if (typeof start !== 'number' || typeof finish !== 'number' || !Number.isFinite(start) || !Number.isFinite(finish)) return fallback;
   const min = MIN_SECTION_M * (def.pxPerM ?? 10);
-  const a = Math.round(Math.max(range[0], Math.min(range[1] - min, start)));
+  // Room behind the start line for the whole grid (8 boats, four rows).
+  const a = Math.round(Math.max(range[0] + START_ROOM, Math.min(range[1] - min, start)));
   const b = Math.round(Math.max(a + min, Math.min(range[1], finish)));
   return { start: a, finish: b };
 }

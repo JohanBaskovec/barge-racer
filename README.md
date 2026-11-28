@@ -94,7 +94,7 @@ Debug URL parameters (see [Architecture](docs/architecture.md#debug-flags)):
   item and event.
 - Options: music and effects volume, left-handed layout, auto-fire, reduced shake.
 
-- **Online multiplayer**: rooms of up to 4 people (AI in the empty seats), invite
+- **Online multiplayer**: rooms of up to 8 people (and AI boats the host adds), invite
   links, a lobby where the host picks the race, server-run races with your boat
   predicted and the others smoothed. Hosted on the same Cloudflare Worker, one
   Durable Object per room.

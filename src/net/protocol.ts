@@ -8,7 +8,8 @@ import type { SimState } from './snapshot';
  * See docs/multiplayer.md.
  */
 
-export const MAX_PLAYERS = 4;
+/** Boats in an online race at most, people and AI together; also the most people a room takes. */
+export const MAX_PLAYERS = 8;
 /** The server sends a snapshot every TICK_MS (and simulates 60 steps a second in between). */
 export const TICK_MS = 50;
 /** A connected player's boat whose controls stop arriving for this many steps (1 s) is driven by the AI until they resume. */
@@ -32,6 +33,8 @@ export type InputTuple = [number, number | null, number, number, number];
 export interface RoomSettings {
   trackId: string;
   difficulty: Difficulty;
+  /** How many people may join (2 to MAX_PLAYERS), set by the host. */
+  size?: number;
   /** For a track whose stretch can be picked: the stretch (otherwise absent). */
   section?: Section;
 }
@@ -46,6 +49,13 @@ export interface LobbyPlayer {
   away?: boolean;
   /** Joined during a race: watching it, racing in the next one. */
   watching?: boolean;
+}
+
+/** An AI boat the host has added to the room. */
+export interface LobbyBot {
+  id: string;
+  name: string;
+  boatId: string;
 }
 
 export interface StartEntry {
@@ -70,6 +80,9 @@ export type ClientMsg =
   | { t: 'boat'; boatId: string }
   | { t: 'ready'; ready: boolean }
   | { t: 'settings'; settings: RoomSettings }
+  /** Host: add an AI boat, or take one out. */
+  | { t: 'addBot' }
+  | { t: 'removeBot'; id: string }
   | { t: 'start' }
   | { t: 'in'; i: InputTuple[] }
   | { t: 'ping'; c: number };
@@ -77,7 +90,7 @@ export type ClientMsg =
 export type ServerMsg =
   /** `key` lets this player rejoin (see join). */
   | { t: 'welcome'; you: string; code: string; key: string }
-  | { t: 'lobby'; players: LobbyPlayer[]; settings: RoomSettings; racing: boolean }
+  | { t: 'lobby'; players: LobbyPlayer[]; bots: LobbyBot[]; settings: RoomSettings; racing: boolean }
   | { t: 'start'; seed: number; settings: RoomSettings; roster: StartEntry[] }
   | { t: 'snap'; s: number; ack: number; state: SimState; ev: RaceEvent[] }
   | { t: 'results'; rows: ResultRowNet[] }
