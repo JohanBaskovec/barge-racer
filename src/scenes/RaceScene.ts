@@ -256,7 +256,7 @@ export class RaceScene extends Phaser.Scene {
     const wakeArm = this.add.particles(0, 0, 'wake', {
       lifespan: 1600, speed: { min: 22, max: 40 }, scale: { start: 0.22, end: 0.9 }, alpha: { start: 0.38, end: 0 }, emitting: false,
     }).setDepth(5);
-    for (const r of this.sim.racers) this.views.push(new BoatView(this, r, wake, wakeArm));
+    for (const r of this.sim.racers) this.views.push(new BoatView(this, r, wake, wakeArm, this.sim.battle?.teams[r.id] ?? -1));
     this.fx = new Fx(this);
     this.raceAudio = new RaceAudio(this, this.sim);
     this.trafficView = new TrafficView(this, this.sim, wake, wakeArm, this.raceAudio);

@@ -7,6 +7,7 @@ import { getBoat } from '../data/boats';
 import { TUNING } from '../data/items';
 import { WORLD_ART_SCALE } from './textures';
 import type { Racer } from '../race/types';
+import { TEAM_COLORS } from '../race/battle';
 
 /** Sprite, shadow, saw, boost and damage overlays for one racer. */
 export class BoatView {
@@ -28,6 +29,8 @@ export class BoatView {
   /** In the world, under the boats: the magnet's rings. */
   private aura: Phaser.GameObjects.Graphics;
   private label: Phaser.GameObjects.Text | null = null;
+  /** Team battles: the team's flag flying over the boat. */
+  private teamFlag: Phaser.GameObjects.Container | null = null;
   private prev: { x: number; y: number; h: number };
   x: number;
   y: number;
@@ -42,10 +45,26 @@ export class BoatView {
     private wake: Phaser.GameObjects.Particles.ParticleEmitter,
     /** The arms of the V behind big boats (optional: the title screen has none). */
     private wakeArm: Phaser.GameObjects.Particles.ParticleEmitter | null = null,
+    /** Team battles: 0 Corsica, 1 Brittany (-1: no team). */
+    team = -1,
   ) {
     const { length: L, width: W } = r.boat.size;
     this.shadow = scene.add.image(3, 5, 'shadow').setDisplaySize(L * 1.05, W * 1.1);
     const hull = createBoatSprite(scene, r.boat, r.color);
+    // Team battles: a ring of the team's colour round the hull (it turns and shrinks with it), and
+    // the team's flag over the boat, so you can tell friend from foe at a glance.
+    const ring = scene.add.graphics();
+    if (team >= 0) {
+      const c = TEAM_COLORS[team], m = 9;
+      ring.fillStyle(c, 0.3).fillRoundedRect(-L / 2 - m, -W / 2 - m, L + m * 2, W + m * 2, Math.min(W / 2 + m, 22));
+      ring.lineStyle(5, c, 1).strokeRoundedRect(-L / 2 - m, -W / 2 - m, L + m * 2, W + m * 2, Math.min(W / 2 + m, 22));
+      ring.lineStyle(2, 0xffffff, 0.9).strokeRoundedRect(-L / 2 - m - 3.5, -W / 2 - m - 3.5, L + m * 2 + 7, W + m * 2 + 7, Math.min(W / 2 + m + 3.5, 25));
+      // (framed in the team's colour: the Corsican flag is mostly white)
+      this.teamFlag = scene.add.container(0, 0, [
+        scene.add.rectangle(0, 0, 42, 30, c).setStrokeStyle(2, 0xffffff),
+        scene.add.image(0, 0, `flatFlag_${team}`).setDisplaySize(36, 24),
+      ]).setDepth(31);
+    }
     // The jigsaw's three saws: out of each side, and on the bow.
     this.saws = [-1, 1].map((side) => scene.add.image(0, side * (W / 2 + 2), 'saw').setOrigin(0, 0.5).setRotation((side * Math.PI) / 2).setScale(WORLD_ART_SCALE).setVisible(false));
     this.saws.push(scene.add.image(L / 2 + 6, 0, 'saw').setOrigin(0, 0.5).setScale(WORLD_ART_SCALE).setVisible(false));
@@ -59,7 +78,7 @@ export class BoatView {
     this.bar = scene.add.graphics();
     this.over = scene.add.graphics();
     this.aura = scene.add.graphics().setDepth(9);
-    this.container = scene.add.container(r.x, r.y, [this.shadow, this.boost, this.tug, hull, ...this.saws, this.dildo, this.nozzle, this.smoke, this.over]).setDepth(10);
+    this.container = scene.add.container(r.x, r.y, [this.shadow, ring, this.boost, this.tug, hull, ...this.saws, this.dildo, this.nozzle, this.smoke, this.over]).setDepth(10);
     this.bar.setDepth(30);
     if (r.isPlayer) {
       this.label = scene.add.text(0, 0, '▼', { fontSize: '26px', color: '#ffffff', stroke: '#000', strokeThickness: 4, resolution: 2 }).setOrigin(0.5).setDepth(31);
@@ -184,7 +203,9 @@ export class BoatView {
       this.bar.fillStyle(0x000000, 0.6).fillRect(this.x - w / 2 - 1, this.y - 54, w + 2, 8);
       this.bar.fillStyle(frac > 0.5 ? 0x62d26f : frac > 0.25 ? 0xffd23f : 0xff5a4d, 1).fillRect(this.x - w / 2, this.y - 53, w * frac, 6);
     }
-    this.label?.setPosition(this.x, this.y - 70).setVisible(!sinking);
+    // (with a team flag, the player's marker goes above it)
+    this.teamFlag?.setPosition(this.x, this.y - 72).setVisible(!sinking);
+    this.label?.setPosition(this.x, this.y - (this.teamFlag ? 102 : 70)).setVisible(!sinking);
 
     // Wake
     this.wakeTimer -= dt;
@@ -332,5 +353,6 @@ export class BoatView {
     this.container.destroy();
     this.bar.destroy();
     this.label?.destroy();
+    this.teamFlag?.destroy();
   }
 }

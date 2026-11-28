@@ -11,6 +11,9 @@ import type { Boobs, Cloud, Crate, Drill, Drop, FakeCrate, GlueBlob, GluePuddle,
 import { drawItem, oddsColumn } from './itemOdds';
 
 /** Crates, item roulette, item activation and the entities items spawn. */
+
+/** Items left out of battles: the tugboat tows you along the loop, which is no use in an arena. */
+const BATTLE_EXCLUDED: readonly ItemId[] = ['tugboat'];
 export class ItemSystem {
   crates: Crate[] = [];
   volunteers: Volunteer[] = [];
@@ -439,6 +442,7 @@ export class ItemSystem {
       farBehind: !this.sim.battle && leader - r.progress > this.sim.track.lapLength,
       volunteersInFlight: this.volunteersInFlight,
       recentItems: r.recentItems,
+      excluded: this.sim.battle ? BATTLE_EXCLUDED : undefined,
     });
     r.rouletteItem = this.sim.forcedItem ?? item;
     r.rouletteTriple = this.rollTriple(r.rouletteItem, r.position, !this.sim.battle && leader - r.progress > this.sim.track.lapLength);

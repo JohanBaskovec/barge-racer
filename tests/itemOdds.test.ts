@@ -99,3 +99,13 @@ describe('balance: the leader gets worse items than the boats behind', () => {
     expect(ITEM_POWER.raclette).toBe(10);
   });
 });
+
+describe('excluded items', () => {
+  it('never draws an excluded item (the tugboat in a battle)', () => {
+    const rng = new Rng(5);
+    for (let i = 0; i < 4000; i++) {
+      const item = drawItem(rng, { position: i % 4, volunteersInFlight: 0, recentItems: [], excluded: ['tugboat'] });
+      expect(item).not.toBe('tugboat');
+    }
+  });
+});

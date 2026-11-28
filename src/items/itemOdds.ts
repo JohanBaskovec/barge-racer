@@ -19,6 +19,8 @@ export interface DrawContext {
   farBehind?: boolean;
   volunteersInFlight: number;
   recentItems: ItemId[];
+  /** Items that can't come out (the tugboat in a battle: it only makes sense racing one way). */
+  excluded?: readonly ItemId[];
 }
 
 const ITEMS = Object.keys(ITEM_ODDS) as ItemId[];
@@ -26,13 +28,14 @@ const ITEMS = Object.keys(ITEM_ODDS) as ItemId[];
 /** Weighted draw of an item using the position table plus the rules from docs/items.md. */
 export function drawItem(rng: Rng, ctx: DrawContext): ItemId {
   const col = ctx.farBehind ? 3 : oddsColumn(ctx.position, ctx.count);
+  const weight = (id: ItemId): number => (ctx.excluded?.includes(id) ? 0 : ITEM_ODDS[id][col]);
   for (let attempt = 0; attempt < 20; attempt++) {
     let total = 0;
-    for (const id of ITEMS) total += ITEM_ODDS[id][col];
+    for (const id of ITEMS) total += weight(id);
     let roll = rng.next() * total;
     let pick: ItemId = ITEMS[0];
     for (const id of ITEMS) {
-      roll -= ITEM_ODDS[id][col];
+      roll -= weight(id);
       if (roll < 0) {
         pick = id;
         break;

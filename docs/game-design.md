@@ -191,7 +191,8 @@ With them, in AI races on Lock & Load, the lead changes hands about 4.4 times a 
 
 Played on the two [arenas](tracks.md#arenas), offline (Single player → Battle) or online (the
 host picks the mode in the lobby). No laps: boats score. Items work as in a race (crates
-everywhere, weak and strong items handed out by score rather than by place); catch-up boost,
+everywhere, weak and strong items handed out by score rather than by place), except the
+tugboat, which never comes out of a crate in a battle (it tows you along the loop); catch-up boost,
 rubber-banding, police, anglers and barge drops are off. Code: `src/race/battle.ts`.
 
 | Mode | Teams | Wins | Time limit |
@@ -203,7 +204,8 @@ rubber-banding, police, anglers and barge drops are off. Code: `src/race/battle.
 - **A sinking scores** for the boat that last hit the one that sank, if that hit was less than
   6 s before (sinking on your own, or by a team-mate, scores nothing).
 - **Teams**: Corsica (red boats, the Moor's head flag) and Brittany (blue boats, the Gwenn-ha-Du).
-  Each team has a **base**: a glowing ring on the water. Offline you pick your team; online each
+  Every boat of a team has a ring of its colour round the hull and its team's flag (in a
+  frame of the team's colour) flying over it. Each team has a **base**: a glowing ring on the water. Offline you pick your team; online each
   person picks a side in the lobby and AI boats fill in for the side with fewer boats.
 - **Respawn**: a boat that sinks comes back with a full hull **at its team's base**, on a random
   spot there, the one of twelve tries farthest from any opponent. Free for all: anywhere on the
