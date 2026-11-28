@@ -207,9 +207,14 @@ export interface Cloud {
   dead: boolean;
 }
 
-/** A crate a barge has tossed ahead of a boat that is behind. Flies for a moment, then floats until taken. */
+/**
+ * A crate put on the water ahead of a boat that is behind: tossed by a barge (kind 0, it flies
+ * for a moment) or pushed in from the towpath by someone (kind 1, it slides in). Then it floats
+ * until taken.
+ */
 export interface Drop {
   id: number;
+  kind: 0 | 1;
   /** Where it lands, and where it was thrown from. */
   x: number;
   y: number;

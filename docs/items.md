@@ -2,8 +2,10 @@
 
 ## Crates
 
-- Crates float in **rows of 3 to 5** across the track, placed in the track data
-  (see [Tracks](tracks.md)). They bob gently and spin.
+- Crates float in **rows of 8** across the track, placed in the track data (see
+  [Tracks](tracks.md)): as many across as the canal has room for (up to 4, two crate
+  widths apart), the rest in staggered lines behind (4 + 4, or 3 + 3 + 2 on a narrow
+  canal). They bob gently and spin.
 - Driving through a crate breaks it. If the racer has a free **item slot**, an
   **item roulette** runs in that slot for 1 s, then lands on one item. If both
   slots are full, the crate just breaks and gives nothing.
@@ -11,6 +13,10 @@
 - **Barges toss extra crates** to boats that are behind (never to the leader, who can't
   pick them up either): see [Game design](game-design.md#traffic-wakes-and-slipstream).
   They give items like any crate, drawn for the boat's position.
+- **People on the towpath push crates in** for the boats behind, too: about once every
+  9 s for each boat that isn't leading and has a free slot, someone shoves a crate off
+  the bank 380 px ahead of it (never near the leader, who can't take it either; and not
+  within 7 s of the last crate a barge or a pusher gave that boat).
 - A racer holds **two items at once**: slot 1 (fired with right click or the first
   button) and slot 2 (middle click or the second button). A new item goes into
   the first free slot. Items can't be swapped or thrown away.

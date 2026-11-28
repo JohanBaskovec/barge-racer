@@ -20,6 +20,7 @@ import { generateScenery } from '../view/sceneryGen';
 import { TrafficView } from '../view/trafficView';
 import { StreetLife } from '../view/streetLife';
 import { HazardView } from '../view/hazardView';
+import { STREET_ART_SCALE } from '../view/streetArt';
 import { WORLD_ART_SCALE } from '../view/textures';
 import { options } from '../options';
 import { hasEffect } from '../effects/effects';
@@ -403,13 +404,31 @@ export class RaceScene extends Phaser.Scene {
     }, (sp) => this.retire(sp, 'fade'));
     // Crates tossed by barges: an arc through the air from the barge, then bobbing like any crate.
     const T = TUNING.traffic;
-    this.syncGroup(this.dropSprites, items.drops, (d) => this.makeCrateSprite(d.fromX, d.fromY).setData('landed', false), (s, d) => {
+    // Pushed in from the towpath: someone shoving it, then it slides into the water.
+    this.syncGroup(this.dropSprites, items.drops, (d) => {
+      const crate = this.makeCrateSprite(d.fromX, d.fromY).setData('landed', false);
+      if (d.kind === 1) {
+        const face = Math.atan2(d.y - d.fromY, d.x - d.fromX);
+        const back = 26;
+        const man = this.add.image(d.fromX - Math.cos(face) * back, d.fromY - Math.sin(face) * back, `walker_${d.id % 10}`).setScale(2.6 / STREET_ART_SCALE).setRotation(face).setDepth(13);
+        // he leans in, then stays a moment to watch, and goes
+        this.tweens.add({ targets: man, x: d.fromX - Math.cos(face) * 8, y: d.fromY - Math.sin(face) * 8, duration: T.tossTime * 1000, ease: 'Quad.easeOut' });
+        this.tweens.add({ targets: man, alpha: 0, delay: 2600, duration: 600, onComplete: () => man.destroy() });
+      }
+      return crate;
+    }, (s, d) => {
       const k = Math.min(1, d.age / T.tossTime);
       s.setData('age', d.age);
       if (k < 1) {
-        s.setPosition(d.fromX + (d.x - d.fromX) * k, d.fromY + (d.y - d.fromY) * k).setRotation(k * Math.PI * 3);
         this.tweens.killTweensOf(s);
-        s.setScale(WORLD_ART_SCALE * (1 + Math.sin(k * Math.PI) * 0.8));
+        if (d.kind === 1) {
+          // sliding off the towpath into the water
+          const e = k * k;
+          s.setPosition(d.fromX + (d.x - d.fromX) * e, d.fromY + (d.y - d.fromY) * e).setRotation(k * 0.6).setScale(WORLD_ART_SCALE * (1 + Math.sin(k * Math.PI) * 0.15));
+        } else {
+          s.setPosition(d.fromX + (d.x - d.fromX) * k, d.fromY + (d.y - d.fromY) * k).setRotation(k * Math.PI * 3);
+          s.setScale(WORLD_ART_SCALE * (1 + Math.sin(k * Math.PI) * 0.8));
+        }
       } else {
         if (!s.getData('landed')) {
           s.setData('landed', true).setScale(WORLD_ART_SCALE);

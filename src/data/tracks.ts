@@ -29,7 +29,7 @@ export const TRACK_DEFS: TrackDef[] = [
       [1100, 1950, 300], [500, 1800, 300], [250, 1200, 320], [300, 700, 320],
     ]),
     checkpoints: [0.25, 0.5, 0.75],
-    crateRows: [{ at: 0.1, count: 4 }, { at: 0.35, count: 3 }, { at: 0.6, count: 4 }, { at: 0.85, count: 3 }],
+    crateRows: [{ at: 0.1, count: 8 }, { at: 0.35, count: 8 }, { at: 0.6, count: 8 }, { at: 0.85, count: 8 }],
     colors: { land: 0xcfc4a2, shore: 0xddcfa6, water: 0x2f7fb5, waterDeep: 0x1f5f94 },
   },
   {
@@ -43,7 +43,7 @@ export const TRACK_DEFS: TrackDef[] = [
       [700, 1600, 250], [300, 1100, 270],
     ]),
     checkpoints: [0.2, 0.4, 0.6, 0.8],
-    crateRows: [{ at: 0.08, count: 4 }, { at: 0.3, count: 3 }, { at: 0.5, count: 4 }, { at: 0.72, count: 3 }, { at: 0.9, count: 4 }],
+    crateRows: [{ at: 0.08, count: 8 }, { at: 0.3, count: 8 }, { at: 0.5, count: 8 }, { at: 0.72, count: 8 }, { at: 0.9, count: 8 }],
     colors: { land: 0xa7a59c, shore: 0xbdb9ad, water: 0x3b7a8c, waterDeep: 0x275e70 },
   },
   {
@@ -57,7 +57,7 @@ export const TRACK_DEFS: TrackDef[] = [
       [250, 1300, 220],
     ]),
     checkpoints: [0.25, 0.5, 0.75],
-    crateRows: [{ at: 0.1, count: 3 }, { at: 0.3, count: 3 }, { at: 0.55, count: 3 }, { at: 0.8, count: 3 }],
+    crateRows: [{ at: 0.1, count: 8 }, { at: 0.3, count: 8 }, { at: 0.55, count: 8 }, { at: 0.8, count: 8 }],
     colors: { land: 0x35542e, shore: 0x65703a, water: 0x4d7a4a, waterDeep: 0x3a6140 },
   },
   {
@@ -73,7 +73,7 @@ export const TRACK_DEFS: TrackDef[] = [
     finishDist: reims.finishDist,
     range: reims.range as [number, number],
     places: reims.places as [number, number, number, string][],
-    crateSpacing: { every: 2500, count: 3 },
+    crateSpacing: { every: 2500, count: 8 },
     traffic: 6000,
     pxPerM: reims.pxPerM,
     scenery: 'maps/reims-canal.json',

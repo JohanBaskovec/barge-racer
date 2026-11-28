@@ -242,6 +242,12 @@ export const TUNING = {
     dropRange: 520, dropCooldown: 9, dropEvery: 7, dropLife: 20, dropAhead: 280, leaderClear: 700, tossTime: 0.6,
   },
   /**
+   * People on the towpath who push a crate into the water `ahead` px in front of a boat that is
+   * behind (never the leader, nor near it): about once every `every` s for each such boat with a
+   * free slot (and not within the barges' `dropEvery` of the last crate it was given).
+   */
+  pushers: { every: 9, ahead: 380, startAfter: 6 },
+  /**
    * Wakes: a moving boat leaves a V behind it; a boat on one of its arms is pushed outward,
    * harder the heavier and faster the maker and the lighter the receiver. Straight behind (in the
    * V's middle) there is no push: that is where the slipstream is. Hovercraft float above it.

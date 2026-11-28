@@ -321,10 +321,10 @@ describe('traffic online', () => {
     const server = race('bayouBends', 4);
     const screen = race('bayouBends', 4);
     step(server, 9);
-    server.items.drops.push({ id: 77, x: 10, y: 20, fromX: 30, fromY: 40, age: 0.2, target: 1, dead: false });
+    server.items.drops.push({ id: 77, kind: 1, x: 10, y: 20, fromX: 30, fromY: 40, age: 0.2, target: 1, dead: false });
     applyState(screen, JSON.parse(JSON.stringify(encodeState(server))));
     expect(screen.steps).toBe(server.steps);
-    expect(screen.items.drops).toEqual([{ id: 77, x: 10, y: 20, fromX: 30, fromY: 40, age: 0.2, target: 1, dead: false }]);
+    expect(screen.items.drops).toEqual([{ id: 77, kind: 1, x: 10, y: 20, fromX: 30, fromY: 40, age: 0.2, target: 1, dead: false }]);
     expect(screen.traffic.poses(screen.steps * STEP)).toEqual(server.trafficPoses);
   });
 

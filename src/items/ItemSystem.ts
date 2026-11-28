@@ -36,14 +36,24 @@ export class ItemSystem {
     this.buildCrates();
   }
 
+  /**
+   * The crate rows: as many crates across as the canal has room for (at least 2 crate widths
+   * apart), the rest in staggered lines behind, so 8 crates fit a narrow canal too.
+   */
   private buildCrates(): void {
     const track = this.sim.track;
+    const gap = TUNING.crateRadius * 2 + 4;
     for (const row of track.def.crateRows) {
+      const at = track.alongOf(row.at * track.lapLength);
+      const room = track.sampleAt(at).width * 0.8;
+      const perRank = Math.max(2, Math.min(row.count, 4, Math.floor(room / gap)));
       for (let i = 0; i < row.count; i++) {
-        const along = track.alongOf(row.at * track.lapLength);
+        const rank = Math.floor(i / perRank), k = i % perRank;
+        const inRank = Math.min(perRank, row.count - rank * perRank);
+        const along = at + rank * 62;
         const s = track.sampleAt(along);
-        const spread = Math.min(70, (s.width * 0.7) / row.count);
-        const lateral = (i - (row.count - 1) / 2) * spread;
+        const spread = Math.max(gap, Math.min(70, (s.width * 0.8) / perRank));
+        const lateral = (k - (inRank - 1) / 2) * spread + (rank % 2 ? 1 : -1) * spread * 0.2;
         const p = track.pointAt(along, lateral);
         this.crates.push({ id: this.nextId++, x: p.x, y: p.y, homeX: p.x, homeY: p.y, respawn: 0 });
       }
@@ -364,10 +374,34 @@ export class ItemSystem {
       if (this.onBarge(spot.x, spot.y, 30)) continue;
       if (!track.closed && (along < 0 || along > track.length)) continue;
       if (leader && Math.hypot(leader.x - spot.x, leader.y - spot.y) < T.leaderClear) continue;
-      this.drops.push({ id: this.nextId++, x: spot.x, y: spot.y, fromX: p.x, fromY: p.y, age: 0, target: target.id, dead: false });
+      this.drops.push({ id: this.nextId++, kind: 0, x: spot.x, y: spot.y, fromX: p.x, fromY: p.y, age: 0, target: target.id, dead: false });
       this.droppedFor.set(target.id, sim.time);
       b.dropT = T.dropCooldown;
       sim.emit({ type: 'drop', racer: target.id, id: this.nextId - 1 });
+    }
+    this.pushCrates(dt, leader);
+  }
+
+  /** Someone on the towpath pushes a crate into the water ahead of a boat that is behind. */
+  private pushCrates(dt: number, leader: Racer | undefined): void {
+    const T = TUNING.traffic, P = TUNING.pushers, sim = this.sim, track = sim.track;
+    if (sim.time < P.startAfter) return;
+    for (const r of sim.racers) {
+      if (r.position === 0 || r.finished || r.sinkTimer > 0 || this.freeSlot(r) < 0 || r.rouletteItem) continue;
+      if (sim.time - (this.droppedFor.get(r.id) ?? -99) < T.dropEvery) continue;
+      if (!sim.rng.chance(dt / P.every)) continue;
+      const along = track.alongOf(r.progress) + P.ahead;
+      if (!track.closed && along > track.length - 100) continue;
+      const hw = track.sampleAt(along).width / 2;
+      const side = sim.rng.chance(0.5) ? 1 : -1;
+      // From the towpath, into the water near that bank, ahead of the boat.
+      const from = track.pointAt(along, side * (hw + 22));
+      const spot = track.pointAt(along + 30, side * Math.max(0, hw - 48));
+      if (this.onBarge(spot.x, spot.y, 40)) continue;
+      if (leader && Math.hypot(leader.x - spot.x, leader.y - spot.y) < T.leaderClear) continue;
+      this.drops.push({ id: this.nextId++, kind: 1, x: spot.x, y: spot.y, fromX: from.x, fromY: from.y, age: 0, target: r.id, dead: false });
+      this.droppedFor.set(r.id, sim.time);
+      sim.emit({ type: 'drop', racer: r.id, id: this.nextId - 1 });
     }
   }
 

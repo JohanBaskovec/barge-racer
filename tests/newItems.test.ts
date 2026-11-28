@@ -433,3 +433,40 @@ describe('Kärcher: only the fan alongside', () => {
     expect(push(-L - 120)).toBeLessThan(3);
   });
 });
+
+describe('more crates, and people pushing crates in', () => {
+  it('every crate row has 8 crates, none overlapping, all on the water', () => {
+    for (const id of ['lockAndLoad', 'industrialEstuary', 'bayouBends', 'reimsCanal']) {
+      const sim = new RaceSimulation({ track: loadTrack(id), playerBoat: null, difficulty: 'river', seed: 1 });
+      const crates = sim.items.crates;
+      expect(crates.length % 8, id).toBe(0);
+      expect(crates.length, id).toBeGreaterThanOrEqual(8 * sim.track.def.crateRows.length);
+      for (const a of crates) {
+        const n = sim.track.nearest(a.x, a.y, -1);
+        expect(Math.abs(n.lateral), id).toBeLessThan(sim.track.halfWidth(n.index) - 10);
+        for (const b of crates) if (a !== b) expect(Math.hypot(a.x - b.x, a.y - b.y), id).toBeGreaterThan(2 * TUNING.crateRadius - 6);
+      }
+    }
+  });
+
+  it('someone on the towpath pushes a crate in ahead of the boats behind, never for the leader', () => {
+    const sim = lone();
+    sim.hazards.enabled = false;
+    let forLeader = 0, forOthers = 0;
+    run(sim, 60, () => {
+      for (const r of sim.racers) r.slots = [null, null];
+      // the others well behind the leader (pushes never land near the leader)
+      const lead = sim.racers.find((r) => r.position === 0)!;
+      for (const r of sim.racers) if (r !== lead && lead.progress - r.progress < 900) put(sim, r, sim.track.alongOf(lead.progress) - 1600, 0, 300);
+      for (const e of sim.takeEvents()) {
+        if (e.type !== 'drop') continue;
+        const d = sim.items.drops.find((x) => x.id === e.id);
+        if (d?.kind !== 1) continue;
+        if (sim.racers[e.racer].position === 0) forLeader++;
+        else forOthers++;
+      }
+    });
+    expect(forLeader).toBe(0);
+    expect(forOthers).toBeGreaterThan(5);
+  });
+});
