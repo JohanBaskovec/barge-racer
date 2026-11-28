@@ -13,7 +13,7 @@ import type { TrackDef } from '../track/Track';
 export const MUSIC_FOR: Record<TrackDef['theme'], ThemeName> = { canal: 'race', industrial: 'industrial', bayou: 'bayou', city: 'city' };
 
 const ITEM_SOUND: Partial<Record<ItemId, SfxName>> = {
-  volunteer: 'volunteer', volunteerSquad: 'volunteer', jigsaw: 'jigsaw', whitePowder: 'powder', bigBag: 'powder',
+  volunteer: 'volunteer', jigsaw: 'jigsaw', whitePowder: 'powder',
   drill: 'drill', siliconeGun: 'silicone', fakeCrate: 'drop', mushroom: 'mushroom',
   blackout: 'blackout', raclette: 'raclette', toilet: 'toilet', karcher: 'karcher',
   titten: 'titten', dildo: 'dildo', nailGun: 'nailGun', siphon: 'siphon', tugboat: 'tugboat', beerDispenser: 'beer', vacuum: 'vacuum',

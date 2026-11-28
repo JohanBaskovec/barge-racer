@@ -1,4 +1,4 @@
-import { FASTEST_TOP_SPEED, GLOBAL_ITEMS, HAS_OWN_TRIPLE, ITEM_INFO, TRIPLE_ODDS, TUNING, type ItemId } from '../data/items';
+import { FASTEST_TOP_SPEED, GLOBAL_ITEMS, ITEM_INFO, TRIPLE_ODDS, TUNING, type ItemId } from '../data/items';
 import { addEffect, hasEffect } from '../effects/effects';
 import { isTouching, resolveStatic, touchesCapsule } from '../physics/collisions';
 
@@ -76,8 +76,7 @@ export class ItemSystem {
     const by = r.y + Math.sin(heading) * bow;
 
     switch (item) {
-      case 'volunteer':
-      case 'volunteerSquad': {
+      case 'volunteer': {
         let target: number | null = null;
         if (dir === 'forward') target = this.targetAhead(r);
         this.volunteers.push({ id: this.nextId++, owner: r.id, targetId: target, x: bx, y: by, heading, age: 0, locked: false, near: r.nearestIndex, dead: false });
@@ -89,9 +88,6 @@ export class ItemSystem {
         break;
       case 'whitePowder':
         addEffect(r, 'boost', TUNING.powder.duration);
-        break;
-      case 'bigBag':
-        addEffect(r, 'boost', 2);
         break;
       case 'drill':
         this.drills.push({ id: this.nextId++, owner: r.id, x: bx, y: by, heading, travelled: 0, stuckT: 0, age: 0, near: r.nearestIndex, dead: false });
@@ -288,7 +284,7 @@ export class ItemSystem {
 
   /** Whether an item comes as its better version (three uses): likelier further back, never for the leader. */
   private rollTriple(id: ItemId, position: number, farBehind: boolean): boolean {
-    if (HAS_OWN_TRIPLE.includes(id) || ITEM_INFO[id].uses >= 3) return false;
+    if (ITEM_INFO[id].uses >= 3) return false;
     const col = farBehind ? 3 : Math.max(0, Math.min(3, position));
     const odds = (GLOBAL_ITEMS.includes(id) ? TRIPLE_ODDS.global : TRIPLE_ODDS.normal)[col];
     return odds > 0 && this.sim.rng.next() < odds;

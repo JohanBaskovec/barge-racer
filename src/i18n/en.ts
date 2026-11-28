@@ -120,10 +120,8 @@ export const en = {
   'difficulty.ocean': 'Ocean',
 
   'item.volunteer': 'Volunteers',
-  'item.volunteerSquad': 'Volunteer Squad',
   'item.jigsaw': 'Jigsaw',
   'item.whitePowder': 'White Powder',
-  'item.bigBag': 'Big Bag',
   'item.drill': 'Electric Drill',
   'item.glue': 'Glue',
   'item.siliconeGun': 'Silicone Gun',

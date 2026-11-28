@@ -259,8 +259,7 @@ export class AIController implements Controller {
       });
 
     switch (item) {
-      case 'volunteer':
-      case 'volunteerSquad': {
+      case 'volunteer': {
         const ahead = sim.racers.find((o) => o.position === r.position - 1);
         if (ahead && ahead.progress - r.progress < 900) return 'forward';
         const close = others.find((o) => {
@@ -307,8 +306,7 @@ export class AIController implements Controller {
         // A tow: whenever there is ground to make up, or straight away when not leading.
         if (r.position > 0 || r.sinceHit < 2) return 'forward';
         break;
-      case 'whitePowder':
-      case 'bigBag': {
+      case 'whitePowder': {
         let kmax = 0;
         for (let k = 0; k < 25; k++) kmax = Math.max(kmax, Math.abs(sim.track.samples[sim.track.wrap(r.nearestIndex + k)].curvature));
         if ((kmax < 0.0012 && speed > 120) || (r.sinceHit < 2.5 && r.sinkTimer <= 0)) return 'forward';

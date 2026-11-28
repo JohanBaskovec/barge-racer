@@ -60,10 +60,10 @@ describe('two item slots', () => {
   it('a multi-use item keeps its slot until used up', () => {
     const sim = raceReady();
     const r = sim.racers[0];
-    sim.items.give(r, 'bigBag');
+    sim.items.give(r, 'whitePowder', true);
     sim.items.use(r, 0, 'forward');
     sim.items.use(r, 0, 'forward');
-    expect(r.slots[0]).toEqual({ id: 'bigBag', uses: 1 });
+    expect(r.slots[0]).toEqual({ id: 'whitePowder', uses: 1, triple: true });
   });
 
   it('a crate gives nothing when both slots are full', () => {

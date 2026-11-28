@@ -255,8 +255,7 @@ phone or tablet, never online), the pause menu has a **Debug** button (bottom ri
 opens `DebugScene`:
 
 - **Every item**: a click puts it in a free slot (or the first slot when both are full).
-- **Better version x3**: items come as their triple version (the Volunteer Squad and the
-  Big Bag for Volunteers and White Powder).
+- **Better version x3**: items come as their triple version.
 - **Repair hull**.
 - **Police, Angler, Ducks, Rowers, Swimmers**: set that hazard off in front of you
   (`HazardSystem.debugPolice` and friends) and go back to the race to see it.

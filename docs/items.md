@@ -40,8 +40,7 @@ It works like a **homing missile**.
   banks and obstacles. It can be blocked by a Drill bit or eaten by a Glue
   puddle (it gets stuck and is removed).
 - **Damage**: 35 hull and a spin-out (1.2 s, shortened by mass).
-- **Count**: 1 volunteer per crate. A rare **Volunteer Squad** (3 volunteers,
-  each throw uses one) is given to racers in the last position only.
+- **Count**: 1 volunteer per crate, or 3 in its better version (each throw uses one).
 - **Backwards throw**: flies straight back without homing.
 - **After the hit**: the volunteer bobs in the water and waves. Purely visual.
 
@@ -70,8 +69,7 @@ An unlabelled bag of white powder. Using it gives a speed boost.
   slow-down from Glue and shallow water while boosted.
 - **Ramming**: during the boost, hitting another boat pushes it away hard
   (as if the boosted boat were 2 x heavier), but does no damage.
-- **Rare variant**: **Big Bag**, 3 uses of 2 s each, given only to the last two
-  positions.
+- **Better version**: 3 uses, like every item.
 - **Visuals**: white sparkly wake, speed lines, the driver's eyes go wide.
   Nothing else is shown.
 
@@ -300,8 +298,8 @@ have in those seconds. Useless for the leader: never given to 1st.
 
 ### The better versions (x 3)
 
-Every item can come as its **better version, with three uses** (the Volunteer Squad and
-the Big Bag already are the better versions of the Volunteers and the White Powder). The
+Every item can come as its **better version, with three uses** (this replaced the old
+Volunteer Squad and Big Bag, which were exactly that for the Volunteers and the Powder). The
 chance depends on the position when the crate is broken: never for 1st, 8 % for 2nd,
 18 % for 3rd and 30 % for 4th (`TRIPLE_ODDS`). The strongest items, those that hit every
 opponent at once (Mushrooms, Electrical Failure, Gas Siphoning, Dicke Titten, Raclette),
@@ -338,7 +336,7 @@ orange ring round its button and its uses left.
 The item from a crate depends on the racer's **position** at the moment the
 crate is broken. **The leader gets the weakest items, the back gets the strongest**:
 leaders mostly draw beer, the dildo and a few traps, never the big boosts; the last boats
-get Volunteer Squads, Big Bags, the Tugboat, Dicke Titten and Gas Siphoning. The weights
+get most of the Volunteers and the Powder, the Tugboat, Dicke Titten and Gas Siphoning. The weights
 are per position (1st to 4th); the item is drawn at random using them. The items that
 hit every opponent at once (Electrical Failure, Raclette, Gas Siphoning) go only to the
 back two positions. Leaders used to get mostly traps to drop behind (glue, fake crates,
@@ -346,11 +344,9 @@ the toilet), which is how they kept the lead: they get half as many now.
 
 | Item | 1st | 2nd | 3rd | 4th |
 | --- | --- | --- | --- | --- |
-| Volunteers | 4 | 16 | 18 | 14 |
-| Volunteer Squad | 0 | 0 | 3 | 8 |
+| Volunteers | 4 | 16 | 21 | 22 |
 | Jigsaw | 8 | 12 | 11 | 8 |
-| White Powder | 4 | 10 | 13 | 13 |
-| Big Bag | 0 | 0 | 4 | 10 |
+| White Powder | 4 | 10 | 17 | 23 |
 | Electric Drill | 14 | 15 | 12 | 8 |
 | Glue | 11 | 9 | 5 | 2 |
 | Silicone Gun | 5 | 10 | 10 | 8 |
@@ -369,14 +365,14 @@ the toilet), which is how they kept the lead: they get half as many now.
 | Beer Dispenser | 3 | 6 | 7 | 7 |
 | Vacuum Cleaner | 0 | 5 | 8 | 8 |
 
-Every item has a **power** rating (`ITEM_POWER` in `src/data/items.ts`: Squad, Electrical
-Failure, Raclette and Gas Siphoning 10, Big Bag, Mushrooms, Dicke Titten and Tugboat 9,
+Every item has a **power** rating (`ITEM_POWER` in `src/data/items.ts`: Electrical
+Failure, Raclette and Gas Siphoning 10, Mushrooms, Dicke Titten and Tugboat 9,
 Silicone Gun and Vacuum Cleaner 8, Beer Dispenser 7, Volunteers 7, Jigsaw, Powder, Drill, Glue, Kärcher and Nail Gun 6, Beer 5,
 Fake Crate and Toilet 4, Dildo 3). The average power of a draw is about **5.2 for 1st,
-5.8 for 2nd, 6.7 for 3rd and 7.5 for 4th** (before the better versions, which only add
+6.0 for 2nd, 6.6 for 3rd and 7.1 for 4th** (before the better versions, which only add
 to the back), and tests check that it rises from the front to the back, that the
-mushroom stays the rarest item in every column, and that 1st place never gets squads,
-big bags, the ultimate items or the catch-up items.
+mushroom stays the rarest item in every column, and that 1st place never gets the
+ultimate items or the catch-up items.
 
 Rules on top of the table:
 
@@ -391,9 +387,9 @@ Rules on top of the table:
 
 ```ts
 type ItemId =
-  | 'volunteer' | 'volunteerSquad'
+  | 'volunteer'
   | 'jigsaw'
-  | 'whitePowder' | 'bigBag'
+  | 'whitePowder'
   | 'drill'
   | 'glue' | 'siliconeGun'
   | 'fakeCrate'
@@ -406,7 +402,7 @@ type ItemId =
 
 interface ItemInfo {
   id: ItemId;
-  uses: number;            // 1 for most, 2 for the silicone gun, 3 for squad / big bag
+  uses: number;            // 1 for most, 2 for the silicone gun (3 in a better version)
   icon: string;            // texture key
 }
 

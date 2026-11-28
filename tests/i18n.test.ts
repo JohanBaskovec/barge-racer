@@ -58,7 +58,6 @@ describe('t()', () => {
   it('calls volunteers "bénévoles" in French', () => {
     setLanguage('fr');
     expect(t('item.volunteer')).toBe('Bénévoles');
-    expect(t('item.volunteerSquad')).toBe('Escouade de bénévoles');
     expect(Object.values(LANGUAGES.find((l) => l.code === 'fr')!.strings).join(' ')).not.toMatch(/volontaire/i);
   });
 

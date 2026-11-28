@@ -1,7 +1,7 @@
 export type ItemId =
-  | 'volunteer' | 'volunteerSquad'
+  | 'volunteer'
   | 'jigsaw'
-  | 'whitePowder' | 'bigBag'
+  | 'whitePowder'
   | 'drill'
   | 'glue' | 'siliconeGun'
   | 'fakeCrate'
@@ -28,10 +28,8 @@ export interface ItemInfo {
 
 export const ITEM_INFO: Record<ItemId, ItemInfo> = {
   volunteer: { id: 'volunteer', uses: 1, icon: 'icon_volunteer' },
-  volunteerSquad: { id: 'volunteerSquad', uses: 3, icon: 'icon_volunteer' },
   jigsaw: { id: 'jigsaw', uses: 1, icon: 'icon_jigsaw' },
   whitePowder: { id: 'whitePowder', uses: 1, icon: 'icon_powder' },
-  bigBag: { id: 'bigBag', uses: 3, icon: 'icon_powder' },
   drill: { id: 'drill', uses: 1, icon: 'icon_drill' },
   glue: { id: 'glue', uses: 1, icon: 'icon_glue' },
   siliconeGun: { id: 'siliconeGun', uses: 2, icon: 'icon_silicone' },
@@ -51,11 +49,6 @@ export const ITEM_INFO: Record<ItemId, ItemInfo> = {
   vacuum: { id: 'vacuum', uses: 1, icon: 'icon_vacuum' },
 };
 
-/**
- * Items whose better version is a separate item with three uses already (the squad, the big bag):
- * every other item can come as a triple instead (see TRIPLE_ODDS).
- */
-export const HAS_OWN_TRIPLE: ItemId[] = ['volunteer', 'whitePowder', 'volunteerSquad', 'bigBag'];
 /** The strongest items, which hit every opponent at once: as a triple only for the last place, and rarely. */
 export const GLOBAL_ITEMS: ItemId[] = ['mushroom', 'blackout', 'siphon', 'titten', 'raclette'];
 /**
@@ -70,15 +63,14 @@ export const SLOT_COUNT = 2;
 /**
  * Draw weights per position (index 0 = 1st place). Leaders get defensive and weak items,
  * the back of the field gets the items that catch up. See docs/items.md.
- * Rules: the mushroom is rarer than every other item; only the back gets squads, big bags and the
- * two "ultimate" items (electrical failure, raclette); the leader gets the traps.
+ * Rules: the mushroom is rarer than every other item; only the back gets the "ultimate" items
+ * (electrical failure, raclette, gas siphoning); the leader gets weak items and a few traps. Any
+ * item can also come as its better version, with three uses (TRIPLE_ODDS).
  */
 export const ITEM_ODDS: Record<ItemId, [number, number, number, number]> = {
-  volunteer: [4, 16, 18, 14],
-  volunteerSquad: [0, 0, 3, 8],
+  volunteer: [4, 16, 21, 22],
   jigsaw: [8, 12, 11, 8],
-  whitePowder: [4, 10, 13, 13],
-  bigBag: [0, 0, 4, 10],
+  whitePowder: [4, 10, 17, 23],
   drill: [14, 15, 12, 8],
   glue: [11, 9, 5, 2],
   siliconeGun: [5, 10, 10, 8],
@@ -100,7 +92,7 @@ export const ITEM_ODDS: Record<ItemId, [number, number, number, number]> = {
 
 /** How much an item helps whoever holds it (0-10). Used to check the odds really favour the back. */
 export const ITEM_POWER: Record<ItemId, number> = {
-  volunteer: 7, volunteerSquad: 10, jigsaw: 6, whitePowder: 6, bigBag: 9, drill: 6,
+  volunteer: 7, jigsaw: 6, whitePowder: 6, drill: 6,
   glue: 6, siliconeGun: 8, fakeCrate: 4, beer: 5, mushroom: 9,
   blackout: 10, raclette: 10, toilet: 4, karcher: 6,
   titten: 9, dildo: 3, nailGun: 6, siphon: 10, tugboat: 9,

@@ -27,8 +27,7 @@ export function drawItem(rng: Rng, ctx: DrawContext): ItemId {
         break;
       }
     }
-    const isVolunteer = pick === 'volunteer' || pick === 'volunteerSquad';
-    if (isVolunteer && ctx.volunteersInFlight >= TUNING.maxVolunteersInFlight) continue;
+    if (pick === 'volunteer' && ctx.volunteersInFlight >= TUNING.maxVolunteersInFlight) continue;
     const n = ctx.recentItems.length;
     if (n >= 2 && ctx.recentItems[n - 1] === pick && ctx.recentItems[n - 2] === pick) continue;
     return pick;

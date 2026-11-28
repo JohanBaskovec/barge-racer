@@ -537,7 +537,7 @@ export class RaceScene extends Phaser.Scene {
           }
         }
         if (e.item === 'toilet') this.fx.toxic(r.x - Math.cos(r.heading) * r.boat.size.length * 0.5, r.y - Math.sin(r.heading) * r.boat.size.length * 0.5);
-        if (e.item === 'whitePowder' || e.item === 'bigBag') this.fx.puff(r.x - Math.cos(r.heading) * r.boat.size.length * 0.5, r.y - Math.sin(r.heading) * r.boat.size.length * 0.5);
+        if (e.item === 'whitePowder') this.fx.puff(r.x - Math.cos(r.heading) * r.boat.size.length * 0.5, r.y - Math.sin(r.heading) * r.boat.size.length * 0.5);
         break;
       }
       case 'bump': {

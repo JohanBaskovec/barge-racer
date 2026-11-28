@@ -118,10 +118,8 @@ export const fr: Record<TranslationKey, string> = {
   'difficulty.ocean': 'Océan',
 
   'item.volunteer': 'Bénévoles',
-  'item.volunteerSquad': 'Escouade de bénévoles',
   'item.jigsaw': 'Scie sauteuse',
   'item.whitePowder': 'Poudre blanche',
-  'item.bigBag': 'Gros sac',
   'item.drill': 'Perceuse électrique',
   'item.glue': 'Colle',
   'item.siliconeGun': 'Pistolet à silicone',

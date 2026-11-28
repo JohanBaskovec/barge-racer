@@ -40,7 +40,7 @@ This is the most important milestone: steering feel decides the game.
 - The items: Volunteers, Jigsaw, White Powder, Electric Drill, Glue, then Silicone
   Gun, Fake Crate, Beer Crate and Magic Mushrooms, held two at a time; later the
   Electrical Failure, Ultimate Raclette, Clogged Toilet and Kärcher (13 items in all,
-  plus the squad and the big bag).
+  plus the squad and the big bag, since replaced by the x3 version of every item).
 - Position-based odds.
 - AI item use.
 

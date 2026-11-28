@@ -25,16 +25,14 @@ describe('item odds', () => {
     }
   });
 
-  it('only gives squad and big bag to the back', () => {
-    expect(draws(0).volunteerSquad).toBeUndefined();
-    expect(draws(0).bigBag).toBeUndefined();
-    expect(draws(3).volunteerSquad).toBeGreaterThan(0);
+  it('volunteers and white powder go mostly to the back (their x3 versions too, see TRIPLE_ODDS)', () => {
+    expect(draws(3).volunteer).toBeGreaterThan(draws(0).volunteer * 3);
+    expect(draws(3).whitePowder).toBeGreaterThan(draws(0).whitePowder * 3);
   });
 
   it('never exceeds 2 volunteers in flight', () => {
     const c = draws(2, 2000, { volunteersInFlight: 2 });
     expect(c.volunteer).toBeUndefined();
-    expect(c.volunteerSquad).toBeUndefined();
   });
 
   it('never gives the same item three times in a row', () => {
@@ -74,7 +72,7 @@ describe('balance: the leader gets worse items than the boats behind', () => {
     // (the dildo is weak, and smashes what flies at it)
     const defensive = ITEM_ODDS.glue[0] + ITEM_ODDS.fakeCrate[0] + ITEM_ODDS.beer[0] + ITEM_ODDS.toilet[0] + ITEM_ODDS.dildo[0];
     expect(defensive / total).toBeGreaterThan(0.45);
-    expect(ITEM_ODDS.bigBag[0] + ITEM_ODDS.volunteerSquad[0] + ITEM_ODDS.blackout[0] + ITEM_ODDS.raclette[0]).toBe(0);
+    expect(ITEM_ODDS.blackout[0] + ITEM_ODDS.raclette[0] + ITEM_ODDS.siphon[0]).toBe(0);
     expect(ITEM_ODDS.whitePowder[0]).toBeLessThan(ITEM_ODDS.whitePowder[3]);
     expect(ITEM_ODDS.volunteer[0]).toBeLessThan(ITEM_ODDS.volunteer[2]);
   });

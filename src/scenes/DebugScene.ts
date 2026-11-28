@@ -9,8 +9,6 @@ import type { RaceScene } from './RaceScene';
  * Debug menu, opened from the pause menu of a single-player race on a computer: hand yourself any
  * item (or its better version, x 3), repair your hull, or set a hazard off in front of you.
  */
-const OWN_TRIPLE: Partial<Record<ItemId, ItemId>> = { volunteer: 'volunteerSquad', whitePowder: 'bigBag' };
-
 export class DebugScene extends Phaser.Scene {
   private triple = false;
 
@@ -52,12 +50,9 @@ export class DebugScene extends Phaser.Scene {
       bg.on('pointerup', () => {
         if (sim.items.freeSlot(me) < 0) me.slots[0] = null;
         me.rouletteItem = null;
-        // Volunteers and powder have their own better versions: the squad and the big bag.
-        const own = OWN_TRIPLE[id];
-        if (this.triple && own) sim.items.give(me, own);
-        else sim.items.give(me, id, this.triple && ITEM_INFO[id].uses < 3);
-        const given = this.triple && own ? itemName(own) : itemName(id) + (this.triple && ITEM_INFO[id].uses < 3 ? ' x3' : '');
-        say(t('debug.given', { item: given }));
+        const triple = this.triple && ITEM_INFO[id].uses < 3;
+        sim.items.give(me, id, triple);
+        say(t('debug.given', { item: itemName(id) + (triple ? ' x3' : '') }));
       });
     });
 
