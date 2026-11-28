@@ -17,7 +17,7 @@ export interface CupRace {
 export const MAX_CUP_RACES = 8;
 export const MAX_LAPS = 9;
 
-/** The championship you get unless you change it: every track with laps, three laps each. */
+/** The championship you get unless you change it: four tracks with laps, three laps each. */
 export const CUP_TRACKS = ['lockAndLoad', 'industrialEstuary', 'bayouBends', 'champagneHills'] as const;
 export const defaultPlan = (): CupRace[] => CUP_TRACKS.map((trackId) => ({ trackId, laps: getTrackDef(trackId).laps }));
 

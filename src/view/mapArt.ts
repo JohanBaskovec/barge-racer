@@ -547,3 +547,42 @@ export function drawLilyPad(g: G, x: number, y: number, r: number): void {
     fastCircle(g, x, y, 1.6);
   }
 }
+
+/** An ice floe: a flat, jagged slab of white with a pale blue edge (the Frozen Fjord). */
+export function drawIceFloe(g: G, x: number, y: number, r: number): void {
+  const n = 7;
+  const ring: number[] = [];
+  for (let k = 0; k < n; k++) {
+    const a = (k / n) * Math.PI * 2 + hash2(Math.round(x), Math.round(y), 7) * 2;
+    const d = r * (0.7 + hash2(Math.round(x) + k, Math.round(y), 13) * 0.45);
+    ring.push(x + Math.cos(a) * d, y + Math.sin(a) * d);
+  }
+  fillRing(g, ring.map((v, i) => v + (i % 2 ? 2.5 : 1.5)), 0x1f4b6a, 0.35);
+  fillRing(g, ring, 0xeef6fb);
+  g.lineStyle(2, 0xa9d2ea, 1).strokePoints(pts(ring), true, true);
+  g.fillStyle(0xffffff, 0.8).fillCircle(x - r * 0.25, y - r * 0.2, r * 0.25);
+}
+
+/** A rock in the shallows: a rounded red-brown boulder with a lit top (Canyon Run). */
+export function drawWaterRock(g: G, x: number, y: number, r: number): void {
+  g.fillStyle(0x000000, 0.25).fillCircle(x + 2, y + 2.5, r);
+  g.fillStyle(0x7a4528, 1).fillCircle(x, y, r);
+  g.fillStyle(0xa8643a, 1).fillCircle(x - r * 0.2, y - r * 0.25, r * 0.7);
+  g.lineStyle(1.5, 0xffffff, 0.35).strokeCircle(x, y, r + 2);
+}
+
+/** A dinghy tied up at the quay, bow towards it (Harbour Rush): a white hull, a coloured strip. */
+export function drawDinghy(g: G, x: number, y: number, r: number, heading: number): void {
+  const pick = hash2(Math.round(x), Math.round(y), 23);
+  const colors = [0xd23b2f, 0x2f6fd8, 0x2d9d5a, 0xf2c12e, 0x3d5266];
+  const hx = Math.cos(heading), hy = Math.sin(heading), nx = -hy, ny = hx;
+  const L = r * 2.2, W = r * 0.95;
+  const P = (a: number, b: number): Phaser.Math.Vector2 => new Phaser.Math.Vector2(x + hx * a + nx * b, y + hy * a + ny * b);
+  const hull = [P(L / 2, 0), P(L * 0.2, W / 2), P(-L / 2, W * 0.42), P(-L / 2, -W * 0.42), P(L * 0.2, -W / 2)];
+  g.fillStyle(0x000000, 0.22).fillPoints(hull.map((p) => new Phaser.Math.Vector2(p.x + 2, p.y + 2.5)), true);
+  g.fillStyle(0xf4f4f0, 1).fillPoints(hull, true);
+  g.fillStyle(colors[Math.floor(pick * colors.length)], 1).fillPoints([P(L * 0.1, W * 0.3), P(-L * 0.42, W * 0.28), P(-L * 0.42, -W * 0.28), P(L * 0.1, -W * 0.3)], true);
+  g.lineStyle(1.5, 0x2b3038, 0.8).strokePoints(hull, true, true);
+  // the mooring line to the quay
+  g.lineStyle(1, 0xd8c8a0, 0.9).lineBetween(P(L / 2, 0).x, P(L / 2, 0).y, P(L / 2 + 10, 0).x, P(L / 2 + 10, 0).y);
+}

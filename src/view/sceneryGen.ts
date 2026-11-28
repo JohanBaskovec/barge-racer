@@ -14,6 +14,12 @@ import { BUILDING, type SceneryData, TOWPATH } from './scenery';
  *   tin-roofed shacks, lily pads.
  * - **vineyard**: parcels of vines on both banks, a country road along one of them, a village
  *   with its church, champagne cellars, poplars on the banks, woods further out.
+ * - **harbour**: stone quays with a road on both sides, warehouses, container yards and tanks,
+ *   a quarter of tall town houses, dinghies tied up along the quays.
+ * - **fjord**: snow; pine forest on the slopes, red cabins by the water, snowy boulders, ice floes.
+ * - **canyon**: red sand and rock: boulders everywhere, cacti, a dirt track, a few adobe houses,
+ *   rocks in the shallows.
+ * - **lagoon**: a sand beach along the water, palm trees, beach huts, jungle further back.
  *
  * Everything is placed with a seeded random generator, so a track always looks the same.
  */
@@ -86,6 +92,10 @@ class Generator {
     if (theme === 'bayou') this.bayou();
     else if (theme === 'industrial') this.industrial();
     else if (theme === 'vineyard') this.vineyard();
+    else if (theme === 'harbour') this.harbour();
+    else if (theme === 'fjord') this.fjord();
+    else if (theme === 'canyon') this.canyon();
+    else if (theme === 'lagoon') this.lagoon();
     else this.town();
     return this.data;
   }
@@ -348,6 +358,38 @@ class Generator {
     }
   }
 
+  /** A yard of stacked containers: rows of 6 m boxes. Returns how far to move on along the row. */
+  private containerYard(c: Pt, ux: number, uy: number): number {
+    const rng = this.rng;
+      const cols = rng.int(2, 4), rows = rng.int(2, 5);
+      const vx = -uy, vy = ux;
+      let any = false;
+      for (let a = 0; a < cols; a++) {
+        for (let b = 0; b < rows; b++) {
+          if (rng.chance(0.15)) continue;
+          const ox = (a - (cols - 1) / 2) * 66, oy = (b - (rows - 1) / 2) * 30;
+          any = this.building({ cx: c.x + ux * ox + vx * oy, cy: c.y + uy * ox + vy * oy, ux, uy, hu: 30, hv: 12.5 }, BUILDING.container, rng.chance(0.3) ? 5.2 : 2.6, 1) || any;
+        }
+      }
+      return any ? cols * 66 + rng.range(30, 70) : 40;
+  }
+
+  /** A group of storage tanks. */
+  private tankFarm(c: Pt, ux: number, uy: number): number {
+    const rng = this.rng;
+      const k = rng.int(2, 3), r = rng.range(46, 70);
+      let any = false;
+      for (let a = 0; a < k; a++) any = this.tank(c.x + ux * (a - (k - 1) / 2) * (r * 2 + 16), c.y + uy * (a - (k - 1) / 2) * (r * 2 + 16), r) || any;
+      return any ? k * (r * 2 + 16) + rng.range(30, 60) : 40;
+  }
+
+  /** A warehouse with a flat roof. */
+  private warehouse(c: Pt, ux: number, uy: number): number {
+    const rng = this.rng;
+      const w = rng.range(210, 400), depth = rng.range(150, 210);
+      return this.building({ cx: c.x, cy: c.y, ux, uy, hu: w / 2, hv: depth / 2 }, BUILDING.industrial, rng.range(8, 13), 12) ? w + rng.range(24, 70) : 40;
+  }
+
   // ---- the three places ------------------------------------------------------------------
 
   /** Lock & Load: a brick canal town. */
@@ -431,31 +473,9 @@ class Generator {
       this.mark(line, 46);
     }
 
-    // A yard of stacked containers: rows of 6 m boxes.
-    const containers = (c: Pt, ux: number, uy: number): number => {
-      const cols = rng.int(2, 4), rows = rng.int(2, 5);
-      const vx = -uy, vy = ux;
-      let any = false;
-      for (let a = 0; a < cols; a++) {
-        for (let b = 0; b < rows; b++) {
-          if (rng.chance(0.15)) continue;
-          const ox = (a - (cols - 1) / 2) * 66, oy = (b - (rows - 1) / 2) * 30;
-          any = this.building({ cx: c.x + ux * ox + vx * oy, cy: c.y + uy * ox + vy * oy, ux, uy, hu: 30, hv: 12.5 }, BUILDING.container, rng.chance(0.3) ? 5.2 : 2.6, 1) || any;
-        }
-      }
-      return any ? cols * 66 + rng.range(30, 70) : 40;
-    };
-    // A group of storage tanks.
-    const tanks = (c: Pt, ux: number, uy: number): number => {
-      const k = rng.int(2, 3), r = rng.range(46, 70);
-      let any = false;
-      for (let a = 0; a < k; a++) any = this.tank(c.x + ux * (a - (k - 1) / 2) * (r * 2 + 16), c.y + uy * (a - (k - 1) / 2) * (r * 2 + 16), r) || any;
-      return any ? k * (r * 2 + 16) + rng.range(30, 60) : 40;
-    };
-    const warehouse = (c: Pt, ux: number, uy: number): number => {
-      const w = rng.range(210, 400), depth = rng.range(150, 210);
-      return this.building({ cx: c.x, cy: c.y, ux, uy, hu: w / 2, hv: depth / 2 }, BUILDING.industrial, rng.range(8, 13), 12) ? w + rng.range(24, 70) : 40;
-    };
+    const containers = (c: Pt, ux: number, uy: number): number => this.containerYard(c, ux, uy);
+    const tanks = (c: Pt, ux: number, uy: number): number => this.tankFarm(c, ux, uy);
+    const warehouse = (c: Pt, ux: number, uy: number): number => this.warehouse(c, ux, uy);
     const mix = (c: Pt, ux: number, uy: number): number => {
       const pick = rng.next();
       return pick < 0.5 ? warehouse(c, ux, uy) : pick < 0.78 ? containers(c, ux, uy) : tanks(c, ux, uy);
@@ -617,5 +637,148 @@ class Generator {
       const r = rng.range(12, 20);
       if (this.freeSpot(x, y, r * 0.7)) this.tree(x, y, r);
     });
+  }
+
+  /** Floating things in the slack water along the banks (lily pads, ice floes, rocks, dinghies). */
+  private floaters(every: [number, number], perGroup: [number, number], size: [number, number], keepOff: number): void {
+    const rng = this.rng;
+    for (let i = 12; i < this.n - 6; i += rng.int(every[0], every[1])) {
+      const bank = rng.chance(0.5) ? 1 : -1;
+      const k = rng.int(perGroup[0], perGroup[1]);
+      for (let a = 0; a < k; a++) {
+        const j = i + rng.int(-3, 3);
+        const sm = this.s[((j % this.n) + this.n) % this.n];
+        const lat = (sm.width / 2 - rng.range(keepOff, keepOff + 30)) * bank;
+        this.data.pads!.push([Math.round(sm.x + sm.nx * lat + sm.tx * rng.range(-10, 10)), Math.round(sm.y + sm.ny * lat + sm.ty * rng.range(-10, 10)), Math.round(rng.range(size[0], size[1]))]);
+      }
+    }
+  }
+
+  /** Harbour Rush: quays, warehouses and containers, a town quarter, dinghies along the quays. */
+  private harbour(): void {
+    const rng = this.rng;
+    this.data.style = { quay: 0x5a5e63, tiled: 0.45, pads: 'dinghy' };
+    const QUAY = TOWPATH + 14 + 28;
+    for (const side of [1, -1]) {
+      for (const run of this.along(side, QUAY)) this.road(1, 54, run.map((r) => r.p));
+      this.crossStreets(side, QUAY, 34, 46, 380, 720);
+    }
+    // One side: the docks (warehouses, containers, tanks); the other: tall town houses.
+    const mix = (c: Pt, ux: number, uy: number): number => {
+      const pick = rng.next();
+      return pick < 0.45 ? this.warehouse(c, ux, uy) : pick < 0.85 ? this.containerYard(c, ux, uy) : this.tankFarm(c, ux, uy);
+    };
+    this.row(1, QUAY + 52 + 105, mix);
+    this.row(1, QUAY + 52 + 340, mix);
+    const house = (depth: number) => (c: Pt, ux: number, uy: number): number => {
+      const w = rng.range(46, 84);
+      return this.building({ cx: c.x, cy: c.y, ux, uy, hu: w / 2, hv: depth / 2 }, BUILDING.house, rng.range(9, 16), 2) ? w + rng.range(1, 5) : 20;
+    };
+    this.row(-1, QUAY + 40 + 50, house(92));
+    this.row(-1, QUAY + 40 + 160, house(90));
+    this.infill(160, (x, y, d, i) => {
+      const sm = this.s[i];
+      if (d > 480 && rng.chance(0.55)) mix({ x, y }, sm.tx, sm.ty);
+      else if (rng.chance(0.25)) {
+        const r = rng.range(12, 20);
+        if (this.freeSpot(x, y, r * 0.7)) this.tree(x, y, r);
+      }
+    });
+    // Dinghies tied up along the quays, in little rows, nose to the bank.
+    for (let i = 10; i < this.n - 4; i += rng.int(18, 40)) {
+      const bank = rng.chance(0.5) ? 1 : -1;
+      const k = rng.int(2, 5);
+      for (let a = 0; a < k; a++) {
+        const sm = this.s[(i + a * 2) % this.n];
+        const lat = (sm.width / 2 - 14) * bank;
+        const heading = Math.atan2(sm.ny * bank, sm.nx * bank);
+        this.data.pads!.push([Math.round(sm.x + sm.nx * lat), Math.round(sm.y + sm.ny * lat), 11, Math.round(heading * 1000)]);
+      }
+    }
+  }
+
+  /** Frozen Fjord: snow, pine forest, red cabins by the water, boulders, ice floes. */
+  private fjord(): void {
+    const rng = this.rng;
+    this.data.style = { quay: 0x8d979e, tiled: 1, pads: 'ice' };
+    const PINES = [0x1f4a2e, 0x24553a, 0x2c5f3c, 0x1b4029];
+    const ROCKS = [0xa9b2b8, 0x9aa3aa, 0xc3cbd0];
+    // A road along one bank, here and there.
+    for (const run of this.along(1, TOWPATH + 50)) {
+      for (let k = 0; k < run.length; k += 70) if (rng.chance(0.6)) this.road(2, 26, run.slice(k, k + 55).map((r) => r.p));
+    }
+    // Red cabins by the water, in twos and threes.
+    for (let i = 20; i < this.n; i += rng.int(30, 55)) {
+      const side = rng.chance(0.5) ? 1 : -1;
+      for (let a = 0; a < rng.int(1, 3); a++) {
+        const c = this.at(i + a * 4, side, rng.range(110, 170));
+        const sm = this.s[(i + a * 4) % this.n];
+        this.building({ cx: c.x, cy: c.y, ux: sm.tx, uy: sm.ty, hu: rng.range(24, 36), hv: rng.range(18, 26) }, BUILDING.house, rng.range(5, 8), 10);
+      }
+    }
+    // Pines thick on the slopes, boulders poking out of the snow, a clearing round each cabin.
+    this.infill(54, (x, y, d) => {
+      if (this.onRoad(x, y, 4) || this.hitsBox(x, y, 30)) return;
+      if (d < 40) return;
+      if (rng.chance(0.12)) this.tree(x, y, rng.range(10, 22), ROCKS);
+      else if (rng.chance(d > 120 ? 0.85 : 0.45)) this.tree(x, y, rng.range(15, 26), PINES);
+    });
+    this.floaters([14, 30], [2, 6], [9, 22], 8);
+  }
+
+  /** Canyon Run: red rock and sand, boulders, cacti, a dirt track, a few adobe houses. */
+  private canyon(): void {
+    const rng = this.rng;
+    this.data.style = { quay: 0xa36638, tiled: 1, pads: 'rock' };
+    const ROCKS = [0xa8643a, 0x8f5530, 0xb87348, 0x7a4528];
+    const CACTI = [0x5f8a3a, 0x6b9442, 0x527a32];
+    for (const run of this.along(-1, TOWPATH + 70)) this.road(2, 28, run.map((r) => r.p));
+    // A few adobe houses in a hamlet by the track.
+    for (let i = Math.floor(this.n * 0.3); i < this.n; i += Math.floor(this.n * 0.45)) {
+      for (let a = 0; a < 8; a++) {
+        const c = this.at(i + a * 5, -1, TOWPATH + 70 + 40 + rng.range(30, 120));
+        const sm = this.s[(i + a * 5) % this.n];
+        this.building({ cx: c.x, cy: c.y, ux: sm.tx, uy: sm.ty, hu: rng.range(22, 34), hv: rng.range(18, 26) }, BUILDING.house, rng.range(3, 5), 10);
+      }
+    }
+    // Big red boulders and rock outcrops, cacti in between.
+    this.infill(90, (x, y, d) => {
+      if (this.onRoad(x, y, 4) || this.hitsBox(x, y, 20)) return;
+      const pick = rng.next();
+      if (pick < 0.45) {
+        const r = rng.range(16, d > 200 ? 52 : 30);
+        this.tree(x, y, r, ROCKS);
+        if (r > 34 && rng.chance(0.6)) this.tree(x + rng.range(-r, r) * 0.7, y + rng.range(-r, r) * 0.7, r * 0.5, ROCKS);
+      } else if (pick < 0.75) this.tree(x, y, rng.range(6, 10), CACTI);
+    });
+    this.floaters([22, 46], [1, 3], [8, 16], 6);
+  }
+
+  /** Tropical Lagoon: a sand beach along the water, palms, beach huts, jungle further back. */
+  private lagoon(): void {
+    const rng = this.rng;
+    this.data.style = { quay: 0xf0e2b4, tiled: 0, pads: 'lily' };
+    const PALMS = [0x4f9a34, 0x5fae3c, 0x3f8a2c];
+    const JUNGLE = [0x2f6a2c, 0x3b7a33, 0x27602a, 0x46883a];
+    // Beach huts on the sand, facing the water.
+    for (let i = 15; i < this.n; i += rng.int(26, 46)) {
+      const side = rng.chance(0.5) ? 1 : -1;
+      const c = this.at(i, side, rng.range(80, 110));
+      const sm = this.s[i % this.n];
+      this.building({ cx: c.x, cy: c.y, ux: sm.tx, uy: sm.ty, hu: rng.range(18, 26), hv: rng.range(14, 20) }, BUILDING.shack, 3, 12);
+    }
+    // Palms along the beach, leaning over the water.
+    for (const side of [1, -1]) {
+      this.row(side, rng.range(30, 60), (c) => {
+        if (rng.chance(0.7)) this.tree(c.x, c.y, rng.range(14, 20), PALMS);
+        return rng.range(45, 110);
+      });
+    }
+    // Then the jungle: a sand strip first, thick canopy behind.
+    this.infill(60, (x, y, d) => {
+      if (d < 150 || this.hitsBox(x, y, 24)) return;
+      if (rng.chance(d < 220 ? 0.35 : 0.9)) this.tree(x, y, Math.min(rng.range(22, 40), d - 120), d < 220 ? PALMS : JUNGLE);
+    });
+    this.floaters([24, 50], [2, 5], [7, 12], 10);
   }
 }

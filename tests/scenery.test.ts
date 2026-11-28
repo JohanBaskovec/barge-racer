@@ -25,9 +25,13 @@ describe('generated scenery of the invented tracks', () => {
         expect(data.trees!.length).toBeGreaterThan(100);
         expect(data.buildings.length).toBeGreaterThan(40);
         expect(data.buildings.some(([, kind]) => kind === 1)).toBe(true); // the church
+      } else if (def.theme === 'harbour' || def.theme === 'canal' || def.theme === 'industrial') {
+        // Towns and docks: buildings everywhere.
+        expect(data.buildings.length).toBeGreaterThan(100);
       } else {
-        expect(data.trees!.length).toBeGreaterThan(200);
-        if (def.theme !== 'bayou') expect(data.buildings.length).toBeGreaterThan(100);
+        // The wild places: trees, pines, palms or rocks everywhere, a few huts or cabins.
+        expect(data.trees!.length).toBeGreaterThan(1000);
+        expect(data.buildings.length).toBeGreaterThan(def.theme === 'bayou' ? 5 : 10);
       }
       // Fields and woods stay out of the water too.
       for (const [, ring] of data.vegetation) {

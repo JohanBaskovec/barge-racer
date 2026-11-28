@@ -21,13 +21,15 @@ export interface SceneryData {
   /** Single trees and bushes: x, y, crown radius, colour (the invented tracks place every tree). */
   trees?: [number, number, number, number][];
   /** Lily pads floating in the channel: x, y, radius. */
-  pads?: [number, number, number][];
+  pads?: [number, number, number, number?][]; // x, y, radius, heading (milliradians; dinghies)
   /** Looks that differ between places. */
   style?: {
     /** Colour of the edge between towpath and water (default: quay stone). */
     quay?: number;
     /** Share of terracotta (rather than slate) house roofs, 0..1. */
     tiled?: number;
+    /** What floats in the slack water by the banks (default lily pads). */
+    pads?: 'lily' | 'ice' | 'rock' | 'dinghy';
   };
 }
 

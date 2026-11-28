@@ -75,6 +75,58 @@ export const TRACK_DEFS: TrackDef[] = [
     colors: { land: 0xd8cfa4, shore: 0xc9bd92, water: 0x3d86a8, waterDeep: 0x2c6d8f },
   },
   {
+    // Invented: a working harbour, quays at right angles, yachts moored along the sides.
+    id: 'harbourRush',
+    laps: 3,
+    theme: 'harbour',
+    centerLine: pts([
+      [1150, 470, 300], [1800, 450, 300], [2900, 520, 280], [3300, 900, 260], [3250, 1500, 240], [2600, 1650, 220],
+      [2000, 1400, 220], [1500, 1700, 230], [1600, 2300, 250], [1000, 2550, 280], [450, 2200, 300], [300, 1300, 300], [500, 500, 300],
+    ]),
+    checkpoints: [0.25, 0.5, 0.75],
+    crateRows: [{ at: 0.1, count: 8 }, { at: 0.33, count: 8 }, { at: 0.56, count: 8 }, { at: 0.8, count: 8 }],
+    colors: { land: 0xb9b5ab, shore: 0x9d998f, water: 0x2f6f9a, waterDeep: 0x235a80 },
+  },
+  {
+    // Invented: a long fjord in the snow, two hairpins between pine-covered slopes, ice floes.
+    id: 'frozenFjord',
+    laps: 2,
+    theme: 'fjord',
+    centerLine: pts([
+      [1250, 450, 250], [2000, 400, 240], [3000, 700, 230], [2600, 1200, 210], [1300, 1100, 200], [900, 1500, 210],
+      [1500, 1900, 220], [2800, 1800, 230], [3300, 2300, 250], [2500, 2800, 260], [900, 2700, 250], [300, 1800, 250], [500, 500, 260],
+    ]),
+    checkpoints: [0.25, 0.5, 0.75],
+    crateRows: [{ at: 0.08, count: 8 }, { at: 0.27, count: 8 }, { at: 0.46, count: 8 }, { at: 0.65, count: 8 }, { at: 0.84, count: 8 }],
+    colors: { land: 0xe9eff3, shore: 0xb8c2c9, water: 0x2b5f82, waterDeep: 0x1f4b6a },
+  },
+  {
+    // Invented: a river through red rock, S-bends at both ends, boulders and cacti.
+    id: 'canyonRun',
+    laps: 3,
+    theme: 'canyon',
+    centerLine: pts([
+      [480, 1050, 240], [600, 600, 240], [1400, 400, 220], [2100, 800, 200], [2800, 500, 220], [3500, 900, 240], [3300, 1700, 220],
+      [3600, 2400, 240], [2800, 2700, 220], [2100, 2300, 200], [1500, 2700, 220], [700, 2400, 240], [400, 1500, 240],
+    ]),
+    checkpoints: [0.25, 0.5, 0.75],
+    crateRows: [{ at: 0.1, count: 8 }, { at: 0.32, count: 8 }, { at: 0.55, count: 8 }, { at: 0.78, count: 8 }],
+    colors: { land: 0xd69a62, shore: 0xb97c48, water: 0x3a8c9a, waterDeep: 0x2b7280 },
+  },
+  {
+    // Invented: a wide, warm lagoon: palms, jungle, beach huts and turquoise water.
+    id: 'tropicalLagoon',
+    laps: 3,
+    theme: 'lagoon',
+    centerLine: pts([
+      [1150, 620, 330], [1600, 500, 320], [2600, 700, 300], [3200, 1300, 300], [2900, 2000, 320], [2100, 2100, 300],
+      [1700, 1700, 280], [1100, 2100, 300], [600, 1900, 320], [400, 1300, 330], [700, 800, 340],
+    ]),
+    checkpoints: [0.25, 0.5, 0.75],
+    crateRows: [{ at: 0.12, count: 8 }, { at: 0.38, count: 8 }, { at: 0.62, count: 8 }, { at: 0.86, count: 8 }],
+    colors: { land: 0xe8d9a2, shore: 0xf2e6bb, water: 0x2fb0b5, waterDeep: 0x1f8d9c },
+  },
+  {
     // Canal de l'Aisne à la Marne, from Passage Marx Dormoy (la Neuvillette) to the Sillery lock, at
     // true scale. Any stretch can be raced; by default boulevard Paul Doumer to the lock.
     // Generated from IGN open data by scripts/import-reims.mjs.

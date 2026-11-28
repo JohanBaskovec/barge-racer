@@ -8,7 +8,10 @@ const r = (key: string) => ({ key, name: key.toUpperCase(), boatId: 'tugboat', h
 
 describe('championship', () => {
   it('races every track with laps, one after the other', () => {
-    expect([...CUP_TRACKS].sort()).toEqual(TRACK_DEFS.filter((d) => d.laps > 1).map((d) => d.id).sort());
+    // By default four tracks with laps (any track can be added on the championship screen).
+    const lapTracks = TRACK_DEFS.filter((d) => d.laps > 1).map((d) => d.id);
+    expect(CUP_TRACKS).toHaveLength(4);
+    for (const id of CUP_TRACKS) expect(lapTracks).toContain(id);
     let cup = newCup();
     const seen: string[] = [];
     while (!cupOver(cup)) {

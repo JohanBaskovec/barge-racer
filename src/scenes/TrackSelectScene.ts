@@ -7,8 +7,13 @@ import { saveSession, session } from '../session';
 import { audio } from '../audio/AudioManager';
 import { background, button, fitText, setSelected, text } from '../view/ui';
 
+const PER_PAGE = 5;
+
 export class TrackSelectScene extends Phaser.Scene {
   private cards: { id: string; frame: Phaser.GameObjects.Rectangle }[] = [];
+  private pages: Phaser.GameObjects.Container[] = [];
+  private page = 0;
+  private pageText?: Phaser.GameObjects.Text;
   private diffButtons: { id: Difficulty; b: Phaser.GameObjects.Container }[] = [];
   private credit!: Phaser.GameObjects.Text;
   private sectionBtn!: Phaser.GameObjects.Container;
@@ -20,16 +25,22 @@ export class TrackSelectScene extends Phaser.Scene {
 
   create(): void {
     this.cards = [];
+    this.pageText = undefined;
     this.diffButtons = [];
     background(this);
     audio.playMusic('menu');
     fitText(text(this, 640, 56, t('trackSelect.title'), 52), 1000).setStroke('#0b3a5b', 8);
 
-    // The cards share the width of the screen, however many tracks there are.
-    const pitch = Math.min(320, 1240 / TRACK_DEFS.length);
+    // Five cards a page, ‹ › to turn the pages.
+    const pages = Math.ceil(TRACK_DEFS.length / PER_PAGE);
+    const pitch = 232;
     const cardW = pitch - 16;
+    this.pages = Array.from({ length: pages }, () => this.add.container(0, 0));
     TRACK_DEFS.forEach((def, i) => {
-      const x = 640 + (i - (TRACK_DEFS.length - 1) / 2) * pitch;
+      const page = Math.floor(i / PER_PAGE), k = i % PER_PAGE;
+      const onPage = Math.min(PER_PAGE, TRACK_DEFS.length - page * PER_PAGE);
+      const x = 640 + (k - (onPage - 1) / 2) * pitch;
+      const before = this.children.list.length;
       const frame = this.add.rectangle(x, 310, cardW, 420, 0x0b3a5b, 0.7).setStrokeStyle(5, 0xffffff, 0.5);
       frame.setInteractive({ useHandCursor: true });
       frame.on('pointerup', () => this.pick(def.id));
@@ -44,7 +55,13 @@ export class TrackSelectScene extends Phaser.Scene {
       const track = loadTrack(def.id, session.sections?.[def.id]);
       const info = track.closed ? t('trackSelect.laps', { n: def.laps }) : t('trackSelect.distance', { km: formatNumber(track.lapLength / (def.pxPerM ?? 10) / 1000) });
       text(this, x, 128, info, 20, '#ffe08a');
+      this.pages[page].add(this.children.list.slice(before));
     });
+    if (pages > 1) {
+      button(this, 30, 310, 48, 130, '‹', () => this.showPage(this.page - 1), { textSize: 40 });
+      button(this, 1250, 310, 48, 130, '›', () => this.showPage(this.page + 1), { textSize: 40 });
+      this.pageText = text(this, 640, 534, '', 16, '#bfe1f7', false);
+    }
 
     fitText(text(this, 250, 558, t('trackSelect.opponents'), 26, '#bfe1f7', false), 200);
     (Object.keys(DIFFICULTIES) as Difficulty[]).forEach((id, i) => {
@@ -67,6 +84,14 @@ export class TrackSelectScene extends Phaser.Scene {
     this.sectionText = text(this, 640, 604, '', 18, '#ffe08a', false);
     this.pick(session.trackId);
     this.pickDiff(session.difficulty);
+    this.showPage(Math.max(0, Math.floor(TRACK_DEFS.findIndex((d) => d.id === session.trackId) / PER_PAGE)));
+  }
+
+  private showPage(p: number): void {
+    const n = this.pages.length;
+    this.page = ((p % n) + n) % n;
+    this.pages.forEach((c, i) => c.setVisible(i === this.page));
+    this.pageText?.setText(`${this.page + 1} / ${n}`);
   }
 
   private pick(id: string): void {

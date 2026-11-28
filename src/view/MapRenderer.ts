@@ -6,7 +6,7 @@ import { drawLine } from './lines';
 import { type SceneryData, TOWPATH } from './scenery';
 import {
   type Box, drawBuilding, drawBuildingShadow, drawCemetery, drawLilyPad, drawRail, drawRoadBase, drawRoadMarkings, drawSport,
-  clipRing, fastCircle, fillRing, setLineClip, type Plant, plants, thickLine, vegetationGround,
+  clipRing, fastCircle, fillRing, setLineClip, type Plant, plants, thickLine, vegetationGround, drawIceFloe, drawWaterRock, drawDinghy,
 } from './mapArt';
 
 export type { SceneryData } from './scenery';
@@ -426,7 +426,14 @@ export class MapRenderer {
       const w = g.clear();
       for (const i of e.channel) this.bankBand(w, i, 16, 0xffffff, 0.09);
       for (const i of e.channel) this.bankBand(w, i, 3.5, 0xffffff, 0.3);
-      for (const i of e.pads) drawLilyPad(w, d.pads![i][0], d.pads![i][1], d.pads![i][2]);
+      const padKind = d.style?.pads ?? 'lily';
+      for (const i of e.pads) {
+        const [px, py, pr, ph] = d.pads![i];
+        if (padKind === 'ice') drawIceFloe(w, px, py, pr);
+        else if (padKind === 'rock') drawWaterRock(w, px, py, pr);
+        else if (padKind === 'dinghy') drawDinghy(w, px, py, pr, (ph ?? 0) / 1000);
+        else drawLilyPad(w, px, py, pr);
+      }
       rt.draw(w, ox, oy);
     }
 

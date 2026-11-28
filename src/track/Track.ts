@@ -9,7 +9,7 @@ export interface CrateRowDef {
 export interface TrackDef {
   id: string;
   laps: number;
-  theme: 'canal' | 'industrial' | 'bayou' | 'city' | 'vineyard';
+  theme: 'canal' | 'industrial' | 'bayou' | 'city' | 'vineyard' | 'harbour' | 'fjord' | 'canyon' | 'lagoon';
   centerLine: ControlPoint[];
   checkpoints: number[];
   crateRows: CrateRowDef[];

@@ -181,7 +181,55 @@ const VINEYARD: Theme = {
   drums: { kick: 'x...x...', snare: '..x...x.', hat: 'x.x.x.x.' },
 };
 
-export const THEMES = { menu: MENU, race: RACE, industrial: INDUSTRIAL, bayou: BAYOU, city: CITY, vineyard: VINEYARD };
+/** Harbour Rush and the Frozen Fjord: a sea shanty in 6/8, on the accordion. */
+const SHANTY: Theme = {
+  bpm: 150,
+  stepsPerBar: 6,
+  bars: 8,
+  tracks: [
+    { inst: 'bass', notes: `D2:3 A2:3  D2:3 A2:3  C3:3 G2:3  C3:3 G2:3  Bb2:3 F2:3  G2:3 D2:3  A2:3 E2:3  D2:3 A2:3` },
+    {
+      inst: 'stab',
+      notes: `. D4+F4+A4 .:2 D4+F4+A4 .  . D4+F4+A4 .:2 D4+F4+A4 .  . C4+E4+G4 .:2 C4+E4+G4 .  . C4+E4+G4 .:2 C4+E4+G4 .
+              . Bb3+D4+F4 .:2 Bb3+D4+F4 .  . G3+Bb3+D4 .:2 G3+Bb3+D4 .  . A3+C#4+E4 .:2 A3+C#4+E4 .  . D4+F4+A4 .:2 D4+F4+A4 .`,
+    },
+    {
+      inst: 'acc',
+      notes: `D4:2 F4 A4:2 D5  C5:2 A4 F4:3  E4:2 G4 C5:2 E5  D5:2 C5 G4:3
+              F4:2 A4 D5:2 F5  E5:2 D5 Bb4:3  A4:2 C#5 E5:2 G5  F5:3 D5:3`,
+    },
+  ],
+  drums: { kick: 'x.....', snare: '...x..', hat: '..x..x' },
+};
+
+/** The Tropical Lagoon: a sunny calypso. */
+const CALYPSO: Theme = {
+  bpm: 124,
+  stepsPerBar: 8,
+  bars: 8,
+  tracks: [
+    {
+      inst: 'bass',
+      notes: `C3:3 C3 . G2:3  F2:3 F2 . C3:3  G2:3 G2 . D3:3  C3:3 C3 . G2:3
+              C3:3 C3 . G2:3  F2:3 F2 . C3:3  G2:3 G2 . D3:3  C3:3 C3 . G2:3`,
+    },
+    {
+      inst: 'stab',
+      notes: `. C4+E4+G4 . C4+E4+G4 . C4+E4+G4 . C4+E4+G4  . C4+F4+A4 . C4+F4+A4 . C4+F4+A4 . C4+F4+A4
+              . B3+D4+G4 . B3+D4+G4 . B3+D4+G4 . B3+D4+G4  . C4+E4+G4 . C4+E4+G4 . C4+E4+G4 . C4+E4+G4
+              . C4+E4+G4 . C4+E4+G4 . C4+E4+G4 . C4+E4+G4  . C4+F4+A4 . C4+F4+A4 . C4+F4+A4 . C4+F4+A4
+              . B3+D4+G4 . B3+D4+G4 . B3+D4+G4 . B3+D4+G4  . C4+E4+G4 . C4+E4+G4 . C4+E4+G4 . C4+E4+G4`,
+    },
+    {
+      inst: 'lead',
+      notes: `E5 G5 E5 C5:2 E5 G5:2  A5:2 G5 F5 A4:2 C5:2  B4 D5 G5 F5 D5:2 B4:2  C5:6 .:2
+              G5 E5 G5 C6:2 G5 E5:2  F5:2 A5 F5 C5:2 A4:2  D5 F5 B5 A5 G5:2 F5:2  E5:2 D5:2 C5:4`,
+    },
+  ],
+  drums: { kick: 'x..x..x.', snare: '....x...', hat: '.x.x.x.x' },
+};
+
+export const THEMES = { menu: MENU, race: RACE, industrial: INDUSTRIAL, bayou: BAYOU, city: CITY, vineyard: VINEYARD, shanty: SHANTY, calypso: CALYPSO };
 export type ThemeName = keyof typeof THEMES;
 
 // ---------------------------------------------------------------------------- instruments
