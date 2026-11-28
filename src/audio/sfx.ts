@@ -99,6 +99,35 @@ export const SFX = {
     noise(c, d, { dur: 3.3, filter: 'highpass', freq: 2200, gain: 0.3, attack: 0.15 });
     noise(c, d, { dur: 3.3, filter: 'bandpass', freq: 1200, q: 0.7, gain: 0.22, attack: 0.15 });
   },
+  /** Dicke Titten falling from the sky: a slide whistle down, then a big wobbly "boing" (played on landing: splash) */
+  titten: (c: Ctx, d: AudioNode) => {
+    tone(c, d, { type: 'sine', freq: 1400, freqEnd: 300, dur: 0.5, gain: 0.18 });
+    tone(c, d, { type: 'sine', freq: 140, freqEnd: 260, dur: 0.45, gain: 0.25, vibrato: [30, 12], at: 0.45 });
+  },
+  /** The dildo going on: a rubbery squeak */
+  dildo: (c: Ctx, d: AudioNode) => {
+    tone(c, d, { type: 'triangle', freq: 300, freqEnd: 900, dur: 0.16, gain: 0.2 });
+    tone(c, d, { type: 'triangle', freq: 900, freqEnd: 500, dur: 0.12, gain: 0.15, at: 0.15 });
+  },
+  /** A nail gun: three sharp clacks */
+  nailGun: (c: Ctx, d: AudioNode) => {
+    for (let i = 0; i < 3; i++) {
+      noise(c, d, { dur: 0.05, filter: 'bandpass', freq: 3000, q: 2, gain: 0.5, at: i * 0.11 });
+      tone(c, d, { type: 'square', freq: 200, freqEnd: 90, dur: 0.05, gain: 0.12, lowpass: 1500, at: i * 0.11 });
+    }
+  },
+  /** Gas siphoning: a long slurp, then an engine coughing out */
+  siphon: (c: Ctx, d: AudioNode) => {
+    noise(c, d, { dur: 0.5, filter: 'bandpass', freq: 500, freqEnd: 1400, q: 3, gain: 0.35, attack: 0.05 });
+    for (let i = 0; i < 4; i++) tone(c, d, { type: 'sawtooth', freq: 90 - i * 12, dur: 0.07, gain: 0.18, lowpass: 700, at: 0.55 + i * 0.16 });
+  },
+  /** A tugboat: two cheerful toots */
+  tugboat: (c: Ctx, d: AudioNode) => {
+    for (const at of [0, 0.32]) {
+      tone(c, d, { type: 'square', freq: 392, dur: 0.24, gain: 0.08, lowpass: 1400, attack: 0.02, at });
+      tone(c, d, { type: 'sine', freq: 588, dur: 0.24, gain: 0.1, attack: 0.02, at });
+    }
+  },
   /** A barge's horn: one long, low blast */
   horn: (c: Ctx, d: AudioNode) => {
     tone(c, d, { type: 'sawtooth', freq: 110, dur: 0.9, gain: 0.16, lowpass: 600, attack: 0.08, release: 0.2 });

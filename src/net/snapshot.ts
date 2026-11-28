@@ -21,7 +21,8 @@ export interface SimState {
   puddles: [number, number, number, number, number][]; // id, owner, x, y, age
   fakes: [number, number, number, number, number][]; // id, owner, x, y, age
   blobs: [number, number, number, number, number, number, number, number][]; // id, owner, x, y, heading, travelled, age, near
-  shots: [number, number, number, number, number, number, number, number, number][]; // id, owner, kind, x, y, heading, travelled, age, near
+  shots: [number, number, number, number, number, number, number, number, number, number][]; // id, owner, kind, x, y, heading, travelled, age, near, wait
+  boobs: [number, number, number, number, number, number, number, number[]][]; // id, owner, target, x, y, heading, age, hit
   clouds: [number, number, number, number, number, number][]; // id, owner, kind, x, y, age
   drops: [number, number, number, number, number, number, number][]; // id, x, y, fromX, fromY, age, target
 }
@@ -34,6 +35,7 @@ export interface RacerState {
   h: number;
   spin: number;
   hull: number;
+  cu: number;
   prog: number;
   laps: number;
   cp: number;
@@ -74,7 +76,8 @@ export function encodeState(sim: RaceSimulation): SimState {
     puddles: it.puddles.map((p) => [p.id, p.owner, r1(p.x), r1(p.y), r3(p.age)]),
     fakes: it.fakeCrates.map((f) => [f.id, f.owner, r1(f.x), r1(f.y), r3(f.age)]),
     blobs: it.blobs.map((b) => [b.id, b.owner, r1(b.x), r1(b.y), r3(b.heading), r1(b.travelled), r3(b.age), b.near]),
-    shots: it.shots.map((s) => [s.id, s.owner, s.kind, r1(s.x), r1(s.y), r3(s.heading), r1(s.travelled), r3(s.age), s.near]),
+    shots: it.shots.map((s) => [s.id, s.owner, s.kind, r1(s.x), r1(s.y), r3(s.heading), r1(s.travelled), r3(s.age), s.near, r3(s.wait)]),
+    boobs: it.boobs.map((b) => [b.id, b.owner, b.target, r1(b.x), r1(b.y), r3(b.heading), r3(b.age), [...b.hit]]),
     clouds: it.clouds.map((c) => [c.id, c.owner, c.kind, r1(c.x), r1(c.y), r3(c.age)]),
     drops: it.drops.map((d) => [d.id, r1(d.x), r1(d.y), r1(d.fromX), r1(d.fromY), r3(d.age), d.target]),
   };
@@ -82,7 +85,7 @@ export function encodeState(sim: RaceSimulation): SimState {
 
 function encodeRacer(r: Racer): RacerState {
   return {
-    x: r1(r.x), y: r1(r.y), vx: r1(r.vx), vy: r1(r.vy), h: r3(r.heading), spin: r3(r.spin), hull: r1(r.hull),
+    x: r1(r.x), y: r1(r.y), vx: r1(r.vx), vy: r1(r.vy), h: r3(r.heading), spin: r3(r.spin), hull: r1(r.hull), cu: r3(r.catchUp),
     prog: r1(r.progress), laps: r.lapsDone, cp: r.nextCheckpoint, pos: r.position, fin: r.finished, ft: r3(r.finishTime),
     sink: r3(r.sinkTimer), ni: r.nearestIndex, th: r3(r.throttle), hit: r1(Math.min(r.sinceHit, 99)), sz: r3(r.size), glue: r.inGlue, human: r.human,
     slots: [r.slots[0] && { ...r.slots[0] }, r.slots[1] && { ...r.slots[1] }], ri: r.rouletteItem, rt: r3(r.rouletteT),
@@ -92,7 +95,7 @@ function encodeRacer(r: Racer): RacerState {
 
 /** Copy one racer's state from a snapshot into a local racer. */
 export function applyRacer(r: Racer, s: RacerState): void {
-  r.x = s.x; r.y = s.y; r.vx = s.vx; r.vy = s.vy; r.heading = s.h; r.spin = s.spin; r.hull = s.hull;
+  r.x = s.x; r.y = s.y; r.vx = s.vx; r.vy = s.vy; r.heading = s.h; r.spin = s.spin; r.hull = s.hull; r.catchUp = s.cu ?? 1;
   r.progress = s.prog; r.lapsDone = s.laps; r.nextCheckpoint = s.cp; r.position = s.pos; r.finished = s.fin; r.finishTime = s.ft;
   r.sinkTimer = s.sink; r.nearestIndex = s.ni; r.throttle = s.th; r.sinceHit = s.hit; r.inGlue = s.glue; r.human = s.human;
   setRacerSize(r, s.sz);
@@ -136,7 +139,8 @@ export function applyState(sim: RaceSimulation, s: SimState, except = -1): void 
   it.puddles = s.puddles.map(([id, owner, x, y, age]) => ({ id, owner, x, y, age, boatsStuck: new Set<number>(), dead: false }));
   it.fakeCrates = s.fakes.map(([id, owner, x, y, age]) => ({ id, owner, x, y, age, dead: false }));
   it.blobs = s.blobs.map(([id, owner, x, y, heading, travelled, age, near]) => ({ id, owner, x, y, heading, travelled, age, near, dead: false }));
-  it.shots = s.shots.map(([id, owner, kind, x, y, heading, travelled, age, near]) => ({ id, owner, kind: kind as 0 | 1, x, y, heading, travelled, age, near, dead: false }));
+  it.shots = s.shots.map(([id, owner, kind, x, y, heading, travelled, age, near, wait]) => ({ id, owner, kind: kind as 0 | 1 | 2, x, y, heading, travelled, age, near, wait: wait ?? 0, dead: false }));
+  it.boobs = (s.boobs ?? []).map(([id, owner, target, x, y, heading, age, hit]) => ({ id, owner, target, x, y, heading, age, hit: [...hit], dead: false }));
   it.clouds = s.clouds.map(([id, owner, kind, x, y, age]) => ({ id, owner, kind: kind as 0 | 1, x, y, age, dead: false }));
   it.drops = s.drops.map(([id, x, y, fromX, fromY, age, target]) => ({ id, x, y, fromX, fromY, age, target, dead: false }));
 }

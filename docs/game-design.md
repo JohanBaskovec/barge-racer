@@ -73,7 +73,7 @@ Every boat has a **hull** value (hit points), set by the boat's `hull` stat
 
 - **Boat against boat**: the boats bounce off each other. The heavier boat is
   pushed less (impulse split by mass). Collisions alone do no hull damage,
-  except with the Jigsaw (see [Items](items.md)). **A boat that has just been hit
+  except with the Jigsaw or the Dildo (see [Items](items.md)). **A boat that has just been hit
   (blinking, spinning) or has just respawned passes through other boats**, so it
   can't be bounced around or boxed in while it recovers, and boats that have
   finished a point-to-point race do the same.
@@ -121,18 +121,26 @@ the strongest. The full item list and the luck rules are in [Items](items.md):
 | Item | In one line |
 | --- | --- |
 | Volunteers | Little people thrown at the racer ahead; they home in on it |
-| Jigsaw | A saw blade on the bow for a few seconds; damages whoever you ram |
+| Jigsaw | A saw blade out of each side for a few seconds; cuts whoever rides alongside |
 | White Powder | A short, strong speed boost |
 | Electric Drill | A drill bit fired straight ahead |
 | Glue | A puddle dropped behind you that nearly stops anyone driving through it: worse than a hit |
 | Silicone Gun | Shoots glue ahead of you: it lands on the boat it hits |
 | Fake Crate | A trap that looks like a real crate and hurts whoever hits it |
 | Beer Crate | Heals half your hull when you drink it |
-| Magic Mushrooms | Everyone ahead shrinks, everyone behind speeds up, crates fly to you; the rarest item |
+| Magic Mushrooms | Everyone ahead shrinks and slows right down, everyone behind speeds up, crates fly to you; the rarest item |
 | Electrical Failure | Every opponent loses their controls for a few seconds |
 | Ultimate Raclette | A potato and two slices of ham ahead, melted cheese behind, cheese over the victims' screens |
 | Clogged Toilet | A cloud of toxic smoke behind you that hurts everyone in it, you too |
 | Kärcher | Water jets on both sides push boats alongside into the bank |
+| Dicke Titten | A giant pair drops in front of every opponent: dodge or crash into them |
+| Giant Black Dildo | On your bow for a few seconds: ram boats to hurt them (a little) |
+| Nail Gun | Three quick nails, straight ahead |
+| Gas Siphoning | Every opponent runs out of fuel and stops for 3 s |
+| Tugboat | A tug tows you along the canal, fast, for a few seconds |
+
+Every item can also come as its **better version, with three uses**: never for the
+leader, more often the further back you are.
 
 ## Race modes
 

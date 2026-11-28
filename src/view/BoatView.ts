@@ -3,6 +3,7 @@ import { hasEffect } from '../effects/effects';
 import { angleDiff } from '../physics/math';
 import { speedOf } from '../physics/BoatPhysics';
 import { createBoatSprite } from './boatSprite';
+import { getBoat } from '../data/boats';
 import { WORLD_ART_SCALE } from './textures';
 import type { Racer } from '../race/types';
 
@@ -10,7 +11,13 @@ import type { Racer } from '../race/types';
 export class BoatView {
   readonly container: Phaser.GameObjects.Container;
   private shadow: Phaser.GameObjects.Image;
-  private saw: Phaser.GameObjects.Image;
+  /** The jigsaw's two saws, one sticking out of each side. */
+  private saws: Phaser.GameObjects.Image[];
+  private dildo: Phaser.GameObjects.Image;
+  /** The tugboat towing this boat, ahead of it on a rope. */
+  private tug: Phaser.GameObjects.Container;
+  /** Over the boat while its fuel is siphoned: an empty can. */
+  private emptyCan: Phaser.GameObjects.Image;
   private boost: Phaser.GameObjects.Graphics;
   private smoke: Phaser.GameObjects.Graphics;
   private bar: Phaser.GameObjects.Graphics;
@@ -37,13 +44,17 @@ export class BoatView {
     const { length: L, width: W } = r.boat.size;
     this.shadow = scene.add.image(3, 5, 'shadow').setDisplaySize(L * 1.05, W * 1.1);
     const hull = createBoatSprite(scene, r.boat, r.color);
-    this.saw = scene.add.image(L / 2 + 6, 0, 'saw').setOrigin(0, 0.5).setScale(WORLD_ART_SCALE).setVisible(false);
+    this.saws = [-1, 1].map((side) => scene.add.image(0, side * (W / 2 + 2), 'saw').setOrigin(0, 0.5).setRotation((side * Math.PI) / 2).setScale(WORLD_ART_SCALE).setVisible(false));
+    this.dildo = scene.add.image(L / 2 - 4, 0, 'dildo').setOrigin(0, 0.5).setScale(WORLD_ART_SCALE).setVisible(false);
+    const tugDef = getBoat('tugboat');
+    this.tug = createBoatSprite(scene, tugDef, 0xd23b2f).setPosition(L / 2 + 70 + tugDef.size.length / 2, 0).setVisible(false);
+    this.emptyCan = scene.add.image(0, 0, 'icon_siphon').setDisplaySize(40, 40).setDepth(31).setVisible(false);
     this.boost = scene.add.graphics();
     this.smoke = scene.add.graphics();
     this.bar = scene.add.graphics();
     this.over = scene.add.graphics();
     this.aura = scene.add.graphics().setDepth(9);
-    this.container = scene.add.container(r.x, r.y, [this.shadow, this.boost, hull, this.saw, this.smoke, this.over]).setDepth(10);
+    this.container = scene.add.container(r.x, r.y, [this.shadow, this.boost, this.tug, hull, ...this.saws, this.dildo, this.smoke, this.over]).setDepth(10);
     this.bar.setDepth(30);
     if (r.isPlayer) {
       this.label = scene.add.text(0, 0, '▼', { fontSize: '26px', color: '#ffffff', stroke: '#000', strokeThickness: 4, resolution: 2 }).setOrigin(0.5).setDepth(31);
@@ -109,10 +120,24 @@ export class BoatView {
     }
     c.setAlpha(a).setScale(scale);
 
-    // Jigsaw
-    const sawOn = hasEffect(r, 'jigsaw');
-    this.saw.setVisible(sawOn);
-    if (sawOn) this.saw.setScale((1 + Math.sin(time / 25) * 0.04) * WORLD_ART_SCALE, (1 + Math.cos(time / 30) * 0.08) * WORLD_ART_SCALE);
+    // Jigsaw: a buzzing saw out of each side
+    const sawOn = hasEffect(r, 'jigsaw') && !sinking;
+    for (const saw of this.saws) {
+      saw.setVisible(sawOn);
+      if (sawOn) saw.setScale((1 + Math.sin(time / 25) * 0.04) * WORLD_ART_SCALE, (1 + Math.cos(time / 30) * 0.08) * WORLD_ART_SCALE);
+    }
+    // Dildo on the bow, wobbling
+    const dildoOn = hasEffect(r, 'dildo') && !sinking;
+    this.dildo.setVisible(dildoOn);
+    if (dildoOn) this.dildo.setRotation(Math.sin(time / 90) * 0.06);
+    // Towed: the tug ahead, its rope taut (drawn in drawOver)
+    const towed = hasEffect(r, 'towed') && !sinking;
+    this.tug.setVisible(towed);
+    if (towed) this.tug.setRotation(Math.sin(time / 260) * 0.05);
+    // Fuel siphoned: an empty can bobbing over the boat
+    const dry = hasEffect(r, 'siphoned') && !sinking;
+    this.emptyCan.setVisible(dry);
+    if (dry) this.emptyCan.setPosition(this.x, this.y - 78 + Math.sin(time / 150) * 4).setAngle(Math.sin(time / 200) * 10);
 
     // Boost flames
     this.boost.clear();
@@ -181,6 +206,19 @@ export class BoatView {
     const g = this.over.clear();
     if (sinking) return;
     const { length: L, width: W } = r.boat.size;
+    if (hasEffect(r, 'towed')) {
+      // The tow rope, from the bow to the tug's stern, and the tug's churning wash.
+      g.lineStyle(3, 0x5a4326, 1).lineBetween(L / 2, 0, L / 2 + 70, 0);
+      g.lineStyle(1.5, 0xd9b77a, 1).lineBetween(L / 2, -0.8, L / 2 + 70, -0.8);
+      for (let k = 0; k < 4; k++) g.fillStyle(0xffffff, 0.5).fillCircle(L / 2 + 64 - ((time / 6 + k * 9) % 36), Math.sin(time / 70 + k) * 9, 4);
+    }
+    if (hasEffect(r, 'siphoned')) {
+      // Out of fuel: the engine coughs black puffs.
+      for (let k = 0; k < 3; k++) {
+        const t = ((time / 500 + k / 3) % 1);
+        g.fillStyle(0x2b2b2b, 0.5 * (1 - t)).fillCircle(-L / 2 - 6 - t * 26, Math.sin(k * 2.1) * 6, 5 + t * 8);
+      }
+    }
     if (hasEffect(r, 'karcher')) {
       // A fan of water to each side, from the middle of the boat: streaks and drops.
       for (const side of [-1, 1]) {
@@ -245,6 +283,7 @@ export class BoatView {
 
   destroy(): void {
     this.over.destroy();
+    this.emptyCan.destroy();
     this.aura.destroy();
     this.container.destroy();
     this.bar.destroy();

@@ -131,6 +131,11 @@ export const fr: Record<TranslationKey, string> = {
   'item.raclette': 'Raclette ultime',
   'item.toilet': 'Toilettes bouchées',
   'item.karcher': 'Kärcher',
+  'item.titten': 'Dicke Titten',
+  'item.dildo': 'Gode géant noir',
+  'item.nailGun': 'Cloueuse',
+  'item.siphon': "Siphonnage d'essence",
+  'item.tugboat': 'Remorqueur',
   'item.mushroom': 'Champignons magiques',
   'item.rolling': '...',
 

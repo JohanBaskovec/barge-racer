@@ -1,10 +1,13 @@
-import { FASTEST_TOP_SPEED, ITEM_INFO, TUNING, type ItemId } from '../data/items';
+import { FASTEST_TOP_SPEED, GLOBAL_ITEMS, HAS_OWN_TRIPLE, ITEM_INFO, TRIPLE_ODDS, TUNING, type ItemId } from '../data/items';
 import { addEffect, hasEffect } from '../effects/effects';
-import { isTouching, touchesCapsule } from '../physics/collisions';
+import { isTouching, resolveStatic, touchesCapsule } from '../physics/collisions';
+
+/** A fixed capsule on the water (a segment with round ends). */
+type Capsule = { ax: number; ay: number; bx: number; by: number; radius: number };
 import { bargeCapsule } from '../race/traffic';
 import { clamp, turnTowards } from '../physics/math';
 import type { RaceSimulation } from '../race/RaceSimulation';
-import type { Cloud, Crate, Drill, Drop, FakeCrate, GlueBlob, GluePuddle, Racer, Shot, Volunteer } from '../race/types';
+import type { Boobs, Cloud, Crate, Drill, Drop, FakeCrate, GlueBlob, GluePuddle, Racer, Shot, Volunteer } from '../race/types';
 import { drawItem } from './itemOdds';
 
 /** Crates, item roulette, item activation and the entities items spawn. */
@@ -17,6 +20,8 @@ export class ItemSystem {
   blobs: GlueBlob[] = [];
   shots: Shot[] = [];
   clouds: Cloud[] = [];
+  /** Dicke Titten on the water. */
+  boobs: Boobs[] = [];
   /** Crates tossed by barges to boats that are behind. */
   drops: Drop[] = [];
   private nextId = 1;
@@ -54,10 +59,11 @@ export class ItemSystem {
     return r.slots.findIndex((s) => s === null);
   }
 
-  /** Put an item into the first free slot. */
-  give(r: Racer, id: ItemId): void {
+  /** Put an item into the first free slot; `triple`: its better version, with three uses. */
+  give(r: Racer, id: ItemId, triple = false): void {
     const k = this.freeSlot(r);
-    if (k >= 0) r.slots[k] = { id, uses: ITEM_INFO[id].uses };
+    if (k < 0) return;
+    r.slots[k] = triple ? { id, uses: 3, triple: true } : { id, uses: ITEM_INFO[id].uses };
   }
 
   use(r: Racer, slot: number, dir: 'forward' | 'backward'): void {
@@ -132,7 +138,7 @@ export class ItemSystem {
         const front = r.boat.size.length / 2 + 12;
         for (const [kind, off] of [[0, 0], [1, -R.spread], [1, R.spread]] as const) {
           const a = r.heading + off;
-          this.shots.push({ id: this.nextId++, owner: r.id, kind, x: r.x + Math.cos(a) * front, y: r.y + Math.sin(a) * front, heading: a, travelled: 0, age: 0, near: r.nearestIndex, dead: false });
+          this.shots.push({ id: this.nextId++, owner: r.id, kind, wait: 0, x: r.x + Math.cos(a) * front, y: r.y + Math.sin(a) * front, heading: a, travelled: 0, age: 0, near: r.nearestIndex, dead: false });
         }
         this.dropCloud(r, 0, R.cheeseRadius);
         break;
@@ -142,6 +148,25 @@ export class ItemSystem {
         break;
       case 'karcher':
         addEffect(r, 'karcher', TUNING.karcher.duration);
+        break;
+      case 'dildo':
+        addEffect(r, 'dildo', TUNING.dildo.duration);
+        r.jigsawHit.clear();
+        break;
+      case 'nailGun':
+        // Three nails, one after the other: the next ones leave the bow a moment later.
+        for (let k = 0; k < 3; k++) {
+          this.shots.push({ id: this.nextId++, owner: r.id, kind: 2, wait: k * TUNING.nail.every, x: bx, y: by, heading, travelled: 0, age: 0, near: r.nearestIndex, dead: false });
+        }
+        break;
+      case 'titten':
+        this.dropTitten(r);
+        break;
+      case 'siphon':
+        for (const o of this.sim.racers) if (o !== r && !o.finished && o.sinkTimer <= 0) addEffect(o, 'siphoned', TUNING.siphon.duration);
+        break;
+      case 'tugboat':
+        addEffect(r, 'towed', TUNING.tugboat.duration);
         break;
     }
     this.sim.emit({ type: 'itemUsed', racer: r.id, item });
@@ -154,6 +179,29 @@ export class ItemSystem {
     const back = r.heading + Math.PI;
     const dist = r.boat.size.length / 2 + radius * 0.6;
     this.clouds.push({ id: this.nextId++, owner: r.id, kind, x: r.x + Math.cos(back) * dist, y: r.y + Math.sin(back) * dist, age: 0, dead: false });
+  }
+
+  /** Dicke Titten: a pair in front of every opponent, on the line it is taking, to dodge. */
+  private dropTitten(r: Racer): void {
+    const T = TUNING.titten, track = this.sim.track;
+    for (const o of this.sim.racers) {
+      if (o === r || o.finished || o.sinkTimer > 0) continue;
+      const n = track.nearest(o.x, o.y, o.nearestIndex);
+      const along = n.along + T.ahead;
+      if (!track.closed && along > track.length - 60) continue;
+      // Where it is across the canal now, kept inside the water.
+      const room = track.halfWidth(n.index) - T.radius * 2 - 6;
+      const lateral = Math.max(-room, Math.min(room, n.lateral));
+      const p = track.pointAt(along, lateral);
+      this.boobs.push({ id: this.nextId++, owner: r.id, target: o.id, x: p.x, y: p.y, heading: p.heading, age: 0, hit: [], dead: false });
+    }
+  }
+
+  /** The solid shape of a pair: a capsule across the canal through both breasts. */
+  boobsCapsule(b: Boobs): Capsule {
+    const R = TUNING.titten.radius;
+    const nx = -Math.sin(b.heading), ny = Math.cos(b.heading);
+    return { ax: b.x - nx * R, ay: b.y - ny * R, bx: b.x + nx * R, by: b.y + ny * R, radius: R };
   }
 
   private spawnPuddle(x: number, y: number, owner: number): void {
@@ -175,6 +223,7 @@ export class ItemSystem {
     this.updateDrills(dt);
     this.updateBlobs(dt);
     this.updateShots(dt);
+    this.updateBoobs(dt);
     this.updateFakeCrates(dt);
     this.updatePuddles(dt);
     this.updateClouds(dt);
@@ -188,6 +237,7 @@ export class ItemSystem {
     this.fakeCrates = this.fakeCrates.filter((f) => !f.dead);
     this.shots = this.shots.filter((s) => !s.dead);
     this.clouds = this.clouds.filter((c) => !c.dead);
+    this.boobs = this.boobs.filter((b) => !b.dead);
     this.drops = this.drops.filter((d) => !d.dead);
   }
 
@@ -220,8 +270,17 @@ export class ItemSystem {
       recentItems: r.recentItems,
     });
     r.rouletteItem = this.sim.forcedItem ?? item;
+    r.rouletteTriple = this.rollTriple(r.rouletteItem, r.position, leader - r.progress > this.sim.track.lapLength);
     r.rouletteT = TUNING.rouletteTime;
     this.sim.emit({ type: 'itemPickup', racer: r.id, item: r.rouletteItem });
+  }
+
+  /** Whether an item comes as its better version (three uses): likelier further back, never for the leader. */
+  private rollTriple(id: ItemId, position: number, farBehind: boolean): boolean {
+    if (HAS_OWN_TRIPLE.includes(id) || ITEM_INFO[id].uses >= 3) return false;
+    const col = farBehind ? 3 : Math.max(0, Math.min(3, position));
+    const odds = (GLOBAL_ITEMS.includes(id) ? TRIPLE_ODDS.global : TRIPLE_ODDS.normal)[col];
+    return odds > 0 && this.sim.rng.next() < odds;
   }
 
   /**
@@ -339,37 +398,58 @@ export class ItemSystem {
         r.rouletteItem = null;
         r.recentItems.push(id);
         if (r.recentItems.length > 4) r.recentItems.shift();
-        this.give(r, id);
+        this.give(r, id, r.rouletteTriple);
+        r.rouletteTriple = false;
       }
     }
   }
 
+  /**
+   * Things fixed to a boat that cut or ram: the jigsaw's two saws, sticking out of each side, cut
+   * boats alongside; the dildo on the bow hurts whoever it rams, and smashes whatever flies into it.
+   * Each boat is hurt once per use.
+   */
   private updateJigsaw(): void {
     for (const r of this.sim.racers) {
-      if (!hasEffect(r, 'jigsaw') || r.sinkTimer > 0) continue;
-      const reach = r.boat.size.length * TUNING.jigsaw.reachMult;
-      const tan = Math.tan(TUNING.jigsaw.halfAngle);
-      const hx = Math.cos(r.heading);
-      const hy = Math.sin(r.heading);
-      const inCone = (x: number, y: number, slack: number): boolean => {
-        const dx = x - r.x;
-        const dy = y - r.y;
-        const f = dx * hx + dy * hy;
-        const p = Math.abs(-dx * hy + dy * hx);
-        return f > 0 && f < reach + slack && p < f * tan + slack * 0.8;
+      if (r.sinkTimer > 0) continue;
+      const saw = hasEffect(r, 'jigsaw'), dildo = hasEffect(r, 'dildo');
+      if (!saw && !dildo) continue;
+      const hx = Math.cos(r.heading), hy = Math.sin(r.heading);
+      const rel = (x: number, y: number): { f: number; p: number } => {
+        const dx = x - r.x, dy = y - r.y;
+        return { f: dx * hx + dy * hy, p: -dx * hy + dy * hx };
+      };
+      // The saws: beside the hull, along its middle half, out to `reach` past its side.
+      const J = TUNING.jigsaw;
+      const halfLen = r.boat.size.length * 0.3;
+      const sideOf = r.stats.capRadius;
+      const bySaw = (x: number, y: number, slack: number): boolean => {
+        const q = rel(x, y);
+        return Math.abs(q.f) < halfLen + slack && Math.abs(q.p) > sideOf - slack && Math.abs(q.p) < sideOf + J.reach + slack;
+      };
+      // The dildo: a cone ahead of the bow.
+      const D = TUNING.dildo;
+      const reach = r.boat.size.length * D.reachMult, tan = Math.tan(D.halfAngle);
+      const byDildo = (x: number, y: number, slack: number): boolean => {
+        const q = rel(x, y);
+        return q.f > 0 && q.f < reach + slack && Math.abs(q.p) < q.f * tan + slack * 0.8;
       };
       for (const o of this.sim.racers) {
         if (o === r || o.sinkTimer > 0 || r.jigsawHit.has(o.id)) continue;
-        if (inCone(o.x, o.y, o.stats.radius)) {
+        if (saw && bySaw(o.x, o.y, o.stats.capRadius)) {
           r.jigsawHit.add(o.id);
-          this.sim.hit(o, TUNING.jigsaw.damage, r.id, 'jigsaw');
+          this.sim.hit(o, J.damage, r.id, 'jigsaw');
+        } else if (dildo && byDildo(o.x, o.y, o.stats.radius)) {
+          r.jigsawHit.add(o.id);
+          this.sim.hit(o, D.damage, r.id, 'dildo');
         }
       }
-      for (const v of this.volunteers) if (v.owner !== r.id && inCone(v.x, v.y, 12)) v.dead = true;
-      for (const d of this.drills) if (d.owner !== r.id && inCone(d.x, d.y, 12)) d.dead = true;
-      for (const b of this.blobs) if (b.owner !== r.id && inCone(b.x, b.y, 12)) b.dead = true;
-      for (const s of this.shots) if (s.owner !== r.id && inCone(s.x, s.y, 12)) s.dead = true;
-      for (const f of this.fakeCrates) if (f.owner !== r.id && inCone(f.x, f.y, TUNING.fakeCrate.radius)) f.dead = true;
+      if (!dildo) continue;
+      for (const v of this.volunteers) if (v.owner !== r.id && byDildo(v.x, v.y, 12)) v.dead = true;
+      for (const d of this.drills) if (d.owner !== r.id && byDildo(d.x, d.y, 12)) d.dead = true;
+      for (const b of this.blobs) if (b.owner !== r.id && byDildo(b.x, b.y, 12)) b.dead = true;
+      for (const s of this.shots) if (s.owner !== r.id && s.wait <= 0 && byDildo(s.x, s.y, 12)) s.dead = true;
+      for (const f of this.fakeCrates) if (f.owner !== r.id && byDildo(f.x, f.y, TUNING.fakeCrate.radius)) f.dead = true;
     }
   }
 
@@ -483,30 +563,73 @@ export class ItemSystem {
     }
   }
 
-  /** Potato and ham: straight shots that hit the first boat and cover it in cheese. */
+  /** Potato and ham (they cover the boat they hit in cheese), and nails: straight shots that hit the first boat. */
   private updateShots(dt: number): void {
-    const R = TUNING.raclette;
+    const R = TUNING.raclette, N = TUNING.nail;
     for (const s of this.shots) {
       if (s.dead) continue;
-      const spec = s.kind === 0 ? R.potato : R.ham;
+      if (s.wait > 0) {
+        // Not fired yet: it waits at the owner's bow (or stern), then flies the way the boat points.
+        s.wait -= dt;
+        const o = this.sim.racers[s.owner];
+        if (!o || o.sinkTimer > 0) {
+          s.dead = true;
+          continue;
+        }
+        const back = Math.cos(s.heading - o.heading) < 0;
+        s.heading = back ? o.heading + Math.PI : o.heading;
+        const bow = o.boat.size.length / 2 + 12;
+        s.x = o.x + Math.cos(s.heading) * bow;
+        s.y = o.y + Math.sin(s.heading) * bow;
+        s.near = o.nearestIndex;
+        if (s.wait > 0) continue;
+      }
+      const spec = s.kind === 0 ? R.potato : s.kind === 1 ? R.ham : N;
       const speed = FASTEST_TOP_SPEED * spec.speedMult;
       s.age += dt;
       s.x += Math.cos(s.heading) * speed * dt;
       s.y += Math.sin(s.heading) * speed * dt;
       s.travelled += speed * dt;
-      if (s.travelled > R.range) {
+      if (s.travelled > (s.kind === 2 ? N.range : R.range)) {
         s.dead = true;
         continue;
       }
       for (const r of this.sim.racers) {
         if (r.sinkTimer > 0 || this.sim.isGhost(r) || (r.id === s.owner && s.age < 0.5)) continue;
         if (isTouching(r, s.x, s.y, spec.radius)) {
-          if (this.sim.hit(r, spec.damage, s.owner, 'raclette')) addEffect(r, 'cheesed', R.splashTime);
+          if (s.kind === 2) this.sim.prick(r, N.damage, s.owner, N.slow);
+          else if (this.sim.hit(r, spec.damage, s.owner, 'raclette')) addEffect(r, 'cheesed', R.splashTime);
           s.dead = true;
           break;
         }
       }
       if (!s.dead && this.outOfWater(s, 0)) s.dead = true;
+    }
+  }
+
+  /**
+   * Dicke Titten: they fall for `warn` s (not solid yet), then lie on the water, solid: a boat
+   * running into them bounces off and is hurt (once). Their owner passes through.
+   */
+  private updateBoobs(dt: number): void {
+    const T = TUNING.titten;
+    for (const b of this.boobs) {
+      b.age += dt;
+      if (b.age > T.warn + T.life) b.dead = true;
+      if (b.dead || b.age < T.warn) continue;
+      const cap = this.boobsCapsule(b);
+      for (const r of this.sim.racers) {
+        if (r.id === b.owner || r.sinkTimer > 0 || this.sim.isGhost(r)) continue;
+        const impact = resolveStatic(r, cap, 0, 0);
+        if (impact > 0 && !b.hit.includes(r.id)) {
+          b.hit.push(r.id);
+          this.sim.hit(r, T.damage, b.owner, 'titten');
+        }
+      }
+      // Things flying into them stop there.
+      for (const v of this.volunteers) if (!v.dead && touchesCapsule(v.x, v.y, 8, cap)) v.dead = true;
+      for (const d of this.drills) if (!d.dead && d.stuckT <= 0 && touchesCapsule(d.x, d.y, 6, cap)) d.stuckT = 0.001;
+      for (const s of this.shots) if (!s.dead && s.wait <= 0 && touchesCapsule(s.x, s.y, 6, cap)) s.dead = true;
     }
   }
 

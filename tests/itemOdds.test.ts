@@ -69,9 +69,10 @@ describe('balance: the leader gets worse items than the boats behind', () => {
     expect(p[3] / p[0]).toBeGreaterThan(1.25); // a clear gap, not a rounding error
   });
 
-  it('1st place gets mostly defensive items and never the strongest boosts', () => {
+  it('1st place gets mostly defensive or weak items and never the strongest boosts', () => {
     const total = items.reduce((s, id) => s + ITEM_ODDS[id][0], 0);
-    const defensive = ITEM_ODDS.glue[0] + ITEM_ODDS.fakeCrate[0] + ITEM_ODDS.beer[0] + ITEM_ODDS.toilet[0];
+    // (the dildo is weak, and smashes what flies at it)
+    const defensive = ITEM_ODDS.glue[0] + ITEM_ODDS.fakeCrate[0] + ITEM_ODDS.beer[0] + ITEM_ODDS.toilet[0] + ITEM_ODDS.dildo[0];
     expect(defensive / total).toBeGreaterThan(0.45);
     expect(ITEM_ODDS.bigBag[0] + ITEM_ODDS.volunteerSquad[0] + ITEM_ODDS.blackout[0] + ITEM_ODDS.raclette[0]).toBe(0);
     expect(ITEM_ODDS.whitePowder[0]).toBeLessThan(ITEM_ODDS.whitePowder[3]);

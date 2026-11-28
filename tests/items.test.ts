@@ -502,16 +502,21 @@ describe('ultimate raclette', () => {
     expect(sim.items.clouds.length).toBe(0); // it dries up
   });
 
-  it('shots are cut down by a jigsaw and end at the bank', () => {
+  it('shots are smashed by a dildo on the bow they fly into, sparing the boat', () => {
     const sim = lone([0, 1]);
     const [shooter, other] = sim.racers;
     sim.items.give(shooter, 'raclette');
     sim.items.use(shooter, 0, 'forward');
-    placeBeside(other, shooter, 120, 0);
-    addEffect(other, 'jigsaw', 3);
+    placeBeside(other, shooter, 220, 0);
+    addEffect(other, 'dildo', 3);
     other.heading = shooter.heading + Math.PI;
-    step(sim, 0.4, () => placeBeside(other, shooter, 120, 0));
+    const hull = other.hull;
+    step(sim, 0.4, () => {
+      placeBeside(other, shooter, 220, 0);
+      other.heading = shooter.heading + Math.PI;
+    });
     expect(sim.items.shots.some((x) => x.kind === 0)).toBe(false);
+    expect(other.hull).toBe(hull);
   });
 });
 

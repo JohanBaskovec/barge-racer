@@ -13,10 +13,10 @@ describe('boat roster', () => {
     expect(session.boatId).toBe('cabourg');
   });
 
-  it('keeps every boat balanced: ratings add up to 30', () => {
+  it('keeps every boat balanced: speed counts double, weight (good and bad) not at all, 32 points each', () => {
     for (const b of BOATS) {
       const r = b.ratings;
-      expect(r.speed + r.accel + r.handling + r.weight + r.hull, b.id).toBe(30);
+      expect(2 * r.speed + r.accel + r.handling + r.hull, b.id).toBe(32);
     }
   });
 

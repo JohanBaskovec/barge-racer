@@ -27,6 +27,8 @@ export class AIController implements Controller {
     /** Personal lateral offset from the racing line, as a fraction of the half width. */
     private personal: number,
     private autopilot = false,
+    /** Steering a boat towed by a tugboat: full speed along the line, on any track. */
+    private tow = false,
   ) {
     this.startAt = rng.chance(diff.startBoostChance) ? rng.range(-0.15, 0.15) : rng.chance(0.5) ? rng.range(-1.2, -0.4) : rng.range(0.3, 0.8);
     this.noisePhase = rng.range(0, 100);
@@ -39,7 +41,7 @@ export class AIController implements Controller {
     const speed = speedOf(r);
 
     // After the finish of a point-to-point race there is little water left: just coast to a stop.
-    if (this.autopilot && !track.closed) {
+    if (this.autopilot && !this.tow && !track.closed) {
       const s = track.samples[r.nearestIndex];
       return { desiredHeading: Math.atan2(s.ty, s.tx), throttle: 0, fire: null };
     }
@@ -117,8 +119,21 @@ export class AIController implements Controller {
         if (this.dodge.get(f.id)) lateralPx += (side >= 0 ? -1 : 1) * (gap - Math.abs(side) + 15);
       }
     }
+    // Steer round giant breasts (they are solid, and they hurt): the better the AI, the surer.
+    for (const b of sim.items.boobs) {
+      if (b.owner === r.id) continue;
+      const dx = b.x - r.x;
+      const dy = b.y - r.y;
+      const fwd = dx * hx + dy * hy;
+      const side = -dx * hy + dy * hx;
+      const gap = TUNING.titten.radius * 2 + r.stats.capRadius + 20;
+      if (fwd > -20 && fwd < 380 && Math.abs(side) < gap) {
+        if (!this.dodge.has(b.id)) this.dodge.set(b.id, this.rng.chance(Math.min(0.95, this.diff.drillDodge + 0.35)));
+        if (this.dodge.get(b.id)) lateralPx += (side >= 0 ? -1 : 1) * (gap - Math.abs(side) + 15);
+      }
+    }
     // Dodge incoming drill bits and raclette shots (sometimes).
-    for (const d of [...sim.items.drills, ...sim.items.shots]) {
+    for (const d of [...sim.items.drills, ...sim.items.shots.filter((x) => x.wait <= 0)]) {
       if (d.owner === r.id) continue;
       const dx = r.x - d.x;
       const dy = r.y - d.y;
@@ -232,10 +247,31 @@ export class AIController implements Controller {
         break;
       }
       case 'jigsaw':
+        // The saws stick out sideways: someone alongside, close.
         if (others.some((o) => {
           const q = rel(o);
-          return q.f > 0 && q.f < r.boat.size.length * 1.2 + o.stats.radius && Math.abs(q.p) < q.f * 0.5 + o.stats.radius * 0.6;
+          return Math.abs(q.f) < r.boat.size.length * 0.45 && Math.abs(q.p) < r.stats.capRadius + TUNING.jigsaw.reach + o.stats.capRadius;
         })) return 'forward';
+        break;
+      case 'dildo':
+        // On the bow: someone just ahead, to ram.
+        if (others.some((o) => {
+          const q = rel(o);
+          return q.f > 0 && q.f < r.boat.size.length * 1.6 + o.stats.radius && Math.abs(q.p) < q.f * 0.5 + o.stats.radius * 0.6;
+        })) return 'forward';
+        break;
+      case 'nailGun':
+        if (inLine(700, false)) return 'forward';
+        if (inLine(450, true)) return 'backward';
+        break;
+      case 'titten':
+      case 'siphon':
+        // They hit every opponent: best from behind, with someone worth passing not too far ahead.
+        if (r.position > 0 && others.some((o) => o.progress > r.progress && o.progress - r.progress < 1800)) return 'forward';
+        break;
+      case 'tugboat':
+        // A tow: whenever there is ground to make up, or straight away when not leading.
+        if (r.position > 0 || r.sinceHit < 2) return 'forward';
         break;
       case 'whitePowder':
       case 'bigBag': {

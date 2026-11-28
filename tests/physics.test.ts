@@ -56,7 +56,7 @@ describe('boat physics', () => {
 
   it('heavier boats have more mass and fewer spin-outs', () => {
     const barge = deriveStats(BOATS[0]);
-    const speedboat = deriveStats(BOATS[3]);
+    const speedboat = deriveStats(BOATS.find((b) => b.id === 'cigaretteSpeedboat')!);
     expect(barge.mass).toBeGreaterThan(speedboat.mass);
     expect(barge.spinMult).toBeLessThan(speedboat.spinMult);
     expect(speedboat.topSpeed).toBeGreaterThan(barge.topSpeed);

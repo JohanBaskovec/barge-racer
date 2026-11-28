@@ -2,6 +2,7 @@ import { clamp, turnTowards } from './math';
 import { scaleStats } from '../data/boats';
 import { computeMods, hasEffect } from '../effects/effects';
 import type { ControlIntent, Racer } from '../race/types';
+import { TUNING } from '../data/items';
 
 /** Make a racer bigger or smaller (mushrooms): its collision shape and mass follow. */
 export function setRacerSize(r: Racer, size: number): void {
@@ -19,7 +20,9 @@ export function stepBoat(r: Racer, intent: ControlIntent, dt: number, canDrive: 
   const mods = computeMods(r);
   const s = r.stats;
   const control = canDrive ? mods.control : 0;
-  const topSpeed = s.topSpeed * mods.topSpeed * r.pace;
+  // A damaged boat is slower (down to TUNING.damageSlow off with no hull left): a tough hull pays.
+  const damaged = 1 - TUNING.damageSlow * Math.max(0, Math.min(1, 1 - r.hull / s.maxHull));
+  const topSpeed = s.topSpeed * mods.topSpeed * r.pace * r.catchUp * damaged;
   const accel = s.accel * mods.accel;
 
   const hx = Math.cos(r.heading);

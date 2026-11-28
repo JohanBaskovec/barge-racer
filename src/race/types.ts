@@ -19,7 +19,8 @@ export interface ControlIntent {
 export const NO_INTENT: ControlIntent = { desiredHeading: null, throttle: 0, fire: null };
 
 /** An item in a slot, with its remaining uses. */
-export type Slot = { id: ItemId; uses: number } | null;
+/** A held item and its uses left; `triple`: the better version, with three uses. */
+export type Slot = { id: ItemId; uses: number; triple?: boolean } | null;
 
 export interface Racer {
   id: number;
@@ -60,6 +61,8 @@ export interface Racer {
   slots: [Slot, Slot];
   rouletteT: number;
   rouletteItem: ItemId | null;
+  /** The item spinning in the roulette comes as its triple version. */
+  rouletteTriple: boolean;
   recentItems: ItemId[];
   jigsawHit: Set<number>;
 
@@ -75,6 +78,8 @@ export interface Racer {
   lapStart: number;
   /** Pace multiplier set by the AI (difficulty + rubber-banding). */
   pace: number;
+  /** Top speed multiplier for boats far behind the leader (TUNING.catchUp), set by the simulation each step. */
+  catchUp: number;
   /** After finishing, an autopilot drives the boat. */
   autopilot: boolean;
   firstFullThrottleT: number | null;
@@ -145,17 +150,37 @@ export interface GlueBlob {
   dead: boolean;
 }
 
-/** Food fired by the ultimate raclette: kind 0 is the potato, 1 a slice of ham. Flies straight, hits the first boat. */
+/**
+ * Something fired straight that hits the first boat: kind 0 the raclette's potato, 1 a slice of its
+ * ham, 2 a nail. `wait` > 0: not fired yet (the nail gun's second and third nails), it leaves the
+ * owner's bow when that runs out.
+ */
 export interface Shot {
   id: number;
   owner: number;
-  kind: 0 | 1;
+  kind: 0 | 1 | 2;
+  wait: number;
   x: number;
   y: number;
   heading: number;
   travelled: number;
   age: number;
   near: number;
+  dead: boolean;
+}
+
+/** Dicke Titten: a giant pair dropped in front of a boat. `heading` is the way across the pair (along the canal). */
+export interface Boobs {
+  id: number;
+  owner: number;
+  /** The boat it was dropped in front of. */
+  target: number;
+  x: number;
+  y: number;
+  heading: number;
+  age: number;
+  /** Boats already hurt by it (it stays solid for the others). */
+  hit: number[];
   dead: boolean;
 }
 

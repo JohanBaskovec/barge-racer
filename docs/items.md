@@ -49,18 +49,15 @@ It works like a **homing missile**.
 
 *"Health and safety has left the chat."*
 
-A big electric jigsaw blade folds out of the bow.
+A big electric jigsaw blade folds out of **each side** of the boat.
 
 - **Duration**: 4 s after activation.
-- **Hitbox**: a cone in front of the boat, 50 degrees wide, reaching 1.2 x the
-  boat's length forward of its centre. Only boats **in front** are hit; touching
-  the saw from the side or back does nothing to the owner.
+- **Hitbox**: beside the hull, along its middle 60 %, out to 62 px past its side, on
+  both sides. Boats alongside are cut; boats ahead or behind are not.
 - **Damage**: 30 hull plus a spin-out to each opponent touched. Each opponent can
   be hit once per activation.
-- **Side effects**: the owner gets +5 % top speed while active and is not
-  slowed by boat-on-boat bumps from the front.
-- **Defence**: it destroys Volunteers and Drill bits that hit the saw head-on.
-- **Visuals and sound**: saw blade sprite with sparks and a buzzing loop.
+- **Side effects**: the owner gets +5 % top speed while active.
+- **Visuals and sound**: two saw blades sticking out sideways, sparks, a buzzing loop.
 
 ### 3. White Powder
 
@@ -132,7 +129,7 @@ A caulking gun that **shoots glue** instead of leaving it behind.
   on that boat, or on the water where it runs out of range or just before a bank.
 - **Glue**: exactly the same puddle as the Glue item (radius 60 px, 15 s, slows
   boats, vanishes after 3 boats). It does no damage itself.
-- **Stopped by**: another boat's active Jigsaw in front of it.
+- **Stopped by**: another boat's Dildo, head-on.
 - Like a drill, it is fired from the bow; hitting a bank leaves the puddle on the
   water just before it.
 
@@ -149,7 +146,7 @@ straight into it.
 - **Safe for its owner** for the first second, so it can't be hit on the way out.
 - **Lifetime**: 40 s.
 - **A blinking boat** (just hit) drives through it without setting it off.
-- **Destroyed by**: a Drill bit (both stop), or a Jigsaw in front of the boat.
+- **Destroyed by**: a Drill bit (both stop), or a Dildo on the bow of the boat.
   Volunteers fly over it.
 - The AI steers around fake crates: it spots about 35 % of them at Pond, 60 % at
   River and 90 % at Ocean.
@@ -170,7 +167,7 @@ it can be kept for after the next hit. The AI drinks when its hull is under 55 %
 For **10 s** after it is eaten:
 
 - **Everyone who was ahead of you is shrunk.** Their boat shrinks to 55 % (the
-  collision shape too), so it is lighter and gets shoved around, and it is 15 % slower.
+  collision shape too), so it is lighter and gets shoved around, and it is **35 % slower**.
   The change eases in and out.
 - **Everyone who was behind you is hasty**: top speed x 1.3 and acceleration x 1.6.
 - **Crates fly to you.** Every crate within 900 px is pulled towards you at 650 px/s
@@ -181,7 +178,7 @@ For **10 s** after it is eaten:
 Who is "ahead" and "behind" is decided at the moment of eating, by race progress, and
 holds for the whole 10 s. So it is a gamble: from the back, everyone ahead shrinks and
 slows and nobody speeds up; from the front, everyone behind gets faster. It is the
-**rarest item** in every position. The AI eats it when more boats are ahead of it than
+**rarest item** in every position, and never given to the leader. The AI eats it when more boats are ahead of it than
 behind.
 
 ### 10. Electrical Failure
@@ -208,7 +205,7 @@ A raclette grill on the bow:
 - It **fires a potato and two slices of ham** straight ahead in a fan (the potato in the
   middle, the ham 10 degrees either side). They fly at 1.25 and 1.45 x the fastest boat's
   top speed for up to 1300 px, and hit the first boat they touch. **Damage**: 45 for the
-  potato, 26 for each slice of ham, each with a spin-out. A jigsaw cuts them down; a bank
+  potato, 26 for each slice of ham, each with a spin-out. A dildo on a bow smashes them; a bank
   stops them.
 - It **leaves melted cheese behind** (a puddle of radius 75 px for 12 s, dropped like
   glue), whatever the direction you fire.
@@ -253,58 +250,114 @@ are pushed less than light ones.
 - Nothing happens to boats out of reach, and nothing to you.
 - The AI uses it when someone is alongside it.
 
+### 14. Dicke Titten
+
+*Strong.* A giant pair of breasts drops onto the water in front of **every opponent**,
+420 px ahead on the line it is taking. They fall for 0.55 s (a shadow grows where they
+will land), then lie on the water for 9 s, solid: running into them bounces the boat
+off, costs 40 hull and a spin-out (once per boat). Their owner passes through. They
+also stop volunteers, drills and shots. The AI steers round them (the better the AI,
+the surer). Only the boats behind get them.
+
+### 15. Giant Black Dildo
+
+*Weak.* Fixed to the bow for 5 s, like the old jigsaw: ram a boat to hurt it, 16 hull
+and a spin-out (once per boat per use). It also smashes volunteers, drills, shots and
+fake crates that meet it head-on. Mostly given to the leader.
+
+### 16. Nail Gun
+
+Three nails, 0.11 s apart, straight ahead (or behind, swiped down), fast (2.1 x the
+fastest boat). Each nail costs 13 hull and a jolt (the boat loses 20 % of its speed) but
+no spin-out and no blinking, so all three can hit the same boat: 39 in all.
+
+### 17. Gas Siphoning
+
+*Strong.* Every opponent's tank is emptied: for 3 s they have no thrust and stop
+(extra drag); they can still steer and fire. An empty jerrycan bobs over them and their
+engine coughs black smoke. Only the back two positions get it.
+
+### 18. Tugboat
+
+A tugboat appears ahead of you and **tows** you for 4 s: it steers along the racing
+line for you, top speed x 1.45, acceleration x 3, twice the mass, and through glue. You
+can still fire items. Only the boats behind get it.
+
+### The better versions (x 3)
+
+Every item can come as its **better version, with three uses** (the Volunteer Squad and
+the Big Bag already are the better versions of the Volunteers and the White Powder). The
+chance depends on the position when the crate is broken: never for 1st, 8 % for 2nd,
+18 % for 3rd and 30 % for 4th (`TRIPLE_ODDS`). The strongest items, those that hit every
+opponent at once (Mushrooms, Electrical Failure, Gas Siphoning, Dicke Titten, Raclette),
+come as triples only for the last place, 12 % of the time. A triple shows a thicker
+orange ring round its button and its uses left.
+
 ## Summary table
 
 | Item | Type | Damage | Duration / lifetime | Counters |
 | --- | --- | --- | --- | --- |
-| Volunteers | Homing projectile | 35 | 6 s | Jigsaw, Drill, Glue, sharp turn |
-| Jigsaw | Melee buff (front) | 30 per target | 4 s | Stay out of its way, hit it from the side |
+| Volunteers | Homing projectile | 35 | 6 s | Dildo, Drill, Glue, sharp turn |
+| Jigsaw | Melee buff (both sides) | 30 per target | 4 s | Don't ride alongside |
 | White Powder | Self boost | 0 | 2.5 s | - |
-| Electric Drill | Straight projectile | 42 | 1400 px | Dodge sideways, Jigsaw |
+| Electric Drill | Straight projectile | 42 | 1400 px | Dodge sideways, Dildo |
 | Glue | Area trap | 0, slows a lot | 15 s / 3 boats | Drive around it, White Powder |
-| Silicone Gun | Straight projectile, makes glue | 0, slows a lot | 900 px, 2 shots | Dodge sideways, Jigsaw |
-| Fake Crate | Hidden trap | 30 | 40 s | Spot it, Drill, Jigsaw |
+| Silicone Gun | Straight projectile, makes glue | 0, slows a lot | 900 px, 2 shots | Dodge sideways, Dildo |
+| Fake Crate | Hidden trap | 30 | 40 s | Spot it, Drill, Dildo |
 | Beer Crate | Heal | heals 50 % hull | on use | - |
-| Magic Mushrooms | Shrinks those ahead, speeds up those behind, pulls crates | 0 | 10 s | - |
+| Magic Mushrooms | Shrinks and slows those ahead, speeds up those behind, pulls crates | 0 | 10 s | - |
 | Electrical Failure | Opponents' controls stuck | 0 (a crash costs) | 3.2 s | - |
-| Ultimate Raclette | 3 straight shots + a trap, cheese on the screen | 45 + 2 x 26 | 1300 px, cheese 12 s | Dodge, Jigsaw, drive round the cheese |
+| Ultimate Raclette | 3 straight shots + a trap, cheese on the screen | 45 + 2 x 26 | 1300 px, cheese 12 s | Dodge, Dildo, drive round the cheese |
 | Clogged Toilet | Area trap, damage over time | 38 per second | 12 s | Drive round it |
 | Kärcher | Sideways push on both sides | 24 (when they hit the bank) | 3.5 s | Stay out of reach, steer away |
+| Dicke Titten | Solid obstacle in front of every opponent | 40 | 0.55 s fall + 9 s | Dodge |
+| Giant Black Dildo | Melee buff (front) | 16 per target | 5 s | Stay out of its way |
+| Nail Gun | 3 straight shots | 3 x 13 | 1100 px | Dodge sideways |
+| Gas Siphoning | Opponents lose thrust and stop | 0 | 3 s | - |
+| Tugboat | Towed along the line, faster | 0 | 4 s | - |
 
 ## Who gets what: position-based odds
 
 The item from a crate depends on the racer's **position** at the moment the
 crate is broken. **The leader gets the weakest items, the back gets the strongest**:
-leaders mostly draw defensive items (Fake Crate, Glue, Toilet, Beer) and almost never
-the big boosts, while the last boats get Volunteer Squads and Big Bags.
-The weights are per position (1st to 4th); the item is drawn at random using them.
-The two "ultimate" items, the Electrical Failure and the Raclette, go only to the back
-two positions.
+leaders mostly draw beer, the dildo and a few traps, never the big boosts; the last boats
+get Volunteer Squads, Big Bags, the Tugboat, Dicke Titten and Gas Siphoning. The weights
+are per position (1st to 4th); the item is drawn at random using them. The items that
+hit every opponent at once (Electrical Failure, Raclette, Gas Siphoning) go only to the
+back two positions. Leaders used to get mostly traps to drop behind (glue, fake crates,
+the toilet), which is how they kept the lead: they get half as many now.
 
 | Item | 1st | 2nd | 3rd | 4th |
 | --- | --- | --- | --- | --- |
-| Volunteers | 4 | 18 | 22 | 18 |
-| Volunteer Squad | 0 | 0 | 3 | 9 |
-| Jigsaw | 9 | 14 | 14 | 10 |
-| White Powder | 4 | 10 | 15 | 16 |
-| Big Bag | 0 | 0 | 4 | 12 |
-| Electric Drill | 16 | 18 | 14 | 9 |
-| Glue | 22 | 9 | 5 | 3 |
-| Silicone Gun | 5 | 10 | 12 | 10 |
-| Fake Crate | 22 | 10 | 5 | 3 |
-| Beer Crate | 14 | 12 | 9 | 7 |
-| Magic Mushrooms | 2 | 2 | 2 | 2 |
-| Electrical Failure | 0 | 0 | 3 | 7 |
-| Ultimate Raclette | 0 | 0 | 3 | 8 |
-| Clogged Toilet | 14 | 8 | 5 | 3 |
-| Kärcher | 3 | 9 | 11 | 9 |
+| Volunteers | 4 | 16 | 18 | 14 |
+| Volunteer Squad | 0 | 0 | 3 | 8 |
+| Jigsaw | 8 | 12 | 11 | 8 |
+| White Powder | 4 | 10 | 13 | 13 |
+| Big Bag | 0 | 0 | 4 | 10 |
+| Electric Drill | 14 | 15 | 12 | 8 |
+| Glue | 11 | 9 | 5 | 2 |
+| Silicone Gun | 5 | 10 | 10 | 8 |
+| Fake Crate | 11 | 9 | 4 | 2 |
+| Beer Crate | 18 | 10 | 8 | 6 |
+| Magic Mushrooms | 0 | 1 | 1 | 1 |
+| Electrical Failure | 0 | 0 | 3 | 6 |
+| Ultimate Raclette | 0 | 0 | 3 | 6 |
+| Clogged Toilet | 9 | 8 | 4 | 2 |
+| Kärcher | 3 | 8 | 9 | 7 |
+| Dicke Titten | 0 | 2 | 4 | 7 |
+| Giant Black Dildo | 16 | 9 | 4 | 2 |
+| Nail Gun | 6 | 12 | 11 | 8 |
+| Gas Siphoning | 0 | 0 | 3 | 6 |
+| Tugboat | 0 | 2 | 6 | 9 |
 
 Every item has a **power** rating (`ITEM_POWER` in `src/data/items.ts`: Squad, Electrical
-Failure and Raclette 10, Big Bag 9, Silicone Gun 8, Volunteers 7, Jigsaw, Powder, Drill,
-Glue, Mushrooms and Kärcher 6, Beer 5, Fake Crate and Toilet 4). The average power of a
-draw is about **5.4 for 1st, 5.9 for 2nd, 6.5 for 3rd and 7.2 for 4th**, and a test checks
-that it rises from the front to the back, that the mushroom stays the rarest item in every
-column, and that 1st place never gets squads, big bags or the ultimate items.
+Failure, Raclette and Gas Siphoning 10, Big Bag, Mushrooms, Dicke Titten and Tugboat 9,
+Silicone Gun 8, Volunteers 7, Jigsaw, Powder, Drill, Glue, Kärcher and Nail Gun 6, Beer 5,
+Fake Crate and Toilet 4, Dildo 3). The average power of a draw is about **5.2 for 1st,
+5.8 for 2nd, 6.7 for 3rd and 7.5 for 4th** (before the better versions, which only add
+to the back), and tests check that it rises from the front to the back, that the
+mushroom stays the rarest item in every column, and that 1st place never gets squads,
+big bags, the ultimate items or the catch-up items.
 
 Rules on top of the table:
 

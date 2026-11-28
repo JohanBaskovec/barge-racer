@@ -43,6 +43,7 @@ export class RaceScene extends Phaser.Scene {
   private blobSprites = new Map<number, Sprite>();
   private shotSprites = new Map<number, Sprite>();
   private cloudSprites = new Map<number, Sprite>();
+  private boobSprites = new Map<number, Sprite>();
   private dropSprites = new Map<number, Sprite>();
   /** The barges (the HUD's minimap reads their positions). */
   trafficView: TrafficView | null = null;
@@ -90,6 +91,7 @@ export class RaceScene extends Phaser.Scene {
     this.blobSprites.clear();
     this.shotSprites.clear();
     this.cloudSprites.clear();
+    this.boobSprites.clear();
     this.dropSprites.clear();
     this.trafficView = null;
     this.streetLife = null;
@@ -335,10 +337,43 @@ export class RaceScene extends Phaser.Scene {
       s.setPosition(b.x, b.y).setRotation(b.heading).setScale((1 + Math.sin(b.age * 30) * 0.08) * WORLD_ART_SCALE);
     }, (s) => this.retire(s, 'fade'));
     // Raclette: a potato and slices of ham, tumbling as they fly.
-    this.syncGroup(this.shotSprites, items.shots, (s) => this.add.image(s.x, s.y, s.kind === 0 ? 'potato' : 'ham').setDepth(14).setScale(WORLD_ART_SCALE * 1.2), (sp, s) => {
-      sp.setPosition(s.x, s.y).setRotation(s.heading + Math.sin(s.age * 18 + s.id) * 0.5);
+    // ...and nails, straight and fast (hidden until their turn to leave the gun).
+    this.syncGroup(this.shotSprites, items.shots, (s) => this.add.image(s.x, s.y, ['potato', 'ham', 'nail'][s.kind]).setDepth(14).setScale(s.kind === 2 ? 0.25 * 1.3 : WORLD_ART_SCALE * 1.2).setData('kind', s.kind), (sp, s) => {
+      sp.setPosition(s.x, s.y).setVisible(s.wait <= 0).setRotation(s.kind === 2 ? s.heading : s.heading + Math.sin(s.age * 18 + s.id) * 0.5);
     }, (sp) => {
+      if (sp.getData('kind') === 2) {
+        this.sparks.setParticleTint(0xdfe4ea);
+        if (sp.visible) this.sparks.emitParticleAt(sp.x, sp.y, 4);
+        sp.destroy();
+        return;
+      }
       this.fx.cheese(sp.x, sp.y);
+      this.retire(sp, 'fade');
+    });
+    // Dicke Titten: a shadow grows on the water while they fall, they land with a splash and jiggle.
+    const TT = TUNING.titten;
+    this.syncGroup(this.boobSprites, items.boobs, (b) => {
+      const shadow = this.add.ellipse(b.x, b.y, 80, 150, 0x000000, 0.25).setDepth(4).setRotation(b.heading);
+      return this.add.image(b.x, b.y, 'boobs').setDepth(13).setRotation(b.heading).setData('shadow', shadow).setData('landed', false);
+    }, (sp, b) => {
+      const shadow = sp.getData('shadow') as Phaser.GameObjects.Ellipse;
+      const fall = Math.min(1, b.age / TT.warn);
+      const fade = b.age > TT.warn + TT.life - 1 ? Math.max(0, TT.warn + TT.life - b.age) : 1;
+      shadow.setPosition(b.x, b.y).setScale(0.4 + 0.6 * fall).setAlpha(0.3 * fall * fade);
+      if (fall < 1) sp.setPosition(b.x, b.y - (1 - fall) * 260).setScale(WORLD_ART_SCALE * (1.6 - 0.6 * fall)).setAlpha(0.4 + 0.6 * fall);
+      else {
+        if (!sp.getData('landed')) {
+          sp.setData('landed', true).setData('t0', time);
+          this.fx.splash(b.x, b.y, 1.4);
+          this.raceAudio.at('splash', b.x, b.y, 1);
+        }
+        // a jiggle that settles
+        const t = (time - (sp.getData('t0') as number)) / 1000;
+        const j = Math.exp(-t * 2.2) * Math.sin(t * 22) * 0.12 + Math.sin(time / 420 + b.id) * 0.015;
+        sp.setPosition(b.x, b.y).setScale(WORLD_ART_SCALE * (1 + j), WORLD_ART_SCALE * (1 - j * 0.6)).setAlpha(fade);
+      }
+    }, (sp) => {
+      (sp.getData('shadow') as Phaser.GameObjects.Ellipse).destroy();
       this.retire(sp, 'fade');
     });
     // Melted cheese and toxic smoke lying on the water.

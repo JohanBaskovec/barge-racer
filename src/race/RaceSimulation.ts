@@ -86,6 +86,7 @@ export class RaceSimulation {
   finishCountdown = -1;
   private controllers = new Map<number, Controller>();
   private autopilots = new Map<number, Controller>();
+  private tugs = new Map<number, Controller>();
   private events: RaceEvent[] = [];
 
   constructor(setup: RaceSetup) {
@@ -161,9 +162,9 @@ export class RaceSimulation {
       id, name, isPlayer, human: isPlayer, boat, stats, baseStats: stats, size: 1, soakedBy: null, draftT: 0, color: RACER_COLORS[id % RACER_COLORS.length],
       x, y, vx: 0, vy: 0, heading, spin: 0,
       hull: stats.maxHull, effects: [], inGlue: false, sinceHit: 99, sinkTimer: 0,
-      slots: [null, null], rouletteT: 0, rouletteItem: null, recentItems: [], jigsawHit: new Set(),
+      slots: [null, null], rouletteT: 0, rouletteItem: null, rouletteTriple: false, recentItems: [], jigsawHit: new Set(),
       progress, nearestIndex: near.index, lapsDone: 0, nextCheckpoint: 0, position: id, finished: false,
-      finishTime: 0, lapTimes: [], lapStart: 0, pace: 1, autopilot: false, firstFullThrottleT: null,
+      finishTime: 0, lapTimes: [], lapStart: 0, pace: 1, catchUp: 1, autopilot: false, firstFullThrottleT: null,
       bankHitCooldown: 0, stuckTimer: 0, throttle: 0,
     };
   }
@@ -190,11 +191,15 @@ export class RaceSimulation {
     this.stepClock(dt);
     const canDrive = this.phase === 'racing';
 
+    this.updateCatchUp();
+
     // 1. Intents
     const intents = new Map<number, ControlIntent>();
     for (const r of this.racers) {
       const ctrl = r.autopilot ? this.autopilot(r) : this.controllers.get(r.id)!;
-      const intent = ctrl.update(r, this, dt);
+      let intent = ctrl.update(r, this, dt);
+      // A tugboat steers for its owner, who can still fire items.
+      if (hasEffect(r, 'towed') && !r.autopilot) intent = { ...this.towIntent(r, dt), fire: intent.fire };
       // Electrical failure freezes the throttle at its last value (stepBoat reads it from here).
       if (!hasEffect(r, 'blackout')) r.throttle = intent.throttle;
       intents.set(r.id, intent);
@@ -290,6 +295,30 @@ export class RaceSimulation {
     } else this.time += dt;
   }
 
+  /**
+   * Catch-up: a boat far behind the leader gets a little more top speed, growing with the gap
+   * (none within TUNING.catchUp.from px, the most from `full` px). The same for players and AI.
+   */
+  private updateCatchUp(): void {
+    const C = TUNING.catchUp;
+    let lead = -Infinity;
+    for (const r of this.racers) if (!r.finished && r.progress > lead) lead = r.progress;
+    for (const r of this.racers) {
+      const gap = r.finished ? 0 : lead - r.progress;
+      r.catchUp = 1 + C.max * Math.max(0, Math.min(1, (gap - C.from) / (C.full - C.from)));
+    }
+  }
+
+  /** How a tugboat steers the boat it tows (also predicted by an online client for its own boat). */
+  towIntent(r: Racer, dt: number): ControlIntent {
+    let c = this.tugs.get(r.id);
+    if (!c) {
+      c = new AIController(this.rng, DIFFICULTIES.river, 0, true, true);
+      this.tugs.set(r.id, c);
+    }
+    return c.update(r, this, dt);
+  }
+
   private autopilot(r: Racer): Controller {
     let c = this.autopilots.get(r.id);
     if (!c) {
@@ -338,6 +367,21 @@ export class RaceSimulation {
     if (hasEffect(r, 'invulnerable') || r.sinkTimer > 0 || this.isGhost(r)) return false;
     r.hull -= amount;
     r.sinceHit = 0;
+    if (r.hull <= 0) this.sink(r);
+    return true;
+  }
+
+  /**
+   * A nail: damage and a jolt, but no spin-out and no blinking, so the next nail of the burst can
+   * hurt too. Spared like a hit (blinking, sinking, finished). Returns true if it landed.
+   */
+  prick(r: Racer, damage: number, by: number, slow: number): boolean {
+    if (hasEffect(r, 'invulnerable') || r.sinkTimer > 0 || this.isGhost(r)) return false;
+    r.hull -= damage;
+    r.sinceHit = 0;
+    r.vx *= slow;
+    r.vy *= slow;
+    this.emit({ type: 'hit', racer: r.id, by, source: 'nailGun', damage });
     if (r.hull <= 0) this.sink(r);
     return true;
   }

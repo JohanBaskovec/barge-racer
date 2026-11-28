@@ -19,7 +19,13 @@ export type EffectKind =
   /** In another boat's slipstream: a little faster. */
   | 'draft'
   /** Rocked by a wake (for the view). */
-  | 'rocked';
+  | 'rocked'
+  /** A giant dildo on the bow: ramming hurts. */
+  | 'dildo'
+  /** Gas siphoned: no thrust, the boat stops. */
+  | 'siphoned'
+  /** Towed by a tugboat: steered along the canal, fast, through glue. */
+  | 'towed';
 
 export interface Effect {
   kind: EffectKind;
@@ -65,7 +71,7 @@ export function tickEffects(holder: EffectHolder, dt: number): void {
 /** Multiply the multipliers of every active effect together. */
 export function computeMods(holder: EffectHolder): Mods {
   const m: Mods = { topSpeed: 1, accel: 1, turnRate: 1, mass: 1, control: 1, drag: 0 };
-  const boosted = hasEffect(holder, 'boost');
+  const boosted = hasEffect(holder, 'boost') || hasEffect(holder, 'towed');
   for (const e of holder.effects) {
     switch (e.kind) {
       case 'boost':
@@ -75,6 +81,18 @@ export function computeMods(holder: EffectHolder): Mods {
         break;
       case 'jigsaw':
         m.topSpeed *= TUNING.jigsaw.speedMult;
+        break;
+      case 'dildo':
+        m.topSpeed *= TUNING.dildo.speedMult;
+        break;
+      case 'siphoned':
+        m.accel = 0;
+        m.drag += TUNING.siphon.drag;
+        break;
+      case 'towed':
+        m.topSpeed *= TUNING.tugboat.topSpeed;
+        m.accel *= TUNING.tugboat.accel;
+        m.mass *= TUNING.tugboat.mass;
         break;
       case 'glued':
         if (boosted) break;

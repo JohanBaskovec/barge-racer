@@ -134,6 +134,11 @@ export const en = {
   'item.raclette': 'Ultimate Raclette',
   'item.toilet': 'Clogged Toilet',
   'item.karcher': 'Kärcher',
+  'item.titten': 'Dicke Titten',
+  'item.dildo': 'Giant Black Dildo',
+  'item.nailGun': 'Nail Gun',
+  'item.siphon': 'Gas Siphoning',
+  'item.tugboat': 'Tugboat',
   'item.rolling': '...',
 
   'hud.lap': 'Lap {n}/{total}',

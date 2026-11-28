@@ -1,4 +1,4 @@
-import { tickEffects } from '../effects/effects';
+import { hasEffect, tickEffects } from '../effects/effects';
 import { stepBoat } from '../physics/BoatPhysics';
 import { resolveBank, resolveStatic } from '../physics/collisions';
 import { bargeCapsule } from '../race/traffic';
@@ -93,6 +93,8 @@ export class OnlineRace {
   private predict(me: Racer, intent: ControlIntent, canDrive: boolean): void {
     this.clock++;
     tickEffects(me, STEP);
+    // Towed by a tugboat: the server steers for you, so predict that too.
+    if (hasEffect(me, 'towed')) intent = { ...this.sim.towIntent(me, STEP), fire: null };
     stepBoat(me, intent, STEP, canDrive);
     resolveBank(me, this.sim.track);
     for (const p of this.sim.traffic.poses(this.clock * STEP)) if (p.solid) resolveStatic(me, bargeCapsule(p), p.vx, p.vy, { x: p.mx, y: p.my });

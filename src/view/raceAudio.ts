@@ -16,6 +16,7 @@ const ITEM_SOUND: Partial<Record<ItemId, SfxName>> = {
   volunteer: 'volunteer', volunteerSquad: 'volunteer', jigsaw: 'jigsaw', whitePowder: 'powder', bigBag: 'powder',
   drill: 'drill', siliconeGun: 'silicone', fakeCrate: 'drop', mushroom: 'mushroom',
   blackout: 'blackout', raclette: 'raclette', toilet: 'toilet', karcher: 'karcher',
+  titten: 'titten', dildo: 'dildo', nailGun: 'nailGun', siphon: 'siphon', tugboat: 'tugboat',
   // glue: the sound plays when the puddle appears (also for the silicone gun's shots)
 };
 

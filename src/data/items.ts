@@ -10,7 +10,12 @@ export type ItemId =
   | 'blackout'
   | 'raclette'
   | 'toilet'
-  | 'karcher';
+  | 'karcher'
+  | 'titten'
+  | 'dildo'
+  | 'nailGun'
+  | 'siphon'
+  | 'tugboat';
 
 export interface ItemInfo {
   id: ItemId;
@@ -35,7 +40,25 @@ export const ITEM_INFO: Record<ItemId, ItemInfo> = {
   raclette: { id: 'raclette', uses: 1, icon: 'icon_raclette' },
   toilet: { id: 'toilet', uses: 1, icon: 'icon_toilet' },
   karcher: { id: 'karcher', uses: 1, icon: 'icon_karcher' },
+  titten: { id: 'titten', uses: 1, icon: 'icon_titten' },
+  dildo: { id: 'dildo', uses: 1, icon: 'icon_dildo' },
+  nailGun: { id: 'nailGun', uses: 1, icon: 'icon_nailGun' },
+  siphon: { id: 'siphon', uses: 1, icon: 'icon_siphon' },
+  tugboat: { id: 'tugboat', uses: 1, icon: 'icon_tugboat' },
 };
+
+/**
+ * Items whose better version is a separate item with three uses already (the squad, the big bag):
+ * every other item can come as a triple instead (see TRIPLE_ODDS).
+ */
+export const HAS_OWN_TRIPLE: ItemId[] = ['volunteer', 'whitePowder', 'volunteerSquad', 'bigBag'];
+/** The strongest items, which hit every opponent at once: as a triple only for the last place, and rarely. */
+export const GLOBAL_ITEMS: ItemId[] = ['mushroom', 'blackout', 'siphon', 'titten', 'raclette'];
+/**
+ * Chance per position (1st..4th) that an item comes as its better version, with three uses.
+ * `global` is for GLOBAL_ITEMS. Never for the leader.
+ */
+export const TRIPLE_ODDS = { normal: [0, 0.08, 0.18, 0.3], global: [0, 0, 0, 0.12] };
 
 /** Number of items a racer can hold at once. */
 export const SLOT_COUNT = 2;
@@ -47,28 +70,34 @@ export const SLOT_COUNT = 2;
  * two "ultimate" items (electrical failure, raclette); the leader gets the traps.
  */
 export const ITEM_ODDS: Record<ItemId, [number, number, number, number]> = {
-  volunteer: [4, 18, 22, 18],
-  volunteerSquad: [0, 0, 3, 9],
-  jigsaw: [9, 14, 14, 10],
-  whitePowder: [4, 10, 15, 16],
-  bigBag: [0, 0, 4, 12],
-  drill: [16, 18, 14, 9],
-  glue: [22, 9, 5, 3],
-  siliconeGun: [5, 10, 12, 10],
-  fakeCrate: [22, 10, 5, 3],
-  beer: [14, 12, 9, 7],
-  mushroom: [2, 2, 2, 2],
-  blackout: [0, 0, 3, 7],
-  raclette: [0, 0, 3, 8],
-  toilet: [14, 8, 5, 3],
-  karcher: [3, 9, 11, 9],
+  volunteer: [4, 16, 18, 14],
+  volunteerSquad: [0, 0, 3, 8],
+  jigsaw: [8, 12, 11, 8],
+  whitePowder: [4, 10, 13, 13],
+  bigBag: [0, 0, 4, 10],
+  drill: [14, 15, 12, 8],
+  glue: [11, 9, 5, 2],
+  siliconeGun: [5, 10, 10, 8],
+  fakeCrate: [11, 9, 4, 2],
+  beer: [18, 10, 8, 6],
+  mushroom: [0, 1, 1, 1],
+  blackout: [0, 0, 3, 6],
+  raclette: [0, 0, 3, 6],
+  toilet: [9, 8, 4, 2],
+  karcher: [3, 8, 9, 7],
+  titten: [0, 2, 4, 7],
+  dildo: [16, 9, 4, 2],
+  nailGun: [6, 12, 11, 8],
+  siphon: [0, 0, 3, 6],
+  tugboat: [0, 2, 6, 9],
 };
 
 /** How much an item helps whoever holds it (0-10). Used to check the odds really favour the back. */
 export const ITEM_POWER: Record<ItemId, number> = {
   volunteer: 7, volunteerSquad: 10, jigsaw: 6, whitePowder: 6, bigBag: 9, drill: 6,
-  glue: 6, siliconeGun: 8, fakeCrate: 4, beer: 5, mushroom: 6,
+  glue: 6, siliconeGun: 8, fakeCrate: 4, beer: 5, mushroom: 9,
   blackout: 10, raclette: 10, toilet: 4, karcher: 6,
+  titten: 9, dildo: 3, nailGun: 6, siphon: 10, tugboat: 9,
 };
 
 export const TUNING = {
@@ -81,12 +110,31 @@ export const TUNING = {
   respawnInvulnerable: 3,
   repairDelay: 3,
   repairRate: 2,
+  /** Top speed lost with no hull left (in proportion to the damage): fragile boats pay for their hits. */
+  damageSlow: 0.2,
+  /** Boats behind the leader: up to `max` more top speed, from `from` px behind, all of it at `full` px. */
+  catchUp: { from: 200, full: 1800, max: 0.12 },
   sinkTime: 2,
   bankHitDamage: 5,
   spinOutBase: 1.2,
 
   volunteer: { speedMult: 1.4, life: 6, damage: 35, lockRange: 250, turnRate: 4.5, straightTime: 0.35 },
-  jigsaw: { duration: 4, damage: 30, halfAngle: (25 * Math.PI) / 180, reachMult: 1.2, speedMult: 1.05 },
+  /** A saw sticking out of each side: boats alongside, within `reach` px of the hull, are cut. */
+  jigsaw: { duration: 4, damage: 30, reach: 62, speedMult: 1.05 },
+  /** Giant dildo on the bow: ram boats to hurt them (a little). Also smashes things flying at it. */
+  dildo: { duration: 5, damage: 16, halfAngle: (24 * Math.PI) / 180, reachMult: 1.15, speedMult: 1.05 },
+  /** Nail gun: three nails in quick succession, straight. Each one hurts (no blinking in between), none spins. */
+  nail: { speedMult: 2.1, damage: 13, radius: 6, range: 1100, every: 0.11, slow: 0.8 },
+  /**
+   * Dicke Titten: a giant pair drops onto the water `ahead` px in front of every opponent (on its
+   * current line), `warn` s to see them coming before they are solid. Solid for `life` s; running
+   * into them hurts, a lot. Each one is a pair of breasts of `radius`, side by side across the canal.
+   */
+  titten: { damage: 40, life: 9, radius: 32, ahead: 420, warn: 0.55, ownerImmunity: 99 },
+  /** Gas siphoning: every opponent's tank is empty for `duration` s: no thrust, and they stop. */
+  siphon: { duration: 3, drag: 4 },
+  /** Tugboat: tows its owner along the canal for `duration` s: steered for you, faster, and through glue. */
+  tugboat: { duration: 4, topSpeed: 1.45, accel: 3, mass: 2 },
   powder: { duration: 2.5, topSpeedMult: 1.5, accelMult: 2, massMult: 2 },
   drill: { speedMult: 1.6, range: 1400, damage: 42, stuckTime: 1 },
   /**
@@ -97,19 +145,19 @@ export const TUNING = {
   glue: {
     radius: 60, life: 15, maxBoats: 3, ownerImmunity: 1,
     speedMult: 0.25, turnMult: 0.4, accelMult: 0.6, drag: 2.5,
-    stickyMult: 0.6, stickyAccelMult: 0.7, stickyTime: 2,
+    stickyMult: 0.55, stickyAccelMult: 0.7, stickyTime: 2.6,
   },
   silicone: { speedMult: 1.3, range: 900, ownerImmunity: 0.4 },
   fakeCrate: { damage: 30, life: 40, ownerImmunity: 1, radius: 26 },
   beer: { healFraction: 0.5 },
   /**
    * Magic mushrooms. For `duration` seconds: whoever was ahead of the user when it was eaten is
-   * shrunk (smaller, lighter and a little slower), whoever was behind is hasty (faster), and
+   * shrunk (smaller, lighter and a lot slower), whoever was behind is hasty (faster), and
    * crates within `magnetRadius` fly towards the user at `magnetSpeed`. Crates the magnet lets go
    * of float home at `homeSpeed`. The user's screen goes psychedelic too.
    */
   mushroom: {
-    duration: 10, shrink: 0.55, shrunkSpeed: 0.85, hastySpeed: 1.3, hastyAccel: 1.6,
+    duration: 10, shrink: 0.55, shrunkSpeed: 0.65, hastySpeed: 1.3, hastyAccel: 1.6,
     magnetRadius: 900, magnetSpeed: 650, homeSpeed: 260,
   },
   /** Electrical failure: every opponent's controls are stuck (no steering, throttle frozen, no items). */

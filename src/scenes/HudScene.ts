@@ -232,7 +232,9 @@ export class HudScene extends Phaser.Scene {
       if (icon) ui.icon.setTexture(icon).setDisplaySize(ICON, ICON);
       ui.name.setText(name);
       ui.count.setText(count);
-      ui.ring.setStrokeStyle(6, held ? 0xffe08a : 0xffffff, held ? 1 : 0.6);
+      // The better version (three uses) gets a thicker orange ring.
+      if (held?.triple) ui.ring.setStrokeStyle(9, 0xff9a1f, 1);
+      else ui.ring.setStrokeStyle(6, held ? 0xffe08a : 0xffffff, held ? 1 : 0.6);
       ui.ring.setScale(held ? 1 + Math.sin(time / 180 + k) * 0.03 : 1);
     });
     this.drawTrip(time);

@@ -46,9 +46,9 @@ export function deriveStats(def: BoatDef): BoatStats {
   let lateralGrip = lerp(1.5, 6, r01(r.handling));
   if (def.specials?.hover) lateralGrip *= 0.4;
   return {
-    topSpeed: lerp(260, 440, r01(r.speed)),
-    accel: lerp(120, 420, r01(r.accel)) / (0.7 + 0.03 * r.weight),
-    turnRate: lerp(1.6, 3.6, r01(r.handling)) / (0.8 + 0.02 * r.weight),
+    topSpeed: lerp(340, 400, r01(r.speed)),
+    accel: lerp(120, 420, r01(r.accel)) / (0.85 + 0.015 * r.weight),
+    turnRate: lerp(1.6, 3.6, r01(r.handling)) / (0.9 + 0.01 * r.weight),
     lateralGrip,
     mass: lerp(1, 4, r01(r.weight)),
     maxHull: lerp(60, 150, r01(r.hull)),
@@ -76,43 +76,43 @@ export const BOATS: BoatDef[] = [
     // A real péniche moored on the canal, drawn from an aerial photo: two long roofs with a lawn
     // between them. First in the list = the default boat.
     id: 'cabourg', shape: 'peniche', unlockedByDefault: true,
-    ratings: { speed: 4, accel: 4, handling: 5, weight: 8, hull: 9 },
+    ratings: { speed: 6, accel: 6, handling: 6, weight: 8, hull: 8 },
     size: { length: 150, width: 25 },
   },
   {
     id: 'coalBarge', shape: 'barge', unlockedByDefault: true,
-    ratings: { speed: 5, accel: 3, handling: 3, weight: 10, hull: 9 },
+    ratings: { speed: 7, accel: 5, handling: 5, weight: 10, hull: 8 },
     size: { length: 104, width: 34 },
   },
   {
     id: 'tugboat', shape: 'tug', unlockedByDefault: true,
-    ratings: { speed: 4, accel: 8, handling: 5, weight: 8, hull: 5 },
+    ratings: { speed: 5, accel: 9, handling: 6, weight: 8, hull: 7 },
     size: { length: 66, width: 36 },
   },
   {
     id: 'narrowboat', shape: 'narrow', unlockedByDefault: true,
-    ratings: { speed: 5, accel: 6, handling: 9, weight: 4, hull: 6 },
+    ratings: { speed: 6, accel: 6, handling: 8, weight: 4, hull: 6 },
     size: { length: 92, width: 24 },
   },
   {
     id: 'cigaretteSpeedboat', shape: 'speedboat', unlockedByDefault: true,
-    ratings: { speed: 10, accel: 8, handling: 7, weight: 2, hull: 3 },
+    ratings: { speed: 8, accel: 6, handling: 5, weight: 2, hull: 5 },
     size: { length: 88, width: 26 },
   },
   {
     id: 'partyPontoon', shape: 'pontoon', unlockedByDefault: true,
-    ratings: { speed: 6, accel: 7, handling: 7, weight: 5, hull: 5 },
+    ratings: { speed: 7, accel: 6, handling: 6, weight: 5, hull: 6 },
     size: { length: 72, width: 44 },
   },
   {
     id: 'fireBoat', shape: 'fireboat', unlockedByDefault: true,
-    ratings: { speed: 6, accel: 5, handling: 5, weight: 7, hull: 7 },
+    ratings: { speed: 6, accel: 6, handling: 6, weight: 7, hull: 8 },
     size: { length: 84, width: 34 },
     specials: { washesGlue: true },
   },
   {
     id: 'hovercraft', shape: 'hovercraft', unlockedByDefault: true,
-    ratings: { speed: 9, accel: 8, handling: 4, weight: 4, hull: 5 },
+    ratings: { speed: 6, accel: 8, handling: 4, weight: 4, hull: 8 },
     size: { length: 64, width: 46 },
     specials: { hover: true },
   },

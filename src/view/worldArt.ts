@@ -669,3 +669,129 @@ export function drawCheeseScreen(c: Ctx): void {
     c.stroke();
   }
 }
+
+/**
+ * Dicke Titten seen from above, 72 x 136: two giant breasts of radius 32 side by side (across the
+ * canal, along y), skin with soft shading, areolas, a shine, and a ring of ripples where they sit.
+ */
+export function drawBoobs(c: Ctx): void {
+  const R = 32, cx = 36;
+  for (const cy of [R + 4, 3 * R + 4]) {
+    c.strokeStyle = 'rgba(255,255,255,0.4)';
+    c.lineWidth = 1.2;
+    c.beginPath();
+    c.arc(cx, cy, R + 2.5, 0, Math.PI * 2);
+    c.stroke();
+    shadowed(c, 3, 0.5, () => disc(c, '#e9b08c', cx, cy, R));
+    const g = c.createRadialGradient(cx - R * 0.35, cy - R * 0.35, R * 0.1, cx, cy, R);
+    g.addColorStop(0, '#ffe2cf');
+    g.addColorStop(0.55, '#f2c09f');
+    g.addColorStop(1, '#cf8f6c');
+    c.fillStyle = g;
+    c.beginPath();
+    c.arc(cx, cy, R, 0, Math.PI * 2);
+    c.fill();
+    const a = c.createRadialGradient(cx + 2, cy + 1, 1, cx + 2, cy + 1, 13);
+    a.addColorStop(0, '#b9584c');
+    a.addColorStop(0.7, '#cf7a68');
+    a.addColorStop(1, 'rgba(207,122,104,0)');
+    c.fillStyle = a;
+    c.beginPath();
+    c.arc(cx + 2, cy + 1, 13, 0, Math.PI * 2);
+    c.fill();
+    disc(c, '#a3463d', cx + 2, cy + 1, 4.4);
+    disc(c, 'rgba(255,255,255,0.55)', cx + 1, cy - 0.5, 1.2);
+    disc(c, 'rgba(255,255,255,0.45)', cx - R * 0.42, cy - R * 0.42, 5);
+    c.strokeStyle = 'rgba(120,60,40,0.55)';
+    c.lineWidth = 1;
+    c.beginPath();
+    c.arc(cx, cy, R, 0, Math.PI * 2);
+    c.stroke();
+  }
+  // where they press together
+  c.strokeStyle = 'rgba(140,70,50,0.6)';
+  c.lineWidth = 1.4;
+  c.beginPath();
+  c.moveTo(cx - 10, 2 * R + 4);
+  c.quadraticCurveTo(cx, 2 * R + 7, cx + 10, 2 * R + 4);
+  c.stroke();
+}
+
+/** A giant black dildo pointing right, 82 x 24: a flared base, a long glossy shaft and a rounded tip. */
+export function drawDildo(c: Ctx): void {
+  const y = 12;
+  shadowed(c, 2, 0.5, () => {
+    c.beginPath();
+    c.moveTo(10, y - 7);
+    c.lineTo(64, y - 7.5);
+    c.quadraticCurveTo(66, y - 10.5, 72, y - 10.5);
+    c.quadraticCurveTo(81, y - 10, 81, y);
+    c.quadraticCurveTo(81, y + 10, 72, y + 10.5);
+    c.quadraticCurveTo(66, y + 10.5, 64, y + 7.5);
+    c.lineTo(10, y + 7);
+    c.closePath();
+    const g = c.createLinearGradient(0, y - 10, 0, y + 10);
+    g.addColorStop(0, '#3a3a44');
+    g.addColorStop(0.35, '#1c1c22');
+    g.addColorStop(1, '#0c0c10');
+    c.fillStyle = g;
+    c.fill();
+  });
+  // the base: a flared disc seen edge-on
+  shadowed(c, 2, 0.5, () => {
+    rr(c, 0, y - 12, 11, 24, 5);
+    c.fillStyle = '#26262d';
+    c.fill();
+  });
+  c.strokeStyle = 'rgba(0,0,0,0.9)';
+  c.lineWidth = 1;
+  rr(c, 0, y - 12, 11, 24, 5);
+  c.stroke();
+  // ridges and veins
+  c.strokeStyle = 'rgba(80,80,92,0.9)';
+  c.lineWidth = 0.9;
+  for (const x of [24, 40]) {
+    c.beginPath();
+    c.moveTo(x, y - 6.5);
+    c.quadraticCurveTo(x + 2, y, x, y + 6.5);
+    c.stroke();
+  }
+  c.beginPath();
+  c.moveTo(18, y + 2);
+  c.bezierCurveTo(30, y + 5, 42, y - 1, 58, y + 3);
+  c.stroke();
+  // the shine
+  c.strokeStyle = 'rgba(255,255,255,0.55)';
+  c.lineWidth = 2;
+  c.lineCap = 'round';
+  c.beginPath();
+  c.moveTo(14, y - 4);
+  c.lineTo(62, y - 4.5);
+  c.stroke();
+  disc(c, 'rgba(255,255,255,0.7)', 74, y - 5, 2.4);
+}
+
+/** A nail pointing right, 24 x 8: a flat head, a steel shank and a sharp point. */
+export function drawNail(c: Ctx): void {
+  shadowed(c, 1, 0.4, () => {
+    c.beginPath();
+    c.moveTo(3, 2.6);
+    c.lineTo(19, 2.8);
+    c.lineTo(23.5, 4);
+    c.lineTo(19, 5.2);
+    c.lineTo(3, 5.4);
+    c.closePath();
+    const g = c.createLinearGradient(0, 2.5, 0, 5.5);
+    g.addColorStop(0, '#f4f6f8');
+    g.addColorStop(0.5, '#a9b0b8');
+    g.addColorStop(1, '#6c737b');
+    c.fillStyle = g;
+    c.fill();
+  });
+  rr(c, 0.5, 0.5, 3.2, 7, 1.2);
+  c.fillStyle = '#8f969d';
+  c.fill();
+  c.strokeStyle = 'rgba(0,0,0,0.6)';
+  c.lineWidth = 0.5;
+  c.stroke();
+}

@@ -16,9 +16,27 @@ derived values in the second table.
 | **Weight** | Mass: pushes others in collisions, shorter spin-outs, but slower to accelerate and turn |
 | **Hull** | Hit points before sinking |
 
-The ratings should add up to about **30** for every boat so that no boat is
-strictly better than another. Boats are balanced by testing lap times on each
-track with no items.
+Every boat has the same budget: **speed counts double** (`2 x speed + accel + handling
++ hull = 32`), and weight counts for nothing, as it is good (collisions, spin-outs) and
+bad (acceleration, turning) at once. Top speed decides most races on canals, so it
+costs the most, and the spread of top speeds is kept small (367 to 387 px/s).
+
+Two more rules keep the field together:
+
+- **A damaged boat is slower**: up to 20 % off its top speed with no hull left, in
+  proportion to the damage (`TUNING.damageSlow`). A tough hull pays; a fragile fast boat
+  that takes a couple of hits is caught.
+- **Catch-up**: a boat behind the leader gets more top speed, nothing within 200 px of
+  the leader, up to +12 % from 1800 px behind (`TUNING.catchUp`), for players and AI
+  alike (online too: the server sends it with each boat).
+
+Boats are balanced with `npx vite-node scripts/balance.ts [races] [track]`: AI-only
+races, every boat driven by the same AI, with items. It prints each boat's win rate (25 %
+is a fair share with four boats a race), how often the lead changes and the gaps at the
+finish. Before this balance pass the speedboat won 83 % of its races on Lock & Load and
+four boats almost never won, leaders won by 8 s and the lead changed 1.5 times a race;
+now every boat wins between 15 and 35 %, the lead changes 2.3 times a race and the gap
+between first and second is about 2.6 s.
 
 ## How the boats are drawn
 
@@ -45,11 +63,11 @@ Every boat is drawn in code, seen from above, bow to the right. There are no ima
 
 | Speed | Accel | Handling | Weight | Hull |
 | --- | --- | --- | --- | --- |
-| 4 | 4 | 5 | 8 | 9 |
+| 6 | 6 | 6 | 8 | 8 |
 
 Play style: steady. First in the list and the default boat: heavy and tough, forgiving for
 beginners. At 150 x 25 px it is by far the longest boat (the real one is about 38 x 5 m), so
-it is hard to get round and its Jigsaw reaches far. It is drawn in its own colours; only its
+it is hard to get round and its Dildo reaches far. It is drawn in its own colours; only its
 gunwale stripes and stern flag take the racer's colour.
 
 ### Coal Barge
@@ -57,17 +75,17 @@ gunwale stripes and stern flag take the racer's colour.
 
 | Speed | Accel | Handling | Weight | Hull |
 | --- | --- | --- | --- | --- |
-| 5 | 3 | 3 | 10 | 9 |
+| 7 | 5 | 5 | 10 | 8 |
 
 Play style: bully. Shrugs off hits, shoves everyone aside, but struggles on
-twisty tracks. Long hull, so its Jigsaw cone reaches far.
+twisty tracks. Long hull, so its Dildo reaches far.
 
 ### Tugboat
 *Short, round and stubborn. Built to push things around.*
 
 | Speed | Accel | Handling | Weight | Hull |
 | --- | --- | --- | --- | --- |
-| 4 | 8 | 5 | 8 | 5 |
+| 5 | 9 | 6 | 8 | 7 |
 
 Play style: brawler. Great acceleration out of spin-outs and corners, heavy
 enough to win most shoves. Low top speed.
@@ -77,7 +95,7 @@ enough to win most shoves. Low top speed.
 
 | Speed | Accel | Handling | Weight | Hull |
 | --- | --- | --- | --- | --- |
-| 5 | 6 | 9 | 4 | 6 |
+| 6 | 6 | 8 | 4 | 6 |
 
 Play style: precise. Turns on a coin, very little drift. Good for beginners
 and twisty canals.
@@ -87,7 +105,7 @@ and twisty canals.
 
 | Speed | Accel | Handling | Weight | Hull |
 | --- | --- | --- | --- | --- |
-| 10 | 8 | 7 | 2 | 3 |
+| 8 | 6 | 5 | 2 | 5 |
 
 Play style: glass cannon. Highest top speed, wide drifting turns, sinks after a
 couple of hits.
@@ -97,7 +115,7 @@ couple of hits.
 
 | Speed | Accel | Handling | Weight | Hull |
 | --- | --- | --- | --- | --- |
-| 6 | 7 | 7 | 5 | 5 |
+| 7 | 6 | 6 | 5 | 6 |
 
 Play style: all-rounder. No weakness, no strength. Its passengers cheer when it
 uses an item.
@@ -107,7 +125,7 @@ uses an item.
 
 | Speed | Accel | Handling | Weight | Hull |
 | --- | --- | --- | --- | --- |
-| 6 | 5 | 5 | 7 | 7 |
+| 6 | 6 | 6 | 7 | 8 |
 
 Special: Glue puddles touched by the Fire Boat are washed away immediately.
 
@@ -116,7 +134,7 @@ Special: Glue puddles touched by the Fire Boat are washed away immediately.
 
 | Speed | Accel | Handling | Weight | Hull |
 | --- | --- | --- | --- | --- |
-| 9 | 8 | 4 | 4 | 5 |
+| 6 | 8 | 4 | 4 | 8 |
 
 Special: slides a lot (very low sideways grip), but ignores shallow water and other
 boats' wakes, and can cut briefly over sandbanks (not solid banks).
@@ -162,9 +180,9 @@ Ratings are mapped linearly between a minimum and a maximum. Starting values:
 
 | Physics value | Rating 1 | Rating 10 | Comes from |
 | --- | --- | --- | --- |
-| `topSpeed` (px/s) | 260 | 440 | Speed |
-| `accel` (px/s²) | 120 | 420 | Acceleration, then divided by `0.7 + 0.03 * weight` |
-| `turnRate` (rad/s) | 1.6 | 3.6 | Handling, then divided by `0.8 + 0.02 * weight` |
+| `topSpeed` (px/s) | 340 | 400 | Speed, then x catch-up and x the damage slowdown |
+| `accel` (px/s²) | 120 | 420 | Acceleration, then divided by `0.85 + 0.015 * weight` |
+| `turnRate` (rad/s) | 1.6 | 3.6 | Handling, then divided by `0.9 + 0.01 * weight` |
 | `lateralGrip` (1/s) | 1.5 | 6.0 | Handling |
 | `mass` | 1.0 | 4.0 | Weight |
 | `maxHull` | 60 | 150 | Hull |
@@ -181,7 +199,7 @@ interface BoatDef {
   name: string;            // 'Coal Barge'
   description: string;
   ratings: { speed: number; accel: number; handling: number; weight: number; hull: number };
-  size: { length: number; width: number }; // px, used for the collision capsule and Jigsaw cone
+  size: { length: number; width: number }; // px, used for the collision capsule and the Dildo's cone
   sprite: string;          // texture key
   engineSound: 'diesel' | 'outboard' | 'turbine' | 'fan';
   specials?: { washesGlue?: boolean; hover?: boolean };

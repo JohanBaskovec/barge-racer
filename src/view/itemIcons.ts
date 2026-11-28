@@ -227,6 +227,97 @@ const ICONS: Record<string, (g: G) => void> = {
     g.fillStyle(0xe8832f).fillTriangle(38, 46, 58, 46, 48, 58); // nozzle
     g.lineStyle(3, OUTLINE).strokeTriangle(38, 46, 58, 46, 48, 58);
   },
+
+  // Dicke Titten: a giant cartoon pair, with a couple of wobble lines.
+  icon_titten: (g) => {
+    g.fillStyle(0x000000, 0.18).fillEllipse(48, 86, 82, 12); // shadow on the water
+    for (const x of [28, 68]) {
+      g.fillStyle(0xf0bf9c).fillCircle(x, 54, 26);
+      g.fillStyle(0xffdcc4).fillCircle(x - 7, 46, 12); // light
+      g.fillStyle(0xd9876f).fillCircle(x + 3, 58, 8.5); // areola
+      g.fillStyle(0xbf5f52).fillCircle(x + 3, 58, 3.6); // nipple
+      g.fillStyle(0xffffff, 0.6).fillCircle(x - 10, 42, 4);
+      g.lineStyle(3, OUTLINE).strokeCircle(x, 54, 26);
+    }
+    g.lineStyle(3, OUTLINE).beginPath().arc(48, 40, 9, Math.PI * 0.15, Math.PI * 0.85).strokePath(); // cleavage
+    g.lineStyle(3, 0xff6fa8);
+    for (const [x, y, d] of [[6, 22, 1], [90, 22, -1]]) g.beginPath().arc(x + d * 6, y, 9, d > 0 ? Math.PI * 0.9 : -Math.PI * 0.1, d > 0 ? Math.PI * 1.4 : Math.PI * 0.4).strokePath();
+    g.fillStyle(0xff6fa8).fillTriangle(40, 10, 48, 20, 56, 10).fillCircle(44, 10, 4.6).fillCircle(52, 10, 4.6); // a little heart
+  },
+
+  // A giant black dildo, diagonal, glossy.
+  icon_dildo: (g) => {
+    const pts = [V(70, 12), V(82, 18), V(86, 30), V(80, 40), V(40, 80), V(30, 82), V(18, 78), V(14, 66), V(18, 56), V(58, 18)];
+    g.fillStyle(0x1d1d22).fillPoints(pts, true);
+    g.lineStyle(3, 0x000000).strokePoints(pts, true);
+    g.fillStyle(0x1d1d22).fillCircle(78, 22, 13); // the tip
+    g.lineStyle(3, 0x000000).strokeCircle(78, 22, 13);
+    g.fillStyle(0x2c2c33).fillCircle(20, 76, 13).fillCircle(32, 84, 10); // the base
+    g.lineStyle(3, 0x000000).strokeCircle(20, 76, 13);
+    g.fillStyle(0xffffff, 0.55).fillPoints([V(66, 20), V(72, 22), V(34, 62), V(28, 60)], true); // shine
+    g.fillStyle(0xffffff, 0.75).fillCircle(74, 16, 3.5);
+    g.lineStyle(2, 0x44444c);
+    for (const t of [0.35, 0.5]) g.lineBetween(14 + 60 * t + 4, 66 - 50 * t - 6, 26 + 60 * t + 4, 78 - 50 * t - 6); // ridges
+  },
+
+  // A nail gun: orange body, black grip, a strip of nails, three nails flying out.
+  icon_nailGun: (g) => {
+    g.fillStyle(0x2f3338).fillRoundedRect(22, 46, 16, 36, 6); // grip
+    g.lineStyle(3, OUTLINE).strokeRoundedRect(22, 46, 16, 36, 6);
+    g.fillStyle(0xe8742a).fillRoundedRect(8, 22, 56, 28, 9); // body
+    g.lineStyle(3, OUTLINE).strokeRoundedRect(8, 22, 56, 28, 9);
+    g.fillStyle(0xffffff, 0.4).fillRoundedRect(14, 26, 30, 6, 3);
+    g.fillStyle(0x8f969d).fillRect(40, 50, 26, 10); // magazine
+    g.lineStyle(2, OUTLINE).strokeRect(40, 50, 26, 10);
+    for (let k = 0; k < 6; k++) g.fillStyle(0xd7dde2).fillRect(42 + k * 4, 52, 2, 6);
+    g.fillStyle(0x3b4048).fillRect(62, 30, 10, 12); // nose
+    g.lineStyle(2, OUTLINE).strokeRect(62, 30, 10, 12);
+    // three nails
+    for (const [x, y] of [[76, 36], [84, 24], [84, 48]]) {
+      g.fillStyle(0xc9ced4).fillRect(x, y - 1.5, 12, 3);
+      g.fillStyle(0x8f969d).fillRect(x, y - 3.5, 2.5, 7);
+      g.fillStyle(0xc9ced4).fillTriangle(x + 12, y - 1.5, x + 12, y + 1.5, x + 15, y);
+    }
+  },
+
+  // Gas siphoning: a red jerrycan with a hose sucking the last drop out.
+  icon_siphon: (g) => {
+    g.fillStyle(0xd23b2f).fillRoundedRect(14, 30, 48, 58, 8); // can
+    g.lineStyle(3, OUTLINE).strokeRoundedRect(14, 30, 48, 58, 8);
+    g.fillStyle(0xffffff, 0.35).fillRoundedRect(19, 36, 8, 46, 4);
+    g.lineStyle(3, 0x9c2a22).lineBetween(22, 44, 54, 76).lineBetween(54, 44, 22, 76); // the X pressing
+    g.fillStyle(0x2f3338).fillRoundedRect(22, 18, 24, 12, 4); // handle
+    g.lineStyle(3, OUTLINE).strokeRoundedRect(22, 18, 24, 12, 4);
+    g.fillStyle(0xf2c12e).fillRect(50, 20, 10, 12); // spout
+    g.lineStyle(2, OUTLINE).strokeRect(50, 20, 10, 12);
+    // the hose, out of the spout and down
+    g.lineStyle(6, OUTLINE).beginPath().moveTo(56, 20).lineTo(70, 8).lineTo(84, 18).lineTo(84, 70).strokePath();
+    g.lineStyle(3, 0x7fc8a9).beginPath().moveTo(56, 20).lineTo(70, 8).lineTo(84, 18).lineTo(84, 70).strokePath();
+    g.fillStyle(0x6b4e1f).fillCircle(84, 80, 5).fillTriangle(79, 79, 89, 79, 84, 70); // a drop of fuel
+    // an empty gauge
+    g.fillStyle(0xffffff).fillCircle(38, 60, 12);
+    g.lineStyle(2.5, OUTLINE).strokeCircle(38, 60, 12);
+    g.lineStyle(3, 0xd23b2f).lineBetween(38, 60, 30, 54);
+    g.fillStyle(OUTLINE).fillCircle(38, 60, 2.5);
+  },
+
+  // A little red tugboat towing on a rope.
+  icon_tugboat: (g) => {
+    g.lineStyle(3, 0xc9a66b).beginPath().moveTo(10, 78).lineTo(24, 60).lineTo(34, 56).strokePath(); // tow rope
+    g.fillStyle(0x2b4f7a).fillPoints([V(30, 50), V(80, 50), V(92, 58), V(80, 70), V(30, 70)], true); // hull
+    g.lineStyle(3, OUTLINE).strokePoints([V(30, 50), V(80, 50), V(92, 58), V(80, 70), V(30, 70)], true);
+    g.fillStyle(0x1f1f24).fillRect(30, 60, 58, 4); // rubber fender
+    g.fillStyle(0xf2f2f2).fillRoundedRect(42, 30, 30, 22, 4); // wheelhouse
+    g.lineStyle(3, OUTLINE).strokeRoundedRect(42, 30, 30, 22, 4);
+    g.fillStyle(0x7fc8f2).fillRect(46, 34, 8, 8).fillRect(58, 34, 8, 8); // windows
+    g.fillStyle(0xd23b2f).fillRect(48, 14, 10, 18); // funnel
+    g.lineStyle(3, OUTLINE).strokeRect(48, 14, 10, 18);
+    g.fillStyle(0x1f1f24).fillRect(48, 14, 10, 4);
+    g.fillStyle(0xcfd4d8, 0.9).fillCircle(56, 8, 5).fillCircle(64, 4, 4); // smoke
+    g.fillStyle(0xff8a1f).fillCircle(36, 56, 4); // life ring
+    g.lineStyle(3, 0x7fc8f2, 0.8);
+    for (const y of [76, 84]) g.beginPath().moveTo(30, y).lineTo(44, y - 3).lineTo(58, y).lineTo(72, y - 3).lineTo(86, y).strokePath(); // waves
+  },
 };
 
 export function generateItemIcons(scene: Phaser.Scene): void {

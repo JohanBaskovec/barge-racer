@@ -62,7 +62,11 @@ sinking boat, without the 2 s delay.
 | Item | When the AI uses it |
 | --- | --- |
 | Volunteers | When there is a racer ahead within 900 px of track distance, or right away if it's 1st (fired backwards at someone close behind) |
-| Jigsaw | When a boat is ahead within 250 px and roughly in front |
+| Jigsaw | When a boat is alongside, close |
+| Giant Black Dildo | When a boat is just ahead, roughly in front |
+| Nail Gun | A boat in line ahead within 700 px (behind within 450 px: backwards) |
+| Dicke Titten, Gas Siphoning | Not leading, with a boat ahead within 1800 px |
+| Tugboat | Whenever it isn't leading, or just after a hit |
 | White Powder | On a long straight, or right after a spin-out to catch up |
 | Electric Drill | When a boat is in a narrow cone in front (±6°) within 800 px, or backwards if someone is right behind |
 | Glue | When it is 1st or 2nd and someone is within 400 px behind, preferably in a narrow section |
@@ -104,7 +108,7 @@ feels earned.
 
 Optional per-opponent personality on top of difficulty, for flavour:
 
-- **Aggressive**: uses items earlier, steers into opponents with a Jigsaw.
+- **Aggressive**: uses items earlier, steers into opponents with a Dildo.
 - **Careful**: keeps the line, saves defensive items.
 - **Chaotic**: random item timing, likes Glue.
 
