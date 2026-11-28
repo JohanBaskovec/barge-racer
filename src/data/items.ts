@@ -234,12 +234,12 @@ export const TUNING = {
   /** Premature Celebration (useless, for the leader): a bottle of champagne: a little drunker than a beer (`sway` x the beer's), no repair. */
   champagne: { drunkTime: 5, sway: 1.3 },
   /** Enlarge your péniche: the boat is twice its size for `duration` s (no heavier, nothing else). */
-  enlarge: { duration: 8, size: 2 },
+  enlarge: { duration: 16, size: 2 },
   /**
    * Circular saw: for `duration` s a saw blade runs round the hull (`gap` px out from it, `spin`
    * rad/s), hurting every boat it touches (`damage`, then not that boat again for `every` s).
    */
-  circularSaw: { duration: 5, spin: 4.5, gap: 16, radius: 15, damage: 20, every: 0.9 },
+  circularSaw: { duration: 5, spin: 4.5, gap: 26, radius: 26, damage: 20, every: 0.9 },
   /**
    * Motorized stairs: every opponent's screen is hidden for `warn` s by retractable stairs unfolding
    * from the ceiling; then stairs come out of a bank `ahead` px in front of each of them and unfold

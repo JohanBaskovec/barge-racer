@@ -363,14 +363,14 @@ beer: 5 s instead of 4, weaving 1.3 times as far.
 
 ### 27. Enlarge your péniche
 
-(Called that in every language.) Your boat is **twice its size** for 8 s, then shrinks back
+(Called that in every language.) Your boat is **twice its size** for 16 s, then shrinks back
 smoothly. Nothing else: no faster, no heavier, no tougher. Bigger is easier to hit and
 harder to squeeze through. Mostly for the front.
 
 ### 28. Circular Saw
 
-For 5 s a **saw blade runs round your hull** (16 px out from it, about three-quarters of a
-turn a second), sparks flying. Every boat it touches is hurt (20 hull), then not again for
+For 5 s a big **saw blade** (about 60 px across) **runs round your hull** (26 px out from it,
+about three-quarters of a turn a second), sparks flying. Every boat it touches is hurt (20 hull), then not again for
 0.9 s. Drive alongside or nose up to someone to make it count.
 
 ### 29. Motorized Stairs
@@ -424,7 +424,7 @@ orange ring round its button and its uses left.
 | Painting Workshop | Trail of paint, paint on the screen | 0 | 3 s trail, 10 s each splash | Drive round it |
 | Lost in Translation | Opponents' games in another language | 0 | 20 s | Speak languages |
 | Premature Celebration | Nothing (you get drunk) | 0 | 5 s | - |
-| Enlarge your péniche | Twice the size | 0 | 8 s | - |
+| Enlarge your péniche | Twice the size | 0 | 16 s | - |
 | Circular Saw | Blade running round the hull | 20 per touch | 5 s | Keep your distance |
 | Motorized Stairs | Screen hidden, then stairs across the canal in front of every opponent | 26 | 2.4 s + 7.4 s | Go round them |
 
