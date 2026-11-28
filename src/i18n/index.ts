@@ -1,5 +1,7 @@
 import { en, enOrdinal, type TranslationKey } from './en';
 import { fr, frOrdinal } from './fr';
+import { de, deOrdinal } from './de';
+import { es, esOrdinal } from './es';
 
 export type { TranslationKey };
 
@@ -16,6 +18,8 @@ export interface Language {
 export const LANGUAGES: Language[] = [
   { code: 'en', name: 'English', strings: en, ordinal: enOrdinal },
   { code: 'fr', name: 'Français', strings: fr, ordinal: frOrdinal },
+  { code: 'de', name: 'Deutsch', strings: de, ordinal: deOrdinal },
+  { code: 'es', name: 'Español', strings: es, ordinal: esOrdinal },
 ];
 
 const KEY = 'barge-racer-lang';

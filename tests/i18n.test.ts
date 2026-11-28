@@ -55,6 +55,15 @@ describe('t()', () => {
     expect(trackName('lockAndLoad')).toBe('Écluse Express');
   });
 
+  it('speaks German and Spanish too, with their own ordinals', () => {
+    setLanguage('de');
+    expect(t('hud.lap', { n: 2, total: 3 })).toBe('Runde 2/3');
+    expect(ordinal(3)).toBe('3.');
+    setLanguage('es');
+    expect(ordinal(3)).toBe('3.º');
+    expect(LANGUAGES.map((l) => l.code)).toEqual(['en', 'fr', 'de', 'es']);
+  });
+
   it('calls volunteers "bénévoles" in French', () => {
     setLanguage('fr');
     expect(t('item.volunteer')).toBe('Bénévoles');

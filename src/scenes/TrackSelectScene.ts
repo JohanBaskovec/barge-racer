@@ -50,9 +50,11 @@ export class TrackSelectScene extends Phaser.Scene {
       this.cards.push({ id: def.id, frame });
       this.drawPreview(def.id, x, 270, cardW - 50);
       fitText(text(this, x, 410, trackName(def.id), 30), cardW - 22);
-      this.add
+      const desc = this.add
         .text(x, 438, trackDesc(def.id), { fontSize: '16px', color: '#d7efff', align: 'center', wordWrap: { width: cardW - 22 }, fontFamily: 'Trebuchet MS, Verdana, sans-serif', resolution: 2 })
         .setOrigin(0.5, 0);
+      // Longer languages: a smaller font until it fits the card.
+      for (let size = 15; desc.height > 76 && size >= 12; size--) desc.setFontSize(size);
       const track = loadTrack(def.id, session.sections?.[def.id]);
       const info = track.closed ? t('trackSelect.laps', { n: def.laps }) : t('trackSelect.distance', { km: formatNumber(track.lapLength / (def.pxPerM ?? 10) / 1000) });
       text(this, x, 128, info, 20, '#ffe08a');
