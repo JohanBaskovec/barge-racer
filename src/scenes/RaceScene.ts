@@ -19,6 +19,7 @@ import { MapRenderer, type SceneryData } from '../view/MapRenderer';
 import { generateScenery } from '../view/sceneryGen';
 import { TrafficView } from '../view/trafficView';
 import { StreetLife } from '../view/streetLife';
+import { HazardView } from '../view/hazardView';
 import { WORLD_ART_SCALE } from '../view/textures';
 import { options } from '../options';
 import { hasEffect } from '../effects/effects';
@@ -49,6 +50,7 @@ export class RaceScene extends Phaser.Scene {
   trafficView: TrafficView | null = null;
   /** Cars and people round the camera: decoration only. */
   streetLife: StreetLife | null = null;
+  private hazardView: HazardView | null = null;
   /** 0..1: how psychedelic the screen is (mushrooms). The HUD reads this for its colour wash. */
   trip = 0;
   private tripT = 0;
@@ -95,6 +97,7 @@ export class RaceScene extends Phaser.Scene {
     this.dropSprites.clear();
     this.trafficView = null;
     this.streetLife = null;
+    this.hazardView = null;
     this.trip = 0;
     this.tripT = 0;
     this.tripFx = null;
@@ -177,6 +180,7 @@ export class RaceScene extends Phaser.Scene {
     this.fx = new Fx(this);
     this.raceAudio = new RaceAudio(this, this.sim);
     this.trafficView = new TrafficView(this, this.sim, wake, wakeArm, this.raceAudio);
+    this.hazardView = new HazardView(this, this.sim, this.raceAudio);
     audio.muteEngines(false);
     audio.duckMusic(false);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.raceAudio.destroy());
@@ -232,6 +236,7 @@ export class RaceScene extends Phaser.Scene {
     const followed = this.views[this.sim.player!.id];
     this.trafficView?.update(trafficT, dt, followed ? { x: followed.x, y: followed.y } : null);
     this.syncEntities(time, dt);
+    this.hazardView?.update(time, dt);
     this.trackView.update(time);
     this.streetLife?.update(Math.min(dt, 0.1));
     this.updateTrip(time, dt);
@@ -461,8 +466,20 @@ export class RaceScene extends Phaser.Scene {
   private handleEvent(e: RaceEvent): void {
     this.events.emit('race-event', e);
     this.raceAudio.onEvent(e);
+    this.hazardView?.onEvent(e);
     const player = this.sim.player!;
     switch (e.type) {
+      case 'shieldPop': {
+        // The head of foam bursts.
+        const r = this.sim.racers[e.racer];
+        this.sparks.setParticleTint(0xfff3c4);
+        this.sparks.emitParticleAt(r.x, r.y, 26);
+        this.fx.splash(r.x, r.y, 0.9);
+        break;
+      }
+      case 'splat':
+        if (e.racer === player.id && !this.reduceShake()) this.cameras.main.shake(140, 0.004);
+        break;
       case 'hit': {
         const r = this.sim.racers[e.racer];
         if (e.source === 'toilet') {

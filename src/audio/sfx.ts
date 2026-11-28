@@ -128,6 +128,42 @@ export const SFX = {
       tone(c, d, { type: 'sine', freq: 588, dur: 0.24, gain: 0.1, attack: 0.02, at });
     }
   },
+  /** A police siren: one rise and fall */
+  siren: (c: Ctx, d: AudioNode) => {
+    tone(c, d, { type: 'square', freq: 700, freqEnd: 1150, dur: 0.5, gain: 0.07, lowpass: 2200 });
+    tone(c, d, { type: 'square', freq: 1150, freqEnd: 700, dur: 0.5, gain: 0.07, lowpass: 2200, at: 0.5 });
+  },
+  /** A gunshot: a crack and a short boom */
+  gunshot: (c: Ctx, d: AudioNode) => {
+    noise(c, d, { dur: 0.06, filter: 'highpass', freq: 1800, gain: 0.6 });
+    noise(c, d, { dur: 0.25, filter: 'lowpass', freq: 600, freqEnd: 120, gain: 0.5, at: 0.01 });
+  },
+  /** An angler casting: the reel whirring out */
+  cast: (c: Ctx, d: AudioNode) => {
+    for (let i = 0; i < 10; i++) noise(c, d, { dur: 0.02, filter: 'bandpass', freq: 3200, q: 4, gain: 0.25, at: i * 0.035 });
+    tone(c, d, { type: 'sine', freq: 900, freqEnd: 500, dur: 0.15, gain: 0.08, at: 0.36 });
+  },
+  /** Caught on a line: a fast reel and a twang */
+  reel: (c: Ctx, d: AudioNode) => {
+    tone(c, d, { type: 'triangle', freq: 180, freqEnd: 90, dur: 0.3, gain: 0.25, vibrato: [20, 30] });
+    for (let i = 0; i < 14; i++) noise(c, d, { dur: 0.015, filter: 'bandpass', freq: 2600, q: 4, gain: 0.2, at: 0.05 + i * 0.025 });
+  },
+  /** Running something over: a wet splat and a squelch */
+  splat: (c: Ctx, d: AudioNode) => {
+    noise(c, d, { dur: 0.22, filter: 'lowpass', freq: 1400, freqEnd: 200, gain: 0.7 });
+    tone(c, d, { type: 'sine', freq: 220, freqEnd: 60, dur: 0.2, gain: 0.35 });
+    noise(c, d, { dur: 0.15, filter: 'bandpass', freq: 900, q: 2, gain: 0.3, at: 0.12 });
+  },
+  /** The beer dispenser's foam taking a hit: a big bubble pop */
+  pop: (c: Ctx, d: AudioNode) => {
+    tone(c, d, { type: 'sine', freq: 400, freqEnd: 1400, dur: 0.08, gain: 0.3 });
+    noise(c, d, { dur: 0.4, filter: 'highpass', freq: 4500, gain: 0.15, at: 0.05, attack: 0.02 });
+  },
+  /** A vacuum cleaner: a roar that rises and holds */
+  vacuum: (c: Ctx, d: AudioNode) => {
+    noise(c, d, { dur: 2.9, filter: 'bandpass', freq: 500, freqEnd: 900, q: 0.8, gain: 0.35, attack: 0.25 });
+    tone(c, d, { type: 'sawtooth', freq: 120, freqEnd: 160, dur: 2.9, gain: 0.05, lowpass: 900, attack: 0.25 });
+  },
   /** A barge's horn: one long, low blast */
   horn: (c: Ctx, d: AudioNode) => {
     tone(c, d, { type: 'sawtooth', freq: 110, dur: 0.9, gain: 0.16, lowpass: 600, attack: 0.08, release: 0.2 });

@@ -54,6 +54,7 @@ export class HudScene extends Phaser.Scene {
   /** Melted cheese covering the view (raclette), and which status effects were on last frame (to announce new ones). */
   private cheese!: Phaser.GameObjects.Image;
   private seen = new Set<string>();
+  private lastSplatPopup = 0;
   private lastToxicPopup = -9999;
   private netText!: Phaser.GameObjects.Text;
 
@@ -349,6 +350,26 @@ export class HudScene extends Phaser.Scene {
         break;
       case 'finish':
         if (e.racer === me) this.flashBig(e.position === 0 ? t('hud.winner') : t('hud.finish'), '#ffe08a', 90);
+        break;
+      case 'shieldPop':
+        if (e.racer === me) this.popup(t('hud.foam'), '#ffe08a');
+        break;
+      case 'cops':
+        if (e.racer === me) {
+          if (e.phase === 'warn') this.flashBig(t('hud.speeding'), '#ff5a4d', 92);
+          else if (e.phase === 'chase') this.popup(t('hud.police'), '#9fd8ff');
+          else if (e.phase === 'ticket') this.flashBig(t('hud.ticket'), '#9fd8ff', 92);
+        } else if (e.phase === 'warn') this.popup(t('hud.policeAfter', { name: sim.racers[e.racer].name }), '#9fd8ff');
+        else if (e.phase === 'ticket') this.popup(t('hud.pulledOver', { name: sim.racers[e.racer].name }), '#ffe08a');
+        break;
+      case 'hooked':
+        if (e.racer === me) this.popup(t('hud.hooked'), '#ff8a7a');
+        break;
+      case 'splat':
+        if (e.racer === me && this.time.now - this.lastSplatPopup > 2500) {
+          this.lastSplatPopup = this.time.now;
+          this.popup(t(e.kind === 0 ? 'hud.splatBirds' : e.kind === 1 ? 'hud.splatRowers' : 'hud.splatSwimmers'), '#ff6b6b');
+        }
         break;
       default:
         break;

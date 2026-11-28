@@ -20,6 +20,7 @@ const useItems = process.argv[5] !== '0';
 
 const track = loadTrack(trackId);
 const stats = new Map(BOATS.map((b) => [b.id, { races: 0, wins: 0, placeSum: 0 }]));
+const hz = { cops: 0, tickets: 0, hooked: 0, splatByPos: [0, 0, 0, 0] };
 const hitsByPos = [0, 0, 0, 0], firedByPos = [0, 0, 0, 0], sunkByPos = [0, 0, 0, 0];
 let leadChanges = 0, gapSum = 0, gapN = 0, lastGapSum = 0, timeSum = 0;
 const rng = new Rng(12345);
@@ -43,6 +44,10 @@ for (let n = 0; n < races; n++) {
       if (e.type === 'hit' && e.source !== 'bank') hitsByPos[sim.racers[e.racer].position]++;
       if (e.type === 'itemUsed') firedByPos[sim.racers[e.racer].position]++;
       if (e.type === 'sunk') sunkByPos[sim.racers[e.racer].position]++;
+      if (e.type === 'cops' && e.phase === 'chase') hz.cops++;
+      if (e.type === 'cops' && e.phase === 'ticket') hz.tickets++;
+      if (e.type === 'hooked') hz.hooked++;
+      if (e.type === 'splat') hz.splatByPos[sim.racers[e.racer].position]++;
     }
     if (sim.phase !== 'racing') continue;
     const lead = sim.racers.find((r) => r.position === 0)!;
@@ -73,6 +78,7 @@ console.log(`${races} races on ${trackId} (${difficulty}, items ${useItems ? 'on
 console.log(`lead changes per race ${(leadChanges / races).toFixed(2)}, gap 1st-2nd ${(gapSum / Math.max(1, gapN)).toFixed(2)} s, 1st-last ${(lastGapSum / races).toFixed(2)} s`);
 const per = (a: number[]): string => a.map((v) => (v / races).toFixed(1)).join(' / ');
 console.log(`per race, by place 1st/2nd/3rd/4th: hits taken ${per(hitsByPos)}, items fired ${per(firedByPos)}, sunk ${per(sunkByPos)}`);
+console.log(`hazards per race: police chases ${(hz.cops / races).toFixed(2)} (pulled over ${(hz.tickets / races).toFixed(2)}), hooked ${(hz.hooked / races).toFixed(2)}, splats by place ${per(hz.splatByPos)}`);
 for (const [id, s] of [...stats].sort((a, b) => b[1].wins / Math.max(1, b[1].races) - a[1].wins / Math.max(1, a[1].races))) {
   console.log(`  ${id.padEnd(20)} wins ${((100 * s.wins) / Math.max(1, s.races)).toFixed(0).padStart(3)}%  avg place ${(s.placeSum / Math.max(1, s.races)).toFixed(2)}  (${s.races} races)`);
 }

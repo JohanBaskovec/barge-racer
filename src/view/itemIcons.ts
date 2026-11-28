@@ -318,6 +318,39 @@ const ICONS: Record<string, (g: G) => void> = {
     g.lineStyle(3, 0x7fc8f2, 0.8);
     for (const y of [76, 84]) g.beginPath().moveTo(30, y).lineTo(44, y - 3).lineTo(58, y).lineTo(72, y - 3).lineTo(86, y).strokePath(); // waves
   },
+
+  // A bar's beer tap pouring into a foaming glass.
+  icon_beerDispenser: (g) => {
+    g.fillStyle(0xb8bec4).fillRoundedRect(10, 10, 52, 16, 6); // the tap's bar
+    g.lineStyle(3, OUTLINE).strokeRoundedRect(10, 10, 52, 16, 6);
+    g.fillStyle(0x2f3338).fillRoundedRect(28, 0, 12, 14, 4); // handle
+    g.fillStyle(0xf2c12e).fillRoundedRect(26, 2, 16, 6, 3);
+    g.fillStyle(0xb8bec4).fillRect(50, 24, 8, 12); // spout
+    g.lineStyle(2, OUTLINE).strokeRect(50, 24, 8, 12);
+    g.fillStyle(0xf2b02e).fillRect(52, 36, 4, 14); // the pour
+    // the glass
+    g.fillStyle(0xf2b02e).fillPoints([V(36, 52), V(78, 52), V(74, 92), V(40, 92)], true);
+    g.fillStyle(0xffffff, 0.3).fillRect(44, 56, 5, 32);
+    g.fillStyle(0xfff6dc).fillEllipse(57, 50, 48, 16).fillCircle(42, 48, 7).fillCircle(56, 44, 9).fillCircle(70, 47, 7); // foam
+    g.lineStyle(3, OUTLINE).strokePoints([V(36, 52), V(78, 52), V(74, 92), V(40, 92)], true);
+    // a sparkle of protection
+    g.fillStyle(0xfff8c0);
+    for (const [x, y, sz] of [[16, 56, 7], [86, 30, 6], [88, 70, 5]]) g.fillTriangle(x - sz, y, x, y - sz * 1.6, x + sz, y).fillTriangle(x - sz, y, x, y + sz * 1.6, x + sz, y);
+  },
+
+  // A canister vacuum cleaner with its hose and nozzle, and lines being sucked in.
+  icon_vacuum: (g) => {
+    g.lineStyle(7, OUTLINE).beginPath().moveTo(30, 62).lineTo(46, 40).lineTo(62, 30).strokePath(); // hose
+    g.lineStyle(4, 0x5c636c).beginPath().moveTo(30, 62).lineTo(46, 40).lineTo(62, 30).strokePath();
+    g.fillStyle(0xd23b2f).fillRoundedRect(4, 56, 46, 30, 12); // canister
+    g.lineStyle(3, OUTLINE).strokeRoundedRect(4, 56, 46, 30, 12);
+    g.fillStyle(0xffffff, 0.35).fillRoundedRect(10, 60, 26, 6, 3);
+    g.fillStyle(0x2f3338).fillCircle(12, 88, 5).fillCircle(42, 88, 5); // wheels
+    g.fillStyle(0x2f3338).fillPoints([V(60, 26), V(78, 16), V(84, 22), V(66, 36)], true); // nozzle
+    g.lineStyle(2.5, OUTLINE).strokePoints([V(60, 26), V(78, 16), V(84, 22), V(66, 36)], true);
+    g.lineStyle(3, 0x7fc8f2, 0.9);
+    for (const [x0, y0, x1, y1] of [[94, 6, 84, 14], [96, 22, 88, 22], [92, 38, 84, 30], [78, 2, 76, 10]]) g.lineBetween(x0, y0, x1, y1);
+  },
 };
 
 export function generateItemIcons(scene: Phaser.Scene): void {

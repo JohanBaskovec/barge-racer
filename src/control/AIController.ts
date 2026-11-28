@@ -132,9 +132,33 @@ export class AIController implements Controller {
         if (this.dodge.get(b.id)) lateralPx += (side >= 0 ? -1 : 1) * (gap - Math.abs(side) + 15);
       }
     }
-    // Dodge incoming drill bits and raclette shots (sometimes).
-    for (const d of [...sim.items.drills, ...sim.items.shots.filter((x) => x.wait <= 0)]) {
-      if (d.owner === r.id) continue;
+    // Birds, rowers and swimmers: swerve round them (sometimes: running them over only slows you).
+    const hz = sim.hazards;
+    for (const c of hz.critters) {
+      const p = hz.critterPos(c);
+      const dx = p.x - r.x;
+      const dy = p.y - r.y;
+      const fwd = dx * hx + dy * hy;
+      const side = -dx * hy + dy * hx;
+      const gap = TUNING.critters.radius[c.kind] + r.stats.capRadius + 15;
+      if (fwd > 0 && fwd < 340 && Math.abs(side) < gap) {
+        if (!this.dodge.has(-c.id)) this.dodge.set(-c.id, this.rng.chance(Math.min(0.9, this.diff.drillDodge + 0.2)));
+        if (this.dodge.get(-c.id)) lateralPx += (side >= 0 ? -1 : 1) * (gap - Math.abs(side) + 10);
+      }
+    }
+    // An angler's line ahead, cast for this boat: keep to the far side of the canal.
+    for (const a of hz.anglers) {
+      if (a.target !== r.id || a.hooked) continue;
+      let ahead = a.along - along;
+      if (track.closed) ahead = ((ahead % track.length) + track.length * 1.5) % track.length - track.length / 2;
+      if (ahead > -40 && ahead < 520) {
+        if (!this.dodge.has(-1000 - a.id)) this.dodge.set(-1000 - a.id, this.rng.chance(Math.min(0.9, this.diff.drillDodge + 0.3)));
+        if (this.dodge.get(-1000 - a.id)) lateralPx = -a.side * hw * 0.7;
+      }
+    }
+    // Dodge incoming drill bits, raclette shots, nails and police bullets (sometimes).
+    const incoming = [...sim.items.drills, ...sim.items.shots].filter((x) => x.owner !== r.id && !('wait' in x && x.wait > 0)) as { id: number; x: number; y: number; heading: number }[];
+    for (const d of [...incoming, ...sim.hazards.bullets.filter((b) => b.target === r.id)]) {
       const dx = r.x - d.x;
       const dy = r.y - d.y;
       const f = dx * Math.cos(d.heading) + dy * Math.sin(d.heading);
@@ -268,6 +292,16 @@ export class AIController implements Controller {
       case 'siphon':
         // They hit every opponent: best from behind, with someone worth passing not too far ahead.
         if (r.position > 0 && others.some((o) => o.progress > r.progress && o.progress - r.progress < 1800)) return 'forward';
+        break;
+      case 'beerDispenser':
+        if (r.hull < r.stats.maxHull * 0.65 && !hasEffect(r, 'shielded')) return 'forward';
+        break;
+      case 'vacuum':
+        // Boats ahead, in front and in reach of the nozzle.
+        if (others.some((o) => {
+          const q = rel(o);
+          return q.f > 0 && q.d < TUNING.vacuum.range * 0.8 && q.f / Math.max(1, q.d) > Math.cos(TUNING.vacuum.halfAngle);
+        })) return 'forward';
         break;
       case 'tugboat':
         // A tow: whenever there is ground to make up, or straight away when not leading.

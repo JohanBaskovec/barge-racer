@@ -79,6 +79,7 @@ barge-racer/
 │   ├── view/
 │   │   ├── BoatView.ts       # sprite, wake, damage overlays
 │   │   ├── streetLife.ts     # decorative cars and people round the camera
+│   │   ├── hazardView.ts     # police boat, anglers, birds, rowers, swimmers
 │   │   ├── CameraController.ts
 │   │   └── Minimap.ts
 │   ├── audio/

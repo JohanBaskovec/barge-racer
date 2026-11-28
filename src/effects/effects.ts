@@ -25,7 +25,17 @@ export type EffectKind =
   /** Gas siphoned: no thrust, the boat stops. */
   | 'siphoned'
   /** Towed by a tugboat: steered along the canal, fast, through glue. */
-  | 'towed';
+  | 'towed'
+  /** Beer dispenser: a head of foam that takes the next hit. */
+  | 'shielded'
+  /** Vacuum cleaner, on the user: sucking the boats ahead in. */
+  | 'vacuum'
+  /** Pulled over by the police: stopped while the ticket is written. */
+  | 'ticketed'
+  /** Caught on an angler's line: dragged towards the bank. */
+  | 'hooked'
+  /** Ran over birds, rowers or swimmers: slowed by the mess for a moment. */
+  | 'splattered';
 
 export interface Effect {
   kind: EffectKind;
@@ -88,6 +98,15 @@ export function computeMods(holder: EffectHolder): Mods {
       case 'siphoned':
         m.accel = 0;
         m.drag += TUNING.siphon.drag;
+        break;
+      case 'ticketed':
+        m.accel = 0;
+        m.control = 0;
+        m.drag += TUNING.cops.ticketDrag;
+        break;
+      case 'splattered':
+        m.topSpeed *= TUNING.critters.slowMult;
+        m.drag += TUNING.critters.drag;
         break;
       case 'towed':
         m.topSpeed *= TUNING.tugboat.topSpeed;

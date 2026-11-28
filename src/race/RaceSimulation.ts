@@ -3,6 +3,7 @@ import { DIFFICULTIES, type Difficulty } from '../data/difficulty';
 import { type ItemId, TUNING } from '../data/items';
 import { addEffect, hasEffect, removeEffect, tickEffects } from '../effects/effects';
 import { ItemSystem } from '../items/ItemSystem';
+import { HazardSystem } from './hazards';
 import { setRacerSize, stepBoat } from '../physics/BoatPhysics';
 import { resolveBank, resolveBoatPair, resolveStatic } from '../physics/collisions';
 import { type BargePose, Traffic, bargeCapsule } from './traffic';
@@ -10,7 +11,7 @@ import { applyWater } from './water';
 import { AIController } from '../control/AIController';
 import { Rng } from '../physics/math';
 import type { Track } from '../track/Track';
-import type { Controller, ControlIntent, Racer, RaceEvent } from './types';
+import type { Controller, ControlIntent, HitSource, Racer, RaceEvent } from './types';
 
 export const STEP = 1 / 60;
 /** How fast a boat shrinks and grows back, in size per second. */
@@ -65,6 +66,8 @@ export class RaceSimulation {
   readonly rng: Rng;
   readonly racers: Racer[] = [];
   readonly items: ItemSystem;
+  /** Police and anglers for the leader; birds, rowers and swimmers for everyone. */
+  readonly hazards: HazardSystem;
   readonly difficulty: Difficulty;
   readonly forcedItem: ItemId | null;
   player: Racer | null = null;
@@ -117,6 +120,7 @@ export class RaceSimulation {
     this.traffic = new Traffic(this.track, (setup.seed ^ 0x5eed) >>> 0);
     this.trafficPoses = this.traffic.poses(0);
     this.items = new ItemSystem(this);
+    this.hazards = new HazardSystem(this);
     this.updateRanking();
   }
 
@@ -270,8 +274,9 @@ export class RaceSimulation {
       }
     }
 
-    // 5. Items and entities
+    // 5. Items, entities and hazards
     this.items.update(dt);
+    this.hazards.update(dt);
 
     // 6. Race rules
     for (const r of this.racers) this.updateProgress(r);
@@ -329,8 +334,9 @@ export class RaceSimulation {
   }
 
   /** Apply damage, a spin-out and brief invulnerability. Returns true if the hit landed. */
-  hit(r: Racer, damage: number, by: number | null, source: ItemId | 'bank', spin = true): boolean {
+  hit(r: Racer, damage: number, by: number | null, source: HitSource, spin = true): boolean {
     if (hasEffect(r, 'invulnerable') || r.sinkTimer > 0 || this.isGhost(r)) return false;
+    if (this.popShield(r, source)) return false;
     r.hull -= damage;
     r.sinceHit = 0;
     addEffect(r, 'invulnerable', TUNING.hitInvulnerable);
@@ -348,7 +354,10 @@ export class RaceSimulation {
   private crash(r: Racer, impact: number, damage: number): void {
     this.emit({ type: 'bank', racer: r.id, strength: impact });
     if (r.bankHitCooldown > 0) return;
-    if (hasEffect(r, 'soaked') && impact > r.stats.topSpeed * 0.2) {
+    if (this.hazards.hookedCrash(r, impact)) {
+      // Dragged into the bank by an angler's line.
+      r.bankHitCooldown = 1;
+    } else if (hasEffect(r, 'soaked') && impact > r.stats.topSpeed * 0.2) {
       // Pushed into it by a Kärcher: a proper crash, and a spin-out.
       r.bankHitCooldown = 1;
       removeEffect(r, 'soaked');
@@ -372,11 +381,24 @@ export class RaceSimulation {
   }
 
   /**
+   * A beer dispenser's head of foam takes a hit instead of the boat (not a bump on the bank): it
+   * bursts, and the boat blinks as if hit, so the same thing can't hurt it a moment later.
+   */
+  popShield(r: Racer, source: HitSource): boolean {
+    if (source === 'bank' || !hasEffect(r, 'shielded')) return false;
+    removeEffect(r, 'shielded');
+    addEffect(r, 'invulnerable', TUNING.hitInvulnerable);
+    this.emit({ type: 'shieldPop', racer: r.id });
+    return true;
+  }
+
+  /**
    * A nail: damage and a jolt, but no spin-out and no blinking, so the next nail of the burst can
    * hurt too. Spared like a hit (blinking, sinking, finished). Returns true if it landed.
    */
   prick(r: Racer, damage: number, by: number, slow: number): boolean {
     if (hasEffect(r, 'invulnerable') || r.sinkTimer > 0 || this.isGhost(r)) return false;
+    if (this.popShield(r, 'nailGun')) return false;
     r.hull -= damage;
     r.sinceHit = 0;
     r.vx *= slow;

@@ -168,6 +168,16 @@ export class ItemSystem {
       case 'tugboat':
         addEffect(r, 'towed', TUNING.tugboat.duration);
         break;
+      case 'beerDispenser': {
+        const before = r.hull;
+        r.hull = r.stats.maxHull;
+        addEffect(r, 'shielded', TUNING.beerDispenser.shieldTime);
+        this.sim.emit({ type: 'heal', racer: r.id, amount: r.hull - before });
+        break;
+      }
+      case 'vacuum':
+        addEffect(r, 'vacuum', TUNING.vacuum.duration);
+        break;
     }
     this.sim.emit({ type: 'itemUsed', racer: r.id, item });
     held.uses--;
@@ -228,6 +238,7 @@ export class ItemSystem {
     this.updatePuddles(dt);
     this.updateClouds(dt);
     this.updateKarcher(dt);
+    this.updateVacuum(dt);
     this.updateDrops(dt);
     this.stopAtBarges();
     this.volunteers = this.volunteers.filter((v) => !v.dead);
@@ -682,6 +693,28 @@ export class ItemSystem {
         }
         addEffect(o, 'soaked', K.soakTime);
         o.soakedBy = r.id;
+      }
+    }
+  }
+
+  /** Vacuum cleaner: boats ahead, in a wide cone, are pulled towards the user (the lighter, the harder). */
+  private updateVacuum(dt: number): void {
+    const V = TUNING.vacuum;
+    const cos = Math.cos(V.halfAngle);
+    for (const r of this.sim.racers) {
+      if (!hasEffect(r, 'vacuum') || r.sinkTimer > 0) continue;
+      const hx = Math.cos(r.heading), hy = Math.sin(r.heading);
+      for (const o of this.sim.racers) {
+        if (o === r || o.sinkTimer > 0 || o.finished || this.sim.isGhost(o)) continue;
+        const dx = o.x - r.x, dy = o.y - r.y;
+        const d = Math.hypot(dx, dy);
+        if (d < 1 || d > V.range || (dx * hx + dy * hy) / d < cos) continue;
+        const ux = -dx / d, uy = -dy / d; // towards the nozzle
+        const toward = o.vx * ux + o.vy * uy;
+        if (toward > V.maxPullSpeed) continue;
+        const a = ((V.pull * (1 - 0.5 * (d / V.range))) / o.stats.mass) * dt;
+        o.vx += ux * a;
+        o.vy += uy * a;
       }
     }
   }

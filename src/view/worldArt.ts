@@ -795,3 +795,253 @@ export function drawNail(c: Ctx): void {
   c.lineWidth = 0.5;
   c.stroke();
 }
+
+/**
+ * A police boat seen from above, 96 x 34, bow to the right: a white hull with a blue and yellow
+ * band, a wheelhouse with POLICE on its roof and a light bar (the lights flash: drawn by the view).
+ */
+export function drawPolice(c: Ctx): void {
+  const L = 96, W = 34;
+  const hull = (): void => {
+    c.beginPath();
+    c.moveTo(6, 2);
+    c.lineTo(L - 22, 2);
+    c.quadraticCurveTo(L, 4, L, W / 2);
+    c.quadraticCurveTo(L, W - 4, L - 22, W - 2);
+    c.lineTo(6, W - 2);
+    c.quadraticCurveTo(1, W - 2, 1, W - 8);
+    c.lineTo(1, 8);
+    c.quadraticCurveTo(1, 2, 6, 2);
+    c.closePath();
+  };
+  shadowed(c, 2.5, 0.5, () => {
+    hull();
+    c.fillStyle = '#f4f6f8';
+    c.fill();
+  });
+  c.strokeStyle = 'rgba(0,0,0,0.75)';
+  c.lineWidth = 1;
+  hull();
+  c.stroke();
+  // the band: blue and yellow checks along each side
+  for (const y of [3.5, W - 7.5]) {
+    for (let x = 8; x < L - 24; x += 8) {
+      c.fillStyle = ((x / 8) | 0) % 2 ? '#1f4fa8' : '#f2c12e';
+      c.fillRect(x, y, 8, 4);
+    }
+  }
+  c.fillStyle = '#e1e6eb';
+  rr(c, 10, 9, L - 40, W - 18, 3);
+  c.fill();
+  // the wheelhouse
+  shadowed(c, 1.5, 0.4, () => {
+    rr(c, 34, 7, 30, W - 14, 4);
+    c.fillStyle = '#1f4fa8';
+    c.fill();
+  });
+  c.fillStyle = 'rgba(160,210,255,0.9)';
+  rr(c, 60, 9, 3.5, W - 18, 1);
+  c.fill();
+  c.fillStyle = '#ffffff';
+  c.font = 'bold 6.5px sans-serif';
+  c.textAlign = 'center';
+  c.textBaseline = 'middle';
+  c.fillText('POLICE', 46, W / 2 + 0.5);
+  // the light bar
+  c.fillStyle = '#2b2f35';
+  rr(c, 51, W / 2 - 9, 5, 18, 1.5);
+  c.fill();
+  // bollards and a life ring
+  disc(c, '#ff8a1f', 18, W / 2, 3);
+  disc(c, '#e1e6eb', 18, W / 2, 1.4);
+  disc(c, '#3b4048', L - 18, 8, 1.5);
+  disc(c, '#3b4048', L - 18, W - 8, 1.5);
+}
+
+/** A police bullet: a bright tracer pointing right, 16 x 4. */
+export function drawBullet(c: Ctx): void {
+  const g = c.createLinearGradient(0, 0, 16, 0);
+  g.addColorStop(0, 'rgba(255,220,120,0)');
+  g.addColorStop(0.6, 'rgba(255,220,120,0.9)');
+  g.addColorStop(1, '#fff6d0');
+  c.fillStyle = g;
+  rr(c, 0, 0.8, 16, 2.4, 1.2);
+  c.fill();
+  disc(c, '#c08a2a', 14.5, 2, 1.6);
+}
+
+/** A duck seen from above, facing right, 18 x 12: `kind` 0 a drake (green head), 1 a brown hen. */
+export function drawDuck(c: Ctx, kind: number): void {
+  shadowed(c, 1, 0.35, () => {
+    c.beginPath();
+    c.ellipse(8, 6, 7, 4.4, 0, 0, Math.PI * 2);
+    c.fillStyle = kind === 0 ? '#b9b2a6' : '#9a7652';
+    c.fill();
+  });
+  c.beginPath();
+  c.ellipse(6.5, 6, 4.5, 3, 0, 0, Math.PI * 2);
+  c.fillStyle = kind === 0 ? '#8a7f70' : '#7a5a3c';
+  c.fill(); // folded wings
+  disc(c, kind === 0 ? '#2f6b3a' : '#8a6644', 13.5, 6, 2.8); // head
+  c.fillStyle = '#f2b02e';
+  rr(c, 15.6, 5, 2.4, 2, 0.8);
+  c.fill(); // bill
+  disc(c, '#1a1a1a', 14.2, 4.9, 0.5);
+  disc(c, '#1a1a1a', 14.2, 7.1, 0.5);
+  c.fillStyle = kind === 0 ? '#ffffff' : '#c9a57a';
+  c.fillRect(11, 3.5, 0.8, 5); // neck ring
+}
+
+/**
+ * A rowing four seen from above, bow to the right, 96 x 64: a long thin shell, four rowers in
+ * club colours and their oars. `frame` 0: oars forward (catch), 1: oars back (finish).
+ */
+export function drawRowboat(c: Ctx, frame: number): void {
+  const cy = 32, L = 92;
+  // oars first, under the rowers
+  for (let k = 0; k < 4; k++) {
+    const x = 20 + k * 17;
+    const side = k % 2 ? 1 : -1;
+    const sweep = frame === 0 ? 7 : -7;
+    c.strokeStyle = '#d9d2c4';
+    c.lineWidth = 1.3;
+    c.beginPath();
+    c.moveTo(x, cy);
+    c.lineTo(x + sweep, cy + side * 26);
+    c.stroke();
+    c.fillStyle = '#c0392b';
+    c.save();
+    c.translate(x + sweep, cy + side * 27);
+    c.rotate(Math.atan2(side * 26, sweep));
+    rr(c, -1, -2.2, 6, 4.4, 1.5);
+    c.fill();
+    c.restore();
+  }
+  shadowed(c, 1.5, 0.45, () => {
+    c.beginPath();
+    c.moveTo(2, cy);
+    c.quadraticCurveTo(10, cy - 5, 46, cy - 5);
+    c.quadraticCurveTo(84, cy - 5, L, cy);
+    c.quadraticCurveTo(84, cy + 5, 46, cy + 5);
+    c.quadraticCurveTo(10, cy + 5, 2, cy);
+    c.closePath();
+    c.fillStyle = '#f2f2f2';
+    c.fill();
+  });
+  c.strokeStyle = 'rgba(0,0,0,0.5)';
+  c.lineWidth = 0.6;
+  c.stroke();
+  for (let k = 0; k < 4; k++) {
+    const x = 20 + k * 17 - (frame === 0 ? 2 : -2);
+    c.beginPath();
+    c.ellipse(x, cy, 3.6, 4.6, 0, 0, Math.PI * 2);
+    c.fillStyle = '#1f4fa8';
+    c.fill(); // back in club colours
+    disc(c, '#e8bf98', x + 2.6, cy, 2.3); // head
+    disc(c, ['#2b1d12', '#c9a15a', '#5a3b1f', '#1a1a1a'][k], x + 2.1, cy, 2.2);
+  }
+}
+
+/** A swimmer seen from above, facing right, 26 x 26: a head in a cap, arms mid-stroke (two frames), a ring of ripples. */
+export function drawSwimmer(c: Ctx, frame: number, cap: string): void {
+  const cx = 13, cy = 13;
+  c.strokeStyle = 'rgba(255,255,255,0.5)';
+  c.lineWidth = 0.8;
+  c.beginPath();
+  c.ellipse(cx - 2, cy, 10, 7, 0, 0, Math.PI * 2);
+  c.stroke();
+  c.fillStyle = 'rgba(232,191,152,0.55)';
+  c.beginPath();
+  c.ellipse(cx - 5, cy, 6, 3.6, 0, 0, Math.PI * 2);
+  c.fill(); // body under the water
+  c.strokeStyle = '#e8bf98';
+  c.lineWidth = 2.2;
+  c.lineCap = 'round';
+  c.beginPath();
+  if (frame === 0) {
+    c.moveTo(cx - 1, cy - 2);
+    c.lineTo(cx + 8, cy - 6);
+    c.moveTo(cx - 1, cy + 2);
+    c.lineTo(cx - 8, cy + 6);
+  } else {
+    c.moveTo(cx - 1, cy + 2);
+    c.lineTo(cx + 8, cy + 6);
+    c.moveTo(cx - 1, cy - 2);
+    c.lineTo(cx - 8, cy - 6);
+  }
+  c.stroke();
+  shadowed(c, 1, 0.35, () => disc(c, cap, cx + 1.5, cy, 3.6));
+  disc(c, 'rgba(255,255,255,0.6)', cx + 0.6, cy - 1.2, 1);
+}
+
+/** A splash of blood on the water, 96 x 96: blobs and drops around the middle (in shades of red). */
+export function drawBloodSplat(c: Ctx): void {
+  let seed = 7;
+  const rnd = (): number => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+  for (let i = 0; i < 26; i++) {
+    const a = rnd() * Math.PI * 2, d = Math.pow(rnd(), 0.7) * 40;
+    const r = (1 - d / 48) * 9 + 1.5;
+    disc(c, i % 3 ? 'rgba(170,16,24,0.85)' : 'rgba(120,8,14,0.9)', 48 + Math.cos(a) * d, 48 + Math.sin(a) * d, r);
+  }
+  disc(c, 'rgba(150,10,20,0.9)', 48, 48, 14);
+  for (let i = 0; i < 6; i++) disc(c, 'rgba(255,120,120,0.35)', 44 + rnd() * 8, 44 + rnd() * 8, 2);
+}
+
+/** A chunk (for the mess): a red lump with a paler bit, 10 x 8. */
+export function drawGib(c: Ctx): void {
+  c.beginPath();
+  c.ellipse(5, 4, 4.4, 3.2, 0.4, 0, Math.PI * 2);
+  c.fillStyle = '#b3121c';
+  c.fill();
+  c.beginPath();
+  c.ellipse(4, 3.3, 2, 1.3, 0.4, 0, Math.PI * 2);
+  c.fillStyle = '#f08a8a';
+  c.fill();
+}
+
+/** A feather, 12 x 4, white. */
+export function drawFeather(c: Ctx): void {
+  c.beginPath();
+  c.ellipse(6, 2, 5.6, 1.7, 0, 0, Math.PI * 2);
+  c.fillStyle = '#f4f1ea';
+  c.fill();
+  c.strokeStyle = '#b8b2a6';
+  c.lineWidth = 0.4;
+  c.beginPath();
+  c.moveTo(0.5, 2);
+  c.lineTo(11.5, 2);
+  c.stroke();
+}
+
+/** A vacuum cleaner's hose and wide nozzle on the bow, pointing right, 46 x 26. */
+export function drawNozzle(c: Ctx): void {
+  shadowed(c, 1.5, 0.45, () => {
+    c.fillStyle = '#5c636c';
+    rr(c, 0, 9, 26, 8, 4);
+    c.fill();
+  });
+  c.strokeStyle = 'rgba(255,255,255,0.35)';
+  c.lineWidth = 0.6;
+  for (let x = 3; x < 25; x += 3) {
+    c.beginPath();
+    c.moveTo(x, 9.5);
+    c.lineTo(x, 16.5);
+    c.stroke();
+  }
+  shadowed(c, 1.5, 0.45, () => {
+    c.beginPath();
+    c.moveTo(24, 8);
+    c.lineTo(42, 1);
+    c.lineTo(45, 1);
+    c.lineTo(45, 25);
+    c.lineTo(42, 25);
+    c.lineTo(24, 18);
+    c.closePath();
+    c.fillStyle = '#d23b2f';
+    c.fill();
+  });
+  c.fillStyle = '#2b2f35';
+  c.fillRect(43, 2, 2, 22); // the mouth
+  c.fillStyle = 'rgba(255,255,255,0.35)';
+  c.fillRect(27, 9, 12, 2);
+}

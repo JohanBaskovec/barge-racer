@@ -283,6 +283,21 @@ A tugboat appears ahead of you and **tows** you for 4 s: it steers along the rac
 line for you, top speed x 1.45, acceleration x 3, twice the mass, and through glue. You
 can still fire items. Only the boats behind get it.
 
+### 19. Beer Dispenser
+
+A bar's beer tap: the hull is repaired **in full**, and a head of foam forms round the
+boat that **takes the next hit** instead of it (within 45 s): a weapon, a trap, a crash
+caused by an item, a nail, a police bullet. Bumping the bank doesn't burst it, nor does
+toxic smoke (damage over time, not a hit). When it bursts the boat blinks, as if hit, so
+the same thing can't hurt it a moment later. The AI drinks it below 65 % hull.
+
+### 20. Vacuum Cleaner
+
+A hose and nozzle on the bow for 3 s: every boat **ahead**, within 1100 px and 70 degrees
+of straight ahead, is pulled back towards you, harder when closer and the lighter it is
+(up to 300 px/s towards you). A boat 700 px ahead gets about a quarter as far as it would
+have in those seconds. Useless for the leader: never given to 1st.
+
 ### The better versions (x 3)
 
 Every item can come as its **better version, with three uses** (the Volunteer Squad and
@@ -315,6 +330,8 @@ orange ring round its button and its uses left.
 | Nail Gun | 3 straight shots | 3 x 13 | 1100 px | Dodge sideways |
 | Gas Siphoning | Opponents lose thrust and stop | 0 | 3 s | - |
 | Tugboat | Towed along the line, faster | 0 | 4 s | - |
+| Beer Dispenser | Full heal + a shield for the next hit | heals 100 % | until hit (45 s) | - |
+| Vacuum Cleaner | Pulls boats ahead back towards you | 0 | 3 s | Be far away |
 
 ## Who gets what: position-based odds
 
@@ -349,10 +366,12 @@ the toilet), which is how they kept the lead: they get half as many now.
 | Nail Gun | 6 | 12 | 11 | 8 |
 | Gas Siphoning | 0 | 0 | 3 | 6 |
 | Tugboat | 0 | 2 | 6 | 9 |
+| Beer Dispenser | 3 | 6 | 7 | 7 |
+| Vacuum Cleaner | 0 | 5 | 8 | 8 |
 
 Every item has a **power** rating (`ITEM_POWER` in `src/data/items.ts`: Squad, Electrical
 Failure, Raclette and Gas Siphoning 10, Big Bag, Mushrooms, Dicke Titten and Tugboat 9,
-Silicone Gun 8, Volunteers 7, Jigsaw, Powder, Drill, Glue, Kärcher and Nail Gun 6, Beer 5,
+Silicone Gun and Vacuum Cleaner 8, Beer Dispenser 7, Volunteers 7, Jigsaw, Powder, Drill, Glue, Kärcher and Nail Gun 6, Beer 5,
 Fake Crate and Toilet 4, Dildo 3). The average power of a draw is about **5.2 for 1st,
 5.8 for 2nd, 6.7 for 3rd and 7.5 for 4th** (before the better versions, which only add
 to the back), and tests check that it rises from the front to the back, that the

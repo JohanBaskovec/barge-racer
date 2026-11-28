@@ -4,6 +4,7 @@ import { angleDiff } from '../physics/math';
 import { speedOf } from '../physics/BoatPhysics';
 import { createBoatSprite } from './boatSprite';
 import { getBoat } from '../data/boats';
+import { TUNING } from '../data/items';
 import { WORLD_ART_SCALE } from './textures';
 import type { Racer } from '../race/types';
 
@@ -14,6 +15,7 @@ export class BoatView {
   /** The jigsaw's two saws, one sticking out of each side. */
   private saws: Phaser.GameObjects.Image[];
   private dildo: Phaser.GameObjects.Image;
+  private nozzle: Phaser.GameObjects.Image;
   /** The tugboat towing this boat, ahead of it on a rope. */
   private tug: Phaser.GameObjects.Container;
   /** Over the boat while its fuel is siphoned: an empty can. */
@@ -46,6 +48,7 @@ export class BoatView {
     const hull = createBoatSprite(scene, r.boat, r.color);
     this.saws = [-1, 1].map((side) => scene.add.image(0, side * (W / 2 + 2), 'saw').setOrigin(0, 0.5).setRotation((side * Math.PI) / 2).setScale(WORLD_ART_SCALE).setVisible(false));
     this.dildo = scene.add.image(L / 2 - 4, 0, 'dildo').setOrigin(0, 0.5).setScale(WORLD_ART_SCALE).setVisible(false);
+    this.nozzle = scene.add.image(L / 2 - 8, 0, 'nozzle').setOrigin(0, 0.5).setDisplaySize(46, 26).setVisible(false);
     const tugDef = getBoat('tugboat');
     this.tug = createBoatSprite(scene, tugDef, 0xd23b2f).setPosition(L / 2 + 70 + tugDef.size.length / 2, 0).setVisible(false);
     this.emptyCan = scene.add.image(0, 0, 'icon_siphon').setDisplaySize(40, 40).setDepth(31).setVisible(false);
@@ -54,7 +57,7 @@ export class BoatView {
     this.bar = scene.add.graphics();
     this.over = scene.add.graphics();
     this.aura = scene.add.graphics().setDepth(9);
-    this.container = scene.add.container(r.x, r.y, [this.shadow, this.boost, this.tug, hull, ...this.saws, this.dildo, this.smoke, this.over]).setDepth(10);
+    this.container = scene.add.container(r.x, r.y, [this.shadow, this.boost, this.tug, hull, ...this.saws, this.dildo, this.nozzle, this.smoke, this.over]).setDepth(10);
     this.bar.setDepth(30);
     if (r.isPlayer) {
       this.label = scene.add.text(0, 0, '▼', { fontSize: '26px', color: '#ffffff', stroke: '#000', strokeThickness: 4, resolution: 2 }).setOrigin(0.5).setDepth(31);
@@ -130,6 +133,10 @@ export class BoatView {
     const dildoOn = hasEffect(r, 'dildo') && !sinking;
     this.dildo.setVisible(dildoOn);
     if (dildoOn) this.dildo.setRotation(Math.sin(time / 90) * 0.06);
+    // Vacuum cleaner: a hose and nozzle on the bow, shaking
+    const sucking = hasEffect(r, 'vacuum') && !sinking;
+    this.nozzle.setVisible(sucking);
+    if (sucking) this.nozzle.setY(Math.sin(time / 30) * 0.8);
     // Towed: the tug ahead, its rope taut (drawn in drawOver)
     const towed = hasEffect(r, 'towed') && !sinking;
     this.tug.setVisible(towed);
@@ -212,6 +219,22 @@ export class BoatView {
       g.lineStyle(1.5, 0xd9b77a, 1).lineBetween(L / 2, -0.8, L / 2 + 70, -0.8);
       for (let k = 0; k < 4; k++) g.fillStyle(0xffffff, 0.5).fillCircle(L / 2 + 64 - ((time / 6 + k * 9) % 36), Math.sin(time / 70 + k) * 9, 4);
     }
+    if (hasEffect(r, 'vacuum')) {
+      // Streaks of air and water rushing into the nozzle.
+      const mouth = L / 2 + 38;
+      for (let k = 0; k < 9; k++) {
+        const t = ((time / 420 + k / 9) % 1);
+        const a = ((k * 0.61) % 1 - 0.5) * 2 * TUNING.vacuum.halfAngle * 0.8;
+        const d0 = 40 + (1 - t) * 420, d1 = d0 * 0.55;
+        g.lineStyle(3, 0xffffff, 0.15 + 0.4 * t)
+          .lineBetween(mouth + Math.cos(a) * d0, Math.sin(a) * d0, mouth + Math.cos(a) * d1, Math.sin(a) * d1);
+      }
+    }
+    if (hasEffect(r, 'splattered')) {
+      // Blood smeared over the bow.
+      g.fillStyle(0xb3121c, 0.75);
+      for (const [x, y, s] of [[0.35, -0.2, 5], [0.42, 0.18, 4], [0.28, 0.05, 6], [0.15, -0.25, 3], [0.2, 0.3, 3.5]]) g.fillCircle(L * x, W * y, s);
+    }
     if (hasEffect(r, 'siphoned')) {
       // Out of fuel: the engine coughs black puffs.
       for (let k = 0; k < 3; k++) {
@@ -272,6 +295,17 @@ export class BoatView {
   /** Mushrooms: rings contract on the boat, pulling the crates in. */
   private drawAura(time: number, sinking: boolean): void {
     const g = this.aura.clear();
+    if (hasEffect(this.r, 'shielded') && !sinking) {
+      // A head of beer foam round the boat: a creamy ring with bubbles.
+      const R = this.r.boat.size.length * 0.5 + 16;
+      g.lineStyle(9, 0xfff3c4, 0.55 + Math.sin(time / 180) * 0.1).strokeCircle(this.x, this.y, R);
+      g.lineStyle(3, 0xf2b02e, 0.5).strokeCircle(this.x, this.y, R + 6);
+      g.fillStyle(0xffffff, 0.8);
+      for (let k = 0; k < 10; k++) {
+        const a = (k / 10) * Math.PI * 2 + time / 900;
+        g.fillCircle(this.x + Math.cos(a) * R, this.y + Math.sin(a) * R, 2.5 + ((k * 7) % 3));
+      }
+    }
     if (!hasEffect(this.r, 'magnet') || sinking) return;
     for (let k = 0; k < 3; k++) {
       const phase = ((time / 1100 + k / 3) % 1);

@@ -138,9 +138,38 @@ the strongest. The full item list and the luck rules are in [Items](items.md):
 | Nail Gun | Three quick nails, straight ahead |
 | Gas Siphoning | Every opponent runs out of fuel and stops for 3 s |
 | Tugboat | A tug tows you along the canal, fast, for a few seconds |
+| Beer Dispenser | Repairs the hull in full; a head of foam takes the next hit |
+| Vacuum Cleaner | Sucks the boats ahead back towards you |
 
 Every item can also come as its **better version, with three uses**: never for the
 leader, more often the further back you are.
+
+## Hazards
+
+Things that come by themselves (`src/race/hazards.ts`, drawn by `src/view/hazardView.ts`),
+seeded like the rest of the race, so they run on the server too:
+
+- **Police (the leader only).** A leader more than 1400 px ahead of the second boat for 2 s
+  is warned for **speeding** ("SPEEDING!" on its screen, "Police after X!" on the
+  others'). 2 s later a police boat with flashing lights turns up behind it and chases it
+  for 15 s, its siren wailing, shooting every 1.3 s (aiming where the boat will be, give
+  or take). Only the leader can be hit. A hit **pulls it over**: the police boat parks
+  alongside, in the way, and the leader is stopped for 3 s while the ticket is written;
+  then the police leave and don't come back for 30 s. A beer dispenser's foam takes the
+  bullet.
+- **Anglers (the leader only).** About every 20 s an angler sits on a bank 720 px ahead
+  of the leader and casts a line across 55 % of the canal (a float marks its end). Caught
+  on it, the leader is dragged towards the bank for up to 1.4 s; hitting the bank while
+  hooked is a crash (20 hull and a spin-out). Other boats pass through the line.
+- **Birds, rowers and swimmers (everyone, the better placed the more often).** About every
+  5 s a flock of ducks, a rowing four or a few swimmers appear 650 to 950 px ahead of a
+  boat picked by position (weights 5, 3, 2, 1 from 1st to 4th). Rowers and swimmers move
+  along the canal. Running into them makes them explode in blood, bits (and feathers),
+  leaves a stain on the water and blood on the bow, and slows the boat down (top speed
+  x 0.7 for 1.3 s, and a jolt); no damage. The AI swerves round them now and then.
+
+With them, in AI races on Lock & Load, the lead changes hands about 4.4 times a race
+(2.3 without) and the first two finish under 2 s apart; a race takes about 5 s longer.
 
 ## Race modes
 

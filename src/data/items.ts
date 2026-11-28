@@ -15,7 +15,9 @@ export type ItemId =
   | 'dildo'
   | 'nailGun'
   | 'siphon'
-  | 'tugboat';
+  | 'tugboat'
+  | 'beerDispenser'
+  | 'vacuum';
 
 export interface ItemInfo {
   id: ItemId;
@@ -45,6 +47,8 @@ export const ITEM_INFO: Record<ItemId, ItemInfo> = {
   nailGun: { id: 'nailGun', uses: 1, icon: 'icon_nailGun' },
   siphon: { id: 'siphon', uses: 1, icon: 'icon_siphon' },
   tugboat: { id: 'tugboat', uses: 1, icon: 'icon_tugboat' },
+  beerDispenser: { id: 'beerDispenser', uses: 1, icon: 'icon_beerDispenser' },
+  vacuum: { id: 'vacuum', uses: 1, icon: 'icon_vacuum' },
 };
 
 /**
@@ -90,6 +94,8 @@ export const ITEM_ODDS: Record<ItemId, [number, number, number, number]> = {
   nailGun: [6, 12, 11, 8],
   siphon: [0, 0, 3, 6],
   tugboat: [0, 2, 6, 9],
+  beerDispenser: [3, 6, 7, 7],
+  vacuum: [0, 5, 8, 8],
 };
 
 /** How much an item helps whoever holds it (0-10). Used to check the odds really favour the back. */
@@ -98,6 +104,7 @@ export const ITEM_POWER: Record<ItemId, number> = {
   glue: 6, siliconeGun: 8, fakeCrate: 4, beer: 5, mushroom: 9,
   blackout: 10, raclette: 10, toilet: 4, karcher: 6,
   titten: 9, dildo: 3, nailGun: 6, siphon: 10, tugboat: 9,
+  beerDispenser: 7, vacuum: 8,
 };
 
 export const TUNING = {
@@ -133,6 +140,41 @@ export const TUNING = {
   titten: { damage: 40, life: 9, radius: 32, ahead: 420, warn: 0.55, ownerImmunity: 99 },
   /** Gas siphoning: every opponent's tank is empty for `duration` s: no thrust, and they stop. */
   siphon: { duration: 3, drag: 4 },
+  /** Beer dispenser: the hull is repaired in full, and a head of foam takes the next hit (not bank bumps or smoke), within `shieldTime` s. */
+  beerDispenser: { shieldTime: 45 },
+  /**
+   * Vacuum cleaner: for `duration` s, every boat ahead within `range` px (and within `halfAngle` of
+   * straight ahead) is pulled towards the owner, harder when closer and the lighter it is.
+   */
+  vacuum: { duration: 3, range: 1100, halfAngle: (70 * Math.PI) / 180, pull: 1400, maxPullSpeed: 300 },
+  /**
+   * Hazards for the leader alone. Police: a leader more than `gap` px ahead of the second boat for
+   * `after` s is warned for speeding; `warn` s later a police boat turns up behind it and chases it
+   * for `chase` s, shooting every `fireEvery` s from within `range` px (bullets at `bulletSpeed`,
+   * with some error). A bullet that hits pulls it over: the police boat parks alongside and the
+   * leader is stopped for `ticket` s. Then the police leave, not to come back for `cooldown` s.
+   */
+  cops: {
+    gap: 1400, after: 2, warn: 2.2, chase: 15, fireEvery: 1.3, range: 760, bulletSpeed: 640, bulletRange: 950, spread: 0.15,
+    ticket: 3, ticketDrag: 5, cooldown: 30, startAfter: 15, endMargin: 1500, speed: 1.3, length: 96, width: 34, offset: 230,
+  },
+  /**
+   * Anglers: now and then (about every `every` s, never closer than `minGap` s apart) one sits on a
+   * bank `ahead` px in front of the leader and casts a line across `reach` of the canal. Only the
+   * leader can be caught: it is dragged towards that bank for up to `hookTime` s, and hitting the
+   * bank while hooked is a crash (`damage`, a spin-out).
+   */
+  anglers: { every: 20, minGap: 12, ahead: 720, reach: 0.55, life: 8, hookTime: 1.4, pull: 1700, damage: 20, startAfter: 8 },
+  /**
+   * Birds, rowers and swimmers on the water, ahead of the boats: one group about every `every` s,
+   * ahead of a boat picked by position (`weights`, 1st to 4th: the better placed, the more often).
+   * Running into them makes a mess and slows the boat (`slowMult`, extra `drag`, for `slowTime` s),
+   * no damage. Sizes: `radius` of each kind (birds, rowers, swimmers); speeds along the canal.
+   */
+  critters: {
+    every: 5, max: 8, weights: [5, 3, 2, 1], ahead: [650, 950], life: 28, startAfter: 4,
+    radius: [38, 30, 26], speed: [12, 70, 18], slowMult: 0.7, drag: 0.8, slowTime: 1.3, jolt: 0.8,
+  },
   /** Tugboat: tows its owner along the canal for `duration` s: steered for you, faster, and through glue. */
   tugboat: { duration: 4, topSpeed: 1.45, accel: 3, mass: 2 },
   powder: { duration: 2.5, topSpeedMult: 1.5, accelMult: 2, massMult: 2 },

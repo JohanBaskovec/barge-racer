@@ -20,6 +20,9 @@ export const NO_INTENT: ControlIntent = { desiredHeading: null, throttle: 0, fir
 
 /** An item in a slot, with its remaining uses. */
 /** A held item and its uses left; `triple`: the better version, with three uses. */
+/** What hurt a boat: an item, the bank, or a hazard (the police, an angler's line). */
+export type HitSource = ItemId | 'bank' | 'police' | 'angler';
+
 export type Slot = { id: ItemId; uses: number; triple?: boolean } | null;
 
 export interface Racer {
@@ -225,7 +228,13 @@ export type RaceEvent =
   | { type: 'itemUsed'; racer: number; item: ItemId }
   | { type: 'heal'; racer: number; amount: number }
   | { type: 'boost'; racer: number }
-  | { type: 'hit'; racer: number; by: number | null; source: ItemId | 'bank'; damage: number }
+  | { type: 'hit'; racer: number; by: number | null; source: HitSource; damage: number }
+  | { type: 'shieldPop'; racer: number }
+  /** The police after a leader: warned for speeding, chased, pulled over (ticket), gone. */
+  | { type: 'cops'; racer: number; phase: 'warn' | 'chase' | 'ticket' | 'leave' }
+  | { type: 'hooked'; racer: number }
+  /** Ran into birds (kind 0), a rowing boat (1) or swimmers (2). */
+  | { type: 'splat'; racer: number; kind: 0 | 1 | 2; x: number; y: number }
   | { type: 'sunk'; racer: number }
   | { type: 'respawn'; racer: number }
   | { type: 'lap'; racer: number; lap: number; time: number }

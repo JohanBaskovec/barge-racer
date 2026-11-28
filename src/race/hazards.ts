@@ -1,0 +1,363 @@
+import { TUNING } from '../data/items';
+import { addEffect, hasEffect, removeEffect } from '../effects/effects';
+import { isTouching, resolveStatic } from '../physics/collisions';
+import { TOWPATH } from '../view/scenery';
+import type { RaceSimulation } from './RaceSimulation';
+import type { Racer } from './types';
+
+/**
+ * Hazards that are not items: they come by themselves.
+ *
+ * - For the leader alone: **the police** (a leader far ahead is chased by a police boat that
+ *   shoots at it; a hit pulls it over) and **anglers** (a line across the canal; caught, the boat
+ *   is dragged into the bank).
+ * - For everyone, more often the better placed: **birds, rowers and swimmers** on the water.
+ *   Running into them makes a mess and slows the boat down; no damage.
+ *
+ * Pure logic like the rest of the race (seeded random numbers), so it runs on the server too.
+ */
+
+export type PolicePhase = 'warn' | 'chase' | 'ticket' | 'leave';
+export const POLICE_PHASES: PolicePhase[] = ['warn', 'chase', 'ticket', 'leave'];
+
+export interface Police {
+  phase: PolicePhase;
+  /** The boat being chased. */
+  target: number;
+  /** Seconds in this phase. */
+  t: number;
+  x: number;
+  y: number;
+  heading: number;
+  /** Which side of the target it keeps to. */
+  side: 1 | -1;
+  fireT: number;
+}
+
+export interface Bullet {
+  id: number;
+  x: number;
+  y: number;
+  heading: number;
+  travelled: number;
+  /** Only this boat can be hit (the others are not speeding). */
+  target: number;
+  dead: boolean;
+}
+
+/** An angler on a bank, `along` the centre line, on `side`, with a line cast across the canal. */
+export interface Angler {
+  id: number;
+  target: number;
+  side: 1 | -1;
+  along: number;
+  age: number;
+  hooked: boolean;
+  dead: boolean;
+}
+
+/** Kind 0: a flock of birds, 1: a rowing boat, 2: swimmers. They move along the canal (`dir`). */
+export interface Critter {
+  id: number;
+  kind: 0 | 1 | 2;
+  along: number;
+  lat: number;
+  dir: 1 | -1;
+  age: number;
+  dead: boolean;
+}
+
+export class HazardSystem {
+  police: Police | null = null;
+  bullets: Bullet[] = [];
+  anglers: Angler[] = [];
+  critters: Critter[] = [];
+  /** Off in some tests. */
+  enabled = true;
+  private nextId = 1;
+  private speedingT = 0;
+  private copsReadyAt = 0;
+  private anglerAt: number;
+  private critterT = 0;
+
+  constructor(private sim: RaceSimulation) {
+    const A = TUNING.anglers;
+    this.anglerAt = A.startAfter + sim.rng.range(0.4, 1.2) * A.every;
+  }
+
+  update(dt: number): void {
+    if (!this.enabled || this.sim.phase !== 'racing') return;
+    this.updatePolice(dt);
+    this.updateBullets(dt);
+    this.updateAnglers(dt);
+    this.updateCritters(dt);
+    this.bullets = this.bullets.filter((b) => !b.dead);
+    this.anglers = this.anglers.filter((a) => !a.dead);
+    this.critters = this.critters.filter((c) => !c.dead);
+  }
+
+  private get leader(): Racer | undefined {
+    return this.sim.racers.find((r) => r.position === 0 && !r.finished);
+  }
+
+  // ---- Police -----------------------------------------------------------------
+
+  /** The police boat's solid shape (only while it is parked alongside its target). */
+  policeCapsule(p: Police): { ax: number; ay: number; bx: number; by: number; radius: number } {
+    const C = TUNING.cops;
+    const half = C.length / 2 - C.width / 2;
+    const hx = Math.cos(p.heading), hy = Math.sin(p.heading);
+    return { ax: p.x - hx * half, ay: p.y - hy * half, bx: p.x + hx * half, by: p.y + hy * half, radius: C.width / 2 };
+  }
+
+  private updatePolice(dt: number): void {
+    const C = TUNING.cops, sim = this.sim, track = sim.track;
+    if (!this.police) {
+      const lead = this.leader;
+      const second = sim.racers.find((r) => r.position === 1);
+      const gap = lead && second && !second.finished ? lead.progress - second.progress : 0;
+      this.speedingT = gap > C.gap ? this.speedingT + dt : 0;
+      if (lead && this.speedingT > C.after && sim.time >= this.copsReadyAt && sim.time > C.startAfter && lead.progress < track.raceDistance - C.endMargin) {
+        this.police = { phase: 'warn', target: lead.id, t: 0, x: lead.x, y: lead.y, heading: lead.heading, side: sim.rng.chance(0.5) ? 1 : -1, fireT: 0.8 };
+        this.speedingT = 0;
+        sim.emit({ type: 'cops', racer: lead.id, phase: 'warn' });
+      }
+      return;
+    }
+    const p = this.police;
+    const T = sim.racers[p.target];
+    p.t += dt;
+    const along = track.alongOf(T.progress);
+    const lat = track.nearest(T.x, T.y, T.nearestIndex).lateral;
+    switch (p.phase) {
+      case 'warn': {
+        if (p.t < C.warn) break;
+        // It turns up behind its target.
+        const s = track.pointAt(along - 520, Math.max(-60, Math.min(60, lat + p.side * 70)));
+        p.x = s.x;
+        p.y = s.y;
+        p.heading = s.heading;
+        this.setPhase(p, 'chase');
+        break;
+      }
+      case 'chase': {
+        if (T.finished || T.sinkTimer > 0 || p.t > C.chase) {
+          this.setPhase(p, 'leave');
+          break;
+        }
+        const room = track.halfWidth(T.nearestIndex) - C.width;
+        this.moveTo(p, track.pointAt(along - C.offset, Math.max(-room, Math.min(room, lat + p.side * 80))), C.speed * T.stats.topSpeed, dt);
+        p.fireT -= dt;
+        const d = Math.hypot(T.x - p.x, T.y - p.y);
+        if (p.fireT <= 0 && d < C.range) {
+          p.fireT = C.fireEvery;
+          // Aim where the boat will be when the bullet gets there, give or take.
+          const tFly = d / C.bulletSpeed;
+          const aim = Math.atan2(T.y + T.vy * tFly - p.y, T.x + T.vx * tFly - p.x) + sim.rng.range(-C.spread, C.spread);
+          this.bullets.push({ id: this.nextId++, x: p.x + Math.cos(aim) * 40, y: p.y + Math.sin(aim) * 40, heading: aim, travelled: 0, target: T.id, dead: false });
+        }
+        break;
+      }
+      case 'ticket': {
+        // Parked alongside, in the way, while the ticket is written.
+        const n = track.sampleAt(along);
+        const off = T.stats.capRadius + C.width / 2 + 4;
+        const side = lat * p.side > track.halfWidth(T.nearestIndex) - off - C.width / 2 ? -p.side : p.side;
+        this.moveTo(p, { x: T.x - n.ty * side * off, y: T.y + n.tx * side * off, heading: Math.atan2(n.ty, n.tx) }, 2 * C.speed * T.stats.topSpeed, dt);
+        for (const r of sim.racers) {
+          if (r.sinkTimer > 0 || sim.isGhost(r)) continue;
+          resolveStatic(r, this.policeCapsule(p), 0, 0);
+        }
+        if (p.t > C.ticket) this.setPhase(p, 'leave');
+        break;
+      }
+      case 'leave': {
+        // Off it goes, ahead along the canal, and fades away.
+        const s = track.pointAt(track.nearest(p.x, p.y, -1).along + 400, 0);
+        this.moveTo(p, s, 320, dt);
+        if (p.t > 1.6) {
+          this.police = null;
+          this.copsReadyAt = sim.time + C.cooldown;
+        }
+        break;
+      }
+    }
+  }
+
+  private setPhase(p: Police, phase: PolicePhase): void {
+    p.phase = phase;
+    p.t = 0;
+    this.sim.emit({ type: 'cops', racer: p.target, phase });
+  }
+
+  /** Glide towards a point at up to `speed`, turning to face the way it goes. */
+  private moveTo(p: Police, to: { x: number; y: number; heading: number }, speed: number, dt: number): void {
+    const dx = to.x - p.x, dy = to.y - p.y;
+    const d = Math.hypot(dx, dy);
+    const step = Math.min(d, speed * dt);
+    if (d > 0.01) {
+      p.x += (dx / d) * step;
+      p.y += (dy / d) * step;
+    }
+    // Face along the canal, leaning a little towards where it is going.
+    const want = d > 30 ? Math.atan2(dy, dx) : to.heading;
+    const diff = Math.atan2(Math.sin(want - p.heading), Math.cos(want - p.heading));
+    p.heading += diff * Math.min(1, dt * 5);
+  }
+
+  private updateBullets(dt: number): void {
+    const C = TUNING.cops, sim = this.sim;
+    for (const b of this.bullets) {
+      if (b.dead) continue;
+      const step = C.bulletSpeed * dt;
+      b.x += Math.cos(b.heading) * step;
+      b.y += Math.sin(b.heading) * step;
+      b.travelled += step;
+      if (b.travelled > C.bulletRange) b.dead = true;
+      const T = sim.racers[b.target];
+      if (b.dead || T.sinkTimer > 0 || sim.isGhost(T) || !isTouching(T, b.x, b.y, 5)) continue;
+      b.dead = true;
+      if (this.police && this.police.target === T.id && this.police.phase === 'chase') this.pullOver(T, this.police);
+    }
+  }
+
+  /** A bullet hit: the police pull the boat over (unless its head of foam took the bullet). */
+  private pullOver(T: Racer, p: Police): void {
+    if (hasEffect(T, 'invulnerable')) return;
+    if (this.sim.popShield(T, 'police')) return;
+    addEffect(T, 'ticketed', TUNING.cops.ticket);
+    this.bullets = this.bullets.filter((b) => b.target !== T.id);
+    this.setPhase(p, 'ticket');
+  }
+
+  // ---- Anglers ----------------------------------------------------------------
+
+  /** Where an angler sits (on the towpath) and the two ends of its line (the bank, and out on the water). */
+  anglerGeometry(a: Angler): { x: number; y: number; bank: { x: number; y: number }; tip: { x: number; y: number }; heading: number } {
+    const track = this.sim.track;
+    const hw = track.sampleAt(a.along).width / 2;
+    const cast = Math.min(1, a.age / 0.5);
+    const seat = track.pointAt(a.along, a.side * (hw + TOWPATH * 0.35));
+    const bank = track.pointAt(a.along, a.side * hw);
+    const tip = track.pointAt(a.along, a.side * (hw - 2 * hw * TUNING.anglers.reach * cast));
+    return { x: seat.x, y: seat.y, bank, tip, heading: seat.heading };
+  }
+
+  private updateAnglers(dt: number): void {
+    const A = TUNING.anglers, sim = this.sim, track = sim.track;
+    const lead = this.leader;
+    if (lead && !this.anglers.length && sim.time >= this.anglerAt && !hasEffect(lead, 'ticketed')) {
+      const along = track.alongOf(lead.progress) + A.ahead;
+      if (track.closed || along < track.length - 200) {
+        this.anglers.push({ id: this.nextId++, target: lead.id, side: sim.rng.chance(0.5) ? 1 : -1, along: track.closed ? ((along % track.length) + track.length) % track.length : along, age: 0, hooked: false, dead: false });
+      }
+      this.anglerAt = sim.time + A.life + Math.max(A.minGap, sim.rng.range(0.6, 1.4) * A.every);
+    }
+    for (const a of this.anglers) {
+      a.age += dt;
+      const T = sim.racers[a.target];
+      if (a.hooked) {
+        // Reeling in: dragged towards the angler's bank until it crashes or the line snaps.
+        if (!hasEffect(T, 'hooked') || T.sinkTimer > 0) {
+          a.dead = true;
+          continue;
+        }
+        const n = track.samples[T.nearestIndex];
+        const k = (A.pull / T.stats.mass) * dt;
+        T.vx += -n.ty * a.side * k;
+        T.vy += n.tx * a.side * k;
+        continue;
+      }
+      if (a.age > A.life) a.dead = true;
+      if (a.dead || a.age < 0.5 || T.finished || T.sinkTimer > 0 || sim.isGhost(T) || hasEffect(T, 'invulnerable')) continue;
+      // The line: from the bank out to its tip, straight across.
+      const g = this.anglerGeometry(a);
+      if (segmentTouches(T, g.bank.x, g.bank.y, g.tip.x, g.tip.y)) {
+        a.hooked = true;
+        addEffect(T, 'hooked', A.hookTime);
+        sim.emit({ type: 'hooked', racer: T.id });
+      }
+    }
+  }
+
+  /** Called when a boat hits the bank: if it was hooked, that's a crash. */
+  hookedCrash(r: Racer, impact: number): boolean {
+    if (!hasEffect(r, 'hooked') || impact < r.stats.topSpeed * 0.12) return false;
+    removeEffect(r, 'hooked');
+    this.sim.hit(r, TUNING.anglers.damage, null, 'angler');
+    return true;
+  }
+
+  // ---- Birds, rowers, swimmers ---------------------------------------------------
+
+  critterPos(c: Critter): { x: number; y: number; heading: number } {
+    const p = this.sim.track.pointAt(c.along, c.lat);
+    return { x: p.x, y: p.y, heading: c.dir === 1 ? p.heading : p.heading + Math.PI };
+  }
+
+  private updateCritters(dt: number): void {
+    const K = TUNING.critters, sim = this.sim, track = sim.track;
+    this.critterT += dt;
+    if (this.critterT >= K.every && sim.time > K.startAfter) {
+      this.critterT = sim.rng.range(-0.4, 0.4) * K.every;
+      const pool = sim.racers.filter((r) => !r.finished && r.sinkTimer <= 0);
+      if (pool.length && this.critters.length < K.max) {
+        let total = 0;
+        for (const r of pool) total += K.weights[Math.min(3, r.position)];
+        let roll = sim.rng.next() * total;
+        let pick = pool[0];
+        for (const r of pool) {
+          roll -= K.weights[Math.min(3, r.position)];
+          if (roll < 0) {
+            pick = r;
+            break;
+          }
+        }
+        let along = track.alongOf(pick.progress) + sim.rng.range(K.ahead[0], K.ahead[1]);
+        if (track.closed) along = ((along % track.length) + track.length) % track.length;
+        const roll2 = sim.rng.next();
+        const kind = (roll2 < 0.45 ? 0 : roll2 < 0.75 ? 1 : 2) as 0 | 1 | 2;
+        const room = track.sampleAt(along).width / 2 - K.radius[kind] - 12;
+        if ((track.closed || along < track.length - 100) && room > 0) {
+          this.critters.push({ id: this.nextId++, kind, along, lat: sim.rng.range(-room, room), dir: sim.rng.chance(0.5) ? 1 : -1, age: 0, dead: false });
+        }
+      }
+    }
+    for (const c of this.critters) {
+      c.age += dt;
+      if (c.age > K.life) c.dead = true;
+      if (c.dead) continue;
+      c.along += c.dir * K.speed[c.kind] * dt;
+      if (track.closed) c.along = ((c.along % track.length) + track.length) % track.length;
+      else if (c.along < 0 || c.along > track.length) {
+        c.dead = true;
+        continue;
+      }
+      const p = this.critterPos(c);
+      const R = K.radius[c.kind];
+      const hx = Math.cos(p.heading), hy = Math.sin(p.heading);
+      for (const r of sim.racers) {
+        if (r.sinkTimer > 0 || sim.isGhost(r)) continue;
+        // A rowing boat is long: test along its length.
+        const hitIt = c.kind === 1
+          ? [-28, 0, 28].some((o) => isTouching(r, p.x + hx * o, p.y + hy * o, 12))
+          : isTouching(r, p.x, p.y, R * 0.75);
+        if (!hitIt) continue;
+        c.dead = true;
+        addEffect(r, 'splattered', K.slowTime);
+        r.vx *= K.jolt;
+        r.vy *= K.jolt;
+        sim.emit({ type: 'splat', racer: r.id, kind: c.kind, x: p.x, y: p.y });
+        break;
+      }
+    }
+  }
+}
+
+/** Whether a boat's hull touches a thin line from (ax, ay) to (bx, by). */
+function segmentTouches(r: Racer, ax: number, ay: number, bx: number, by: number): boolean {
+  const len = Math.hypot(bx - ax, by - ay);
+  const n = Math.max(2, Math.ceil(len / 10));
+  for (let k = 0; k <= n; k++) if (isTouching(r, ax + ((bx - ax) * k) / n, ay + ((by - ay) * k) / n, 3)) return true;
+  return false;
+}

@@ -16,7 +16,7 @@ const ITEM_SOUND: Partial<Record<ItemId, SfxName>> = {
   volunteer: 'volunteer', volunteerSquad: 'volunteer', jigsaw: 'jigsaw', whitePowder: 'powder', bigBag: 'powder',
   drill: 'drill', siliconeGun: 'silicone', fakeCrate: 'drop', mushroom: 'mushroom',
   blackout: 'blackout', raclette: 'raclette', toilet: 'toilet', karcher: 'karcher',
-  titten: 'titten', dildo: 'dildo', nailGun: 'nailGun', siphon: 'siphon', tugboat: 'tugboat',
+  titten: 'titten', dildo: 'dildo', nailGun: 'nailGun', siphon: 'siphon', tugboat: 'tugboat', beerDispenser: 'beer', vacuum: 'vacuum',
   // glue: the sound plays when the puddle appears (also for the silicone gun's shots)
 };
 
@@ -126,6 +126,12 @@ export class RaceAudio {
         this.at(e.source === 'fakeCrate' ? 'trap' : e.source === 'bank' ? 'bank' : e.source === 'toilet' ? 'toxic' : 'hit', r.x, r.y, e.racer === me ? 1.2 : 1);
         break;
       }
+      case 'shieldPop':
+        this.at('pop', racers[e.racer].x, racers[e.racer].y, 1.1);
+        break;
+      case 'hooked':
+        this.at('reel', racers[e.racer].x, racers[e.racer].y, 1.1);
+        break;
       case 'bank':
         if (e.strength > 90 && this.ready(`bank${e.racer}`, 0.35)) this.at('bank', racers[e.racer].x, racers[e.racer].y, Math.min(1, e.strength / 300) * 0.7);
         break;
