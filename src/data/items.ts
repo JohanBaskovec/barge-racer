@@ -138,7 +138,7 @@ export const TUNING = {
   /** Gas siphoning: every opponent's tank is empty for `duration` s: no thrust, and they stop. */
   siphon: { duration: 3, drag: 4 },
   /** Beer dispenser: the hull is repaired in full, and a head of foam takes the next hit (not bank bumps or smoke), within `shieldTime` s. */
-  beerDispenser: { shieldTime: 45 },
+  beerDispenser: { shieldTime: 45, drunkTime: 6 },
   /**
    * Vacuum cleaner: for `duration` s, every boat ahead within `range` px (and within `halfAngle` of
    * straight ahead) is pulled towards the owner, harder when closer and the lighter it is.
@@ -154,6 +154,8 @@ export const TUNING = {
   cops: {
     gap: 1400, after: 2, warn: 2.2, chase: 15, fireEvery: 1.3, range: 760, bulletSpeed: 640, bulletRange: 950, spread: 0.15,
     ticket: 3, ticketDrag: 5, cooldown: 30, startAfter: 15, endMargin: 1500, speed: 1.3, length: 96, width: 34, offset: 230,
+    /** A rocket that hits does this much damage too (and pulls the boat over if it is the one chased). */
+    rocketDamage: 15,
   },
   /**
    * Anglers: now and then (about every `every` s, never closer than `minGap` s apart) one sits on a
@@ -193,7 +195,9 @@ export const TUNING = {
   },
   silicone: { speedMult: 1.3, range: 900, ownerImmunity: 0.4 },
   fakeCrate: { damage: 30, life: 40, ownerImmunity: 1, radius: 26 },
-  beer: { healFraction: 0.5 },
+  beer: { healFraction: 0.5, drunkTime: 4 },
+  /** Drunk (beer, beer dispenser): the boat weaves, `sway` rad either side, a full sway every 2π / `rate` s. */
+  drunk: { sway: 0.55, rate: 2.6 },
   /**
    * Magic mushrooms. For `duration` seconds: whoever was ahead of the user when it was eaten is
    * shrunk (smaller, lighter and a lot slower), whoever was behind is hasty (faster), and

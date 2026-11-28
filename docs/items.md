@@ -165,7 +165,10 @@ straight into it.
 *"Medicinal."*
 
 A crate of beer in a slot. Using it **heals 50 % of the boat's maximum hull** (never
-above full), with a green burst and a "Cheers!" message. Drink it when you need it:
+above full), with a green burst and a "Cheers!" message. And it goes to your head: for
+**4 s** you are drunk ("Hic!"): the boat weaves from side to side on its own (up to about
+30 degrees either way, a sway every 2.4 s), and your screen goes green, with soft waves
+rolling across it and the view swaying. Drink it when you need it:
 it can be kept for after the next hit. The AI drinks when its hull is under 55 %.
 
 ### 9. Magic Mushrooms
@@ -300,8 +303,8 @@ can still fire items. Only the boats behind get it.
 
 ### 19. Beer Dispenser
 
-A bar's beer tap: the hull is repaired **in full**, and a head of foam forms round the
-boat that **takes the next hit** instead of it (within 45 s): a weapon, a trap, a crash
+A bar's beer tap: the hull is repaired **in full** (and you are drunk for 6 s, as with a
+beer), and a head of foam forms round the boat that **takes the next hit** instead of it (within 45 s): a weapon, a trap, a crash
 caused by an item, a nail, a police bullet. Bumping the bank doesn't burst it, nor does
 toxic smoke (damage over time, not a hit). When it bursts the boat blinks, as if hit, so
 the same thing can't hurt it a moment later. The AI drinks it below 65 % hull.

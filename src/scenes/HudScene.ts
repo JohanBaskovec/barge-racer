@@ -40,6 +40,8 @@ export class HudScene extends Phaser.Scene {
   private tripGfx!: Phaser.GameObjects.Graphics;
   /** The joystick under the steering finger. */
   private stickGfx!: Phaser.GameObjects.Graphics;
+  /** Drunk: a green wash with waves rolling across the screen. */
+  private drunkGfx!: Phaser.GameObjects.Graphics;
   private endsText!: Phaser.GameObjects.Text;
   private big!: Phaser.GameObjects.Text;
   private map!: Phaser.GameObjects.Graphics;
@@ -163,6 +165,7 @@ export class HudScene extends Phaser.Scene {
     });
     // Full-screen colour wash used by the mushroom effect (the camera effect is in the race scene).
     this.stickGfx = this.add.graphics().setDepth(49);
+    this.drunkGfx = this.add.graphics().setDepth(48);
     this.tripGfx = this.add.graphics().setDepth(50).setBlendMode(Phaser.BlendModes.SCREEN).setAlpha(0);
 
     // Pause
@@ -240,6 +243,7 @@ export class HudScene extends Phaser.Scene {
       ui.ring.setScale(held ? 1 + Math.sin(time / 180 + k) * 0.03 : 1);
     });
     this.drawTrip(time);
+    this.drawDrunk(time);
     this.drawStick();
 
     this.drawMap();
@@ -253,7 +257,7 @@ export class HudScene extends Phaser.Scene {
     const now = new Set<string>();
     for (const e of p.effects) if (e.remaining > 0) now.add(e.kind);
     const announce: [EffectKind, string, string][] = [
-      ['blackout', 'hud.blackout', '#ffe04a'], ['cheesed', 'hud.cheese', '#ffd23f'], ['shrunk', 'hud.shrunk', '#bfe1f7'], ['hasty', 'hud.hasty', '#ffb0d9'],
+      ['blackout', 'hud.blackout', '#ffe04a'], ['cheesed', 'hud.cheese', '#ffd23f'], ['drunk', 'hud.drunk', '#9dff6a'], ['shrunk', 'hud.shrunk', '#bfe1f7'], ['hasty', 'hud.hasty', '#ffb0d9'],
     ];
     for (const [kind, key, color] of announce) if (now.has(kind) && !this.seen.has(kind)) this.popup(t(key as 'hud.blackout'), color);
     this.seen = now;
@@ -266,6 +270,21 @@ export class HudScene extends Phaser.Scene {
     const eased = 1 - (1 - drop) ** 3;
     const leave = Math.max(0, Math.min(1, 1 - e.remaining)); // the last second: it runs down
     this.cheese.setY(-900 * (1 - eased) + leave * leave * 760).setAlpha(1 - leave * 0.4);
+  }
+
+  /** Drunk: everything goes green, and soft bands roll across the screen like the floor at a party. */
+  private drawDrunk(time: number): void {
+    const level = this.race.drunk;
+    const g = this.drunkGfx.clear();
+    if (level <= 0.01) return;
+    g.fillStyle(0x4fd04a, 0.2 * level).fillRect(0, 0, 1280, 720);
+    for (let k = 0; k < 6; k++) {
+      const y0 = ((time / 14 + k * 140) % 860) - 70;
+      const pts: Phaser.Math.Vector2[] = [];
+      for (let x = 0; x <= 1280; x += 40) pts.push(new Phaser.Math.Vector2(x, y0 + Math.sin(x / 140 + time / 420 + k) * 26));
+      for (let x = 1280; x >= 0; x -= 40) pts.push(new Phaser.Math.Vector2(x, y0 + 46 + Math.sin(x / 140 + time / 420 + k + 0.8) * 26));
+      g.fillStyle(k % 2 ? 0x9dff6a : 0x2f9a3a, 0.1 * level).fillPoints(pts, true);
+    }
   }
 
   /** A slowly cycling rainbow wash over the whole screen while the player is tripping. */
@@ -359,7 +378,10 @@ export class HudScene extends Phaser.Scene {
         if (e.racer === me) {
           if (e.phase === 'warn') this.flashBig(t('hud.speeding'), '#ff5a4d', 92);
           else if (e.phase === 'chase') this.popup(t('hud.police'), '#9fd8ff');
-          else if (e.phase === 'ticket') this.flashBig(t('hud.ticket'), '#9fd8ff', 92);
+          else if (e.phase === 'ticket') {
+            this.flashBig(t('hud.ticket'), '#9fd8ff', 92);
+            this.popup(t('hud.fine'), '#ffe08a');
+          }
         } else if (e.phase === 'warn') this.popup(t('hud.policeAfter', { name: sim.racers[e.racer].name }), '#9fd8ff');
         else if (e.phase === 'ticket') this.popup(t('hud.pulledOver', { name: sim.racers[e.racer].name }), '#ffe08a');
         break;

@@ -24,6 +24,10 @@ export class HazardView {
   private blood: Phaser.GameObjects.Particles.ParticleEmitter;
   private gibs: Phaser.GameObjects.Particles.ParticleEmitter;
   private feathers: Phaser.GameObjects.Particles.ParticleEmitter;
+  /** Rockets: a flame and smoke trail; explosions: fire, smoke and bits. */
+  private flame: Phaser.GameObjects.Particles.ParticleEmitter;
+  private fire: Phaser.GameObjects.Particles.ParticleEmitter;
+  private smoke: Phaser.GameObjects.Particles.ParticleEmitter;
 
   constructor(private scene: Phaser.Scene, private sim: RaceSimulation, private audio: RaceAudio) {
     const C = TUNING.cops;
@@ -36,6 +40,15 @@ export class HazardView {
     this.gibs = scene.add.particles(0, 0, 'gib', {
       lifespan: 900, speed: { min: 80, max: 240 }, scale: { start: 0.45, end: 0.25 }, rotate: { min: 0, max: 360 }, alpha: { start: 1, end: 0 }, emitting: false,
     }).setDepth(15);
+    this.flame = scene.add.particles(0, 0, 'droplet', {
+      lifespan: 380, speed: { min: 10, max: 40 }, scale: { start: 0.9, end: 0.1 }, alpha: { start: 0.9, end: 0 }, tint: [0xffd23f, 0xff8a1f, 0xfff2a0, 0xbbbbbb], emitting: false,
+    }).setDepth(13.9);
+    this.fire = scene.add.particles(0, 0, 'droplet', {
+      lifespan: 520, speed: { min: 60, max: 320 }, scale: { start: 2.2, end: 0.2 }, alpha: { start: 1, end: 0 }, tint: [0xffd23f, 0xff8a1f, 0xff5a1f, 0xfff6c0], emitting: false,
+    }).setDepth(15.5);
+    this.smoke = scene.add.particles(0, 0, 'droplet', {
+      lifespan: 1400, speed: { min: 20, max: 110 }, scale: { start: 1.6, end: 4 }, alpha: { start: 0.55, end: 0 }, tint: [0x3b3b3b, 0x555555, 0x2b2b2b], emitting: false,
+    }).setDepth(15.4);
     this.feathers = scene.add.particles(0, 0, 'feather', {
       lifespan: 1600, speed: { min: 40, max: 180 }, scale: { start: 0.5, end: 0.35 }, rotate: { min: 0, max: 360 }, alpha: { start: 1, end: 0 }, emitting: false,
     }).setDepth(15);
@@ -47,11 +60,15 @@ export class HazardView {
 
   update(time: number, dt: number): void {
     this.updatePolice(time, dt);
+    // Rockets, trailing flame and smoke (they explode on a 'boom' event).
     this.sync(this.bullets, this.hz.bullets, (b) => {
       const p = this.hz.police;
-      if (p) this.audio.at('gunshot', p.x, p.y, 0.9);
-      return this.scene.add.image(b.x, b.y, 'bullet').setDisplaySize(16, 4).setDepth(14);
-    }, (img, b) => img.setPosition(b.x, b.y).setRotation(b.heading), (img) => img.destroy());
+      if (p) this.audio.at('rocket', p.x, p.y, 0.9);
+      return this.scene.add.image(b.x, b.y, 'rocket').setDisplaySize(30, 10).setDepth(14);
+    }, (img, b) => {
+      img.setPosition(b.x, b.y).setRotation(b.heading);
+      this.flame.emitParticleAt(b.x - Math.cos(b.heading) * 16, b.y - Math.sin(b.heading) * 16, 2);
+    }, (img) => img.destroy());
     this.sync(this.anglers, this.hz.anglers, (a) => this.makeAngler(a), (v, a) => this.drawAngler(v, a, time), (v) => {
       this.scene.tweens.add({ targets: [v.man, v.line], alpha: 0, duration: 600, onComplete: () => (v.man.destroy(), v.line.destroy()) });
     });
@@ -147,9 +164,25 @@ export class HazardView {
     else v.parts.forEach((s, i) => s.setTexture(`swimmer_${s.getData('cap')}_${Math.floor(time / 350 + i) % 2}`));
   }
 
-  /** A boat ran into birds, rowers or swimmers: blood, bits (feathers for birds), a stain on the water. */
+  /**
+   * A rocket explodes: fire, smoke, a shock ring and a splash. A boat ran into birds, rowers or
+   * swimmers: blood, bits (feathers for birds), a stain on the water, and screams for people.
+   */
   onEvent(e: RaceEvent): void {
+    if (e.type === 'boom') {
+      this.fire.emitParticleAt(e.x, e.y, 30);
+      this.smoke.emitParticleAt(e.x, e.y, 14);
+      const ring = this.scene.add.circle(e.x, e.y, 20).setStrokeStyle(6, 0xfff2a0, 0.9).setDepth(15.6);
+      this.scene.tweens.add({ targets: ring, radius: 110, alpha: 0, duration: 420, ease: 'Cubic.easeOut', onComplete: () => ring.destroy() });
+      this.audio.at('explosion', e.x, e.y, 1.2);
+      return;
+    }
     if (e.type !== 'splat') return;
+    if (e.kind !== 0) {
+      // people: a scream (a rowing four screams in chorus)
+      this.audio.at('scream', e.x, e.y, 1.2);
+      if (e.kind === 1) this.scene.time.delayedCall(90, () => this.audio.at('scream', e.x, e.y, 0.9));
+    }
     const stain = this.scene.add.image(e.x, e.y, 'bloodSplat').setDisplaySize(120, 120).setDepth(4).setRotation(Math.random() * Math.PI * 2).setAlpha(0.9);
     this.scene.tweens.add({ targets: stain, alpha: 0, delay: 4000, duration: 3000, onComplete: () => stain.destroy() });
     this.blood.emitParticleAt(e.x, e.y, 34);

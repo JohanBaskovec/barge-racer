@@ -54,6 +54,8 @@ export class RaceScene extends Phaser.Scene {
   private hazardView: HazardView | null = null;
   /** 0..1: how psychedelic the screen is (mushrooms). The HUD reads this for its colour wash. */
   trip = 0;
+  /** How drunk the player is (0..1), for the swaying camera and the HUD's green waves. */
+  drunk = 0;
   private tripT = 0;
   private tripFx: { colors: Phaser.FX.ColorMatrix; barrel: Phaser.FX.Barrel } | null = null;
   private sparks!: Phaser.GameObjects.Particles.ParticleEmitter;
@@ -100,6 +102,7 @@ export class RaceScene extends Phaser.Scene {
     this.streetLife = null;
     this.hazardView = null;
     this.trip = 0;
+    this.drunk = 0;
     this.tripT = 0;
     this.tripFx = null;
     this.freeze = 0;
@@ -241,6 +244,7 @@ export class RaceScene extends Phaser.Scene {
     this.trackView.update(time);
     this.streetLife?.update(Math.min(dt, 0.1));
     this.updateTrip(time, dt);
+    this.updateDrunk(time, dt);
     this.raceAudio.update(dt);
     this.updateCamera(dt, time);
     for (const e of this.online ? this.online.takeEvents() : this.sim.takeEvents()) this.handleEvent(e);
@@ -580,6 +584,16 @@ export class RaceScene extends Phaser.Scene {
    * Mushrooms: for a while the screen cycles through colours and bulges. Needs WebGL for the
    * colour/lens effects; elsewhere only the HUD's colour wash and the zoom breathing show.
    */
+  /** Drunk (beer): the camera sways, eased in and out (the HUD adds the green waves). */
+  private updateDrunk(time: number, dt: number): void {
+    const e = this.sim.player?.effects.find((x) => x.kind === 'drunk' && x.remaining > 0);
+    const target = e ? Math.min(1, e.remaining / 0.8) : 0;
+    this.drunk += (target - this.drunk) * (1 - Math.exp(-dt * 3));
+    if (this.drunk < 0.005) this.drunk = 0;
+    const sway = this.reduceShake() ? 0.3 : 1;
+    this.cameras.main.setRotation(Math.sin(time / 650) * 0.06 * this.drunk * sway);
+  }
+
   private updateTrip(time: number, dt: number): void {
     this.tripT = Math.max(0, this.tripT - dt);
     const target = this.tripT > 0 ? 1 : 0;

@@ -247,6 +247,8 @@ export type RaceEvent =
   /** The police after a leader: warned for speeding, chased, pulled over (ticket), gone. */
   | { type: 'cops'; racer: number; phase: 'warn' | 'chase' | 'ticket' | 'leave' }
   | { type: 'hooked'; racer: number }
+  /** A police rocket exploded there (on a boat, the bank or a barge). */
+  | { type: 'boom'; x: number; y: number }
   /** Ran into birds (kind 0), a rowing boat (1) or swimmers (2). */
   | { type: 'splat'; racer: number; kind: 0 | 1 | 2; x: number; y: number }
   | { type: 'sunk'; racer: number }

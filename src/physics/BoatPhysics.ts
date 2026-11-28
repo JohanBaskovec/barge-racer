@@ -32,7 +32,14 @@ export function stepBoat(r: Racer, intent: ControlIntent, dt: number, canDrive: 
 
   // Electrical failure: the controls are stuck, so the boat keeps its last throttle and heading.
   const stuck = hasEffect(r, 'blackout');
-  const desiredHeading = stuck ? null : intent.desiredHeading;
+  let desiredHeading = stuck ? null : intent.desiredHeading;
+  // Drunk: the boat weaves from side to side. Timed by the effect's own countdown, so the server
+  // and the screen predicting the boat weave alike.
+  const drunk = r.effects.find((e) => e.kind === 'drunk' && e.remaining > 0);
+  if (drunk && !stuck) {
+    const D = TUNING.drunk;
+    desiredHeading = (desiredHeading ?? r.heading) + Math.sin(drunk.remaining * D.rate) * D.sway * Math.min(1, drunk.remaining);
+  }
   const throttle = clamp(stuck ? r.throttle : intent.throttle, -1, 1) * control;
 
   // Steering: boats can't turn on the spot, so the turn rate fades in with speed.

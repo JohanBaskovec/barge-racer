@@ -164,6 +164,30 @@ export const SFX = {
     noise(c, d, { dur: 2.9, filter: 'bandpass', freq: 500, freqEnd: 900, q: 0.8, gain: 0.35, attack: 0.25 });
     tone(c, d, { type: 'sawtooth', freq: 120, freqEnd: 160, dur: 2.9, gain: 0.05, lowpass: 900, attack: 0.25 });
   },
+  /** A police rocket leaving the launcher: a rising whoosh */
+  rocket: (c: Ctx, d: AudioNode) => {
+    noise(c, d, { dur: 0.5, filter: 'bandpass', freq: 600, freqEnd: 2600, q: 1.5, gain: 0.45, attack: 0.02 });
+    tone(c, d, { type: 'sawtooth', freq: 180, freqEnd: 420, dur: 0.4, gain: 0.06, lowpass: 1200 });
+  },
+  /** An explosion: a crack, a deep boom and falling debris */
+  explosion: (c: Ctx, d: AudioNode) => {
+    noise(c, d, { dur: 0.08, filter: 'highpass', freq: 1500, gain: 0.7 });
+    noise(c, d, { dur: 0.9, filter: 'lowpass', freq: 900, freqEnd: 60, gain: 0.9, at: 0.01 });
+    tone(c, d, { type: 'sine', freq: 90, freqEnd: 35, dur: 0.7, gain: 0.5, at: 0.01 });
+    for (let i = 0; i < 5; i++) noise(c, d, { dur: 0.04, filter: 'bandpass', freq: 1800 + i * 300, q: 3, gain: 0.15, at: 0.35 + i * 0.08 });
+  },
+  /**
+   * A person screaming (run over while swimming or rowing): a rising then falling shriek with a
+   * wobble, a few voices of it through a mouth-like filter, a breath of noise. A new pitch each time.
+   */
+  scream: (c: Ctx, d: AudioNode) => {
+    const base = 620 + Math.random() * 420, len = 0.55 + Math.random() * 0.35;
+    for (const [mult, gain] of [[1, 0.09], [2.01, 0.035], [1.5, 0.03]] as const) {
+      tone(c, d, { type: 'sawtooth', freq: base * mult * 0.8, freqEnd: base * mult * 1.25, dur: len * 0.35, gain, lowpass: 3200, vibrato: [45, 7], attack: 0.02, release: 0.01 });
+      tone(c, d, { type: 'sawtooth', freq: base * mult * 1.25, freqEnd: base * mult * 0.55, dur: len * 0.65, gain, lowpass: 2600, vibrato: [70, 6.5], attack: 0.01, at: len * 0.35 });
+    }
+    noise(c, d, { dur: len, filter: 'bandpass', freq: 1400, freqEnd: 900, q: 2, gain: 0.12, attack: 0.03 });
+  },
   /** A barge's horn: one long, low blast */
   horn: (c: Ctx, d: AudioNode) => {
     tone(c, d, { type: 'sawtooth', freq: 110, dur: 0.9, gain: 0.16, lowpass: 600, attack: 0.08, release: 0.2 });

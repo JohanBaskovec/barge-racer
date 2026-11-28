@@ -28,7 +28,7 @@ export interface SimState {
   drops: [number, number, number, number, number, number, number, number][]; // id, x, y, fromX, fromY, age, target, kind
   /** Hazards: the police boat (phase index, target, t, x, y, heading, side, fireT), bullets, anglers, critters. */
   pol: [number, number, number, number, number, number, number, number] | null;
-  bul: [number, number, number, number, number, number][]; // id, x, y, heading, travelled, target
+  bul: [number, number, number, number, number, number, number][]; // id, x, y, heading, travelled, target, near
   ang: [number, number, number, number, number, number][]; // id, target, side, along, age, hooked
   cri: [number, number, number, number, number, number][]; // id, kind, along, lat, dir, age
 }
@@ -88,7 +88,7 @@ export function encodeState(sim: RaceSimulation): SimState {
     clouds: it.clouds.map((c) => [c.id, c.owner, c.kind, r1(c.x), r1(c.y), r3(c.age)]),
     drops: it.drops.map((d) => [d.id, r1(d.x), r1(d.y), r1(d.fromX), r1(d.fromY), r3(d.age), d.target, d.kind]),
     pol: hz.police && [POLICE_PHASES.indexOf(hz.police.phase), hz.police.target, r3(hz.police.t), r1(hz.police.x), r1(hz.police.y), r3(hz.police.heading), hz.police.side, r3(hz.police.fireT)],
-    bul: hz.bullets.map((b) => [b.id, r1(b.x), r1(b.y), r3(b.heading), r1(b.travelled), b.target]),
+    bul: hz.bullets.map((b) => [b.id, r1(b.x), r1(b.y), r3(b.heading), r1(b.travelled), b.target, b.near]),
     ang: hz.anglers.map((a) => [a.id, a.target, a.side, r1(a.along), r3(a.age), a.hooked ? 1 : 0]),
     cri: hz.critters.map((c) => [c.id, c.kind, r1(c.along), r1(c.lat), c.dir, r3(c.age)]),
   };
@@ -157,7 +157,7 @@ export function applyState(sim: RaceSimulation, s: SimState, except = -1): void 
   const hz = sim.hazards;
   const pol = s.pol ?? null;
   hz.police = pol && { phase: POLICE_PHASES[pol[0]], target: pol[1], t: pol[2], x: pol[3], y: pol[4], heading: pol[5], side: pol[6] as 1 | -1, fireT: pol[7] };
-  hz.bullets = (s.bul ?? []).map(([id, x, y, heading, travelled, target]) => ({ id, x, y, heading, travelled, target, dead: false }));
+  hz.bullets = (s.bul ?? []).map(([id, x, y, heading, travelled, target, near]) => ({ id, x, y, heading, travelled, target, near: near ?? 0, dead: false }));
   hz.anglers = (s.ang ?? []).map(([id, target, side, along, age, hooked]) => ({ id, target, side: side as 1 | -1, along, age, hooked: hooked === 1, dead: false }));
   hz.critters = (s.cri ?? []).map(([id, kind, along, lat, dir, age]) => ({ id, kind: kind as 0 | 1 | 2, along, lat, dir: dir as 1 | -1, age, dead: false }));
 }

@@ -1027,3 +1027,37 @@ export function drawDrillBit(c: Ctx, frame: number): void {
   c.closePath();
   c.fill();
 }
+
+/** A police rocket pointing right, 30 x 10: a red body with a white band, a grey nose and fins. */
+export function drawRocket(c: Ctx): void {
+  shadowed(c, 1, 0.4, () => {
+    // fins
+    c.fillStyle = '#2b2f35';
+    c.beginPath();
+    c.moveTo(2, 0.5);
+    c.lineTo(9, 3.2);
+    c.lineTo(9, 6.8);
+    c.lineTo(2, 9.5);
+    c.closePath();
+    c.fill();
+    // body
+    rr(c, 4, 2.6, 19, 4.8, 2);
+    const g = c.createLinearGradient(0, 2.6, 0, 7.4);
+    g.addColorStop(0, '#ff6b5e');
+    g.addColorStop(0.5, '#d62f2f');
+    g.addColorStop(1, '#8e1a14');
+    c.fillStyle = g;
+    c.fill();
+  });
+  c.fillStyle = '#f4f4f4';
+  c.fillRect(14, 2.6, 2.4, 4.8);
+  // nose cone
+  c.beginPath();
+  c.moveTo(22.5, 2.6);
+  c.quadraticCurveTo(29.5, 3.6, 29.8, 5);
+  c.quadraticCurveTo(29.5, 6.4, 22.5, 7.4);
+  c.closePath();
+  c.fillStyle = '#b9c0c8';
+  c.fill();
+  disc(c, '#ffd23f', 3, 5, 1.6); // the burning nozzle
+}

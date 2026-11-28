@@ -1,6 +1,7 @@
 import { TUNING } from '../data/items';
 import { addEffect, hasEffect, removeEffect } from '../effects/effects';
-import { isTouching, resolveStatic } from '../physics/collisions';
+import { isTouching, resolveStatic, touchesCapsule } from '../physics/collisions';
+import { bargeCapsule } from './traffic';
 import { TOWPATH } from '../view/scenery';
 import type { RaceSimulation } from './RaceSimulation';
 import type { Racer } from './types';
@@ -35,14 +36,17 @@ export interface Police {
   fireT: number;
 }
 
+/** A police rocket: flies straight and explodes on the first thing it meets (a boat, the bank, a barge). */
 export interface Bullet {
   id: number;
   x: number;
   y: number;
   heading: number;
   travelled: number;
-  /** Only this boat can be hit (the others are not speeding). */
+  /** The boat it was fired at (only that one gets pulled over). */
   target: number;
+  /** Nearest centre-line sample, to find the banks cheaply. */
+  near: number;
   dead: boolean;
 }
 
@@ -155,7 +159,7 @@ export class HazardSystem {
           // Aim where the boat will be when the bullet gets there, give or take.
           const tFly = d / C.bulletSpeed;
           const aim = Math.atan2(T.y + T.vy * tFly - p.y, T.x + T.vx * tFly - p.x) + sim.rng.range(-C.spread, C.spread);
-          this.bullets.push({ id: this.nextId++, x: p.x + Math.cos(aim) * 40, y: p.y + Math.sin(aim) * 40, heading: aim, travelled: 0, target: T.id, dead: false });
+          this.bullets.push({ id: this.nextId++, x: p.x + Math.cos(aim) * 40, y: p.y + Math.sin(aim) * 40, heading: aim, travelled: 0, target: T.id, near: T.nearestIndex, dead: false });
         }
         break;
       }
@@ -206,29 +210,57 @@ export class HazardSystem {
     p.heading += diff * Math.min(1, dt * 5);
   }
 
+  /** Rockets fly straight and explode on the first boat they touch, at the bank, or against a barge. */
   private updateBullets(dt: number): void {
-    const C = TUNING.cops, sim = this.sim;
+    const C = TUNING.cops, sim = this.sim, track = sim.track;
     for (const b of this.bullets) {
       if (b.dead) continue;
       const step = C.bulletSpeed * dt;
       b.x += Math.cos(b.heading) * step;
       b.y += Math.sin(b.heading) * step;
       b.travelled += step;
-      if (b.travelled > C.bulletRange) b.dead = true;
-      const T = sim.racers[b.target];
-      if (b.dead || T.sinkTimer > 0 || sim.isGhost(T) || !isTouching(T, b.x, b.y, 5)) continue;
-      b.dead = true;
-      if (this.police && this.police.target === T.id && this.police.phase === 'chase') this.pullOver(T, this.police);
+      if (b.travelled > C.bulletRange) {
+        this.explode(b);
+        continue;
+      }
+      const boat = sim.racers.find((r) => r.sinkTimer <= 0 && !sim.isGhost(r) && isTouching(r, b.x, b.y, 6));
+      if (boat) {
+        this.explode(b);
+        this.rocketHit(boat);
+        continue;
+      }
+      // the bank
+      const n = track.nearest(b.x, b.y, b.near);
+      b.near = n.index;
+      const pastEnd = !track.closed && (n.along < 0 || n.along > track.length);
+      if (pastEnd || Math.abs(n.lateral) > track.halfWidth(n.index)) {
+        this.explode(b);
+        continue;
+      }
+      // a barge
+      if (sim.trafficPoses.some((p) => p.solid && touchesCapsule(b.x, b.y, 6, bargeCapsule(p)))) this.explode(b);
     }
   }
 
-  /** A bullet hit: the police pull the boat over (unless its head of foam took the bullet). */
-  private pullOver(T: Racer, p: Police): void {
-    if (hasEffect(T, 'invulnerable')) return;
-    if (this.sim.popShield(T, 'police')) return;
-    addEffect(T, 'ticketed', TUNING.cops.ticket);
-    this.bullets = this.bullets.filter((b) => b.target !== T.id);
-    this.setPhase(p, 'ticket');
+  private explode(b: Bullet): void {
+    b.dead = true;
+    this.sim.emit({ type: 'boom', x: b.x, y: b.y });
+  }
+
+  /**
+   * A rocket hit a boat: it hurts, and the boat the police are chasing is pulled over (stopped and
+   * fined). A beer dispenser's head of foam takes the whole thing.
+   */
+  private rocketHit(r: Racer): void {
+    if (hasEffect(r, 'invulnerable')) return;
+    if (this.sim.popShield(r, 'police')) return;
+    const p = this.police;
+    if (p && p.target === r.id && p.phase === 'chase') {
+      addEffect(r, 'ticketed', TUNING.cops.ticket);
+      this.bullets = this.bullets.filter((x) => x.target !== r.id || x.dead);
+      this.setPhase(p, 'ticket');
+    }
+    this.sim.hit(r, TUNING.cops.rocketDamage, null, 'police', false);
   }
 
   // ---- Anglers ----------------------------------------------------------------

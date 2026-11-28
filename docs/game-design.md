@@ -152,11 +152,14 @@ seeded like the rest of the race, so they run on the server too:
 - **Police (the leader only).** A leader more than 1400 px ahead of the second boat for 2 s
   is warned for **speeding** ("SPEEDING!" on its screen, "Police after X!" on the
   others'). 2 s later a police boat with flashing lights turns up behind it and chases it
-  for 15 s, its siren wailing, shooting every 1.3 s (aiming where the boat will be, give
-  or take). Only the leader can be hit. A hit **pulls it over**: the police boat parks
-  alongside, in the way, and the leader is stopped for 3 s while the ticket is written;
-  then the police leave and don't come back for 30 s. A beer dispenser's foam takes the
-  bullet.
+  for 15 s, its siren wailing, firing a **rocket** every 1.3 s (aiming where the boat will
+  be, give or take; a flame trail shows it coming). A rocket explodes on the first thing it
+  meets: a boat, the bank or a barge (fire, smoke, a shock ring, a bang). Only a rocket that
+  hits the chased leader **pulls it over and fines it** ("FINED!", "€135 fine for
+  speeding"): the police boat parks alongside, in the way, and the leader is stopped for
+  3 s while the ticket is written. A rocket that hits another boat only hurts it (15 hull,
+  like the leader). No hit, no fine: after 15 s the police leave anyway, and don't come
+  back for 30 s. A beer dispenser's foam takes a rocket whole.
 - **Anglers (the leader only).** About every 20 s an angler sits on a bank 720 px ahead
   of the leader and casts a line across 55 % of the canal (a float marks its end). Caught
   on it, the leader is dragged towards the bank for up to 1.4 s; hitting the bank while
@@ -165,7 +168,7 @@ seeded like the rest of the race, so they run on the server too:
   5 s a flock of ducks, a rowing four or a few swimmers appear 650 to 950 px ahead of a
   boat picked by position (weights 5, 3, 2, 1 from 1st to 4th). Rowers and swimmers move
   along the canal. Running into them makes them explode in blood, bits (and feathers),
-  leaves a stain on the water and blood on the bow, and slows the boat down (top speed
+  leaves a stain on the water and blood on the bow (swimmers and rowers scream), and slows the boat down (top speed
   x 0.7 for 1.3 s, and a jolt); no damage. The AI swerves round them now and then.
 
 With them, in AI races on Lock & Load, the lead changes hands about 4.4 times a race

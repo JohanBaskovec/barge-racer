@@ -128,7 +128,7 @@ describe('police', () => {
     const p = sim.hazards.police!;
     expect(p.phase).toBe('chase');
     // A bullet right on the leader.
-    sim.hazards.bullets.push({ id: 999, x: lead.x - Math.cos(lead.heading) * 60, y: lead.y - Math.sin(lead.heading) * 60, heading: lead.heading, travelled: 0, target: lead.id, dead: false });
+    sim.hazards.bullets.push({ id: 999, x: lead.x - Math.cos(lead.heading) * 60, y: lead.y - Math.sin(lead.heading) * 60, heading: lead.heading, travelled: 0, target: lead.id, near: lead.nearestIndex, dead: false });
     run(sim, 0.2, () => keepAhead(sim, lead));
     expect(p.phase).toBe('ticket');
     expect(hasEffect(lead, 'ticketed')).toBe(true);
@@ -139,19 +139,46 @@ describe('police', () => {
     expect(sim.hazards.police).toBeNull();
   });
 
-  it('only hits the boat it chases, and a head of foam takes the bullet instead', () => {
+  it('a rocket that hits another boat hurts it but pulls nobody over; a head of foam takes a rocket whole', () => {
     const { sim, lead } = runaway();
     run(sim, TUNING.cops.after + TUNING.cops.warn + 0.5, () => keepAhead(sim, lead));
     const other = sim.racers.find((r) => r !== lead)!;
-    sim.hazards.bullets.push({ id: 998, x: other.x, y: other.y, heading: 0, travelled: 0, target: lead.id, dead: false });
+    const otherHull = other.hull;
+    sim.hazards.bullets.push({ id: 998, x: other.x, y: other.y, heading: 0, travelled: 0, target: lead.id, near: lead.nearestIndex, dead: false });
     sim.items.give(lead, 'beerDispenser');
     sim.items.use(lead, 0, 'forward');
-    sim.hazards.bullets.push({ id: 999, x: lead.x, y: lead.y, heading: lead.heading, travelled: 0, target: lead.id, dead: false });
+    sim.hazards.bullets.push({ id: 999, x: lead.x, y: lead.y, heading: lead.heading, travelled: 0, target: lead.id, near: lead.nearestIndex, dead: false });
     run(sim, 0.1, () => keepAhead(sim, lead));
     expect(hasEffect(other, 'ticketed')).toBe(false);
+    expect(other.hull).toBe(otherHull - TUNING.cops.rocketDamage);
     expect(hasEffect(lead, 'ticketed')).toBe(false);
     expect(hasEffect(lead, 'shielded')).toBe(false);
     expect(sim.hazards.police?.phase).toBe('chase');
+  });
+
+  it('rockets explode on the bank; a chase with no hit ends without a ticket', () => {
+    const { sim, lead } = runaway();
+    run(sim, TUNING.cops.after + TUNING.cops.warn + 0.2, () => keepAhead(sim, lead));
+    // a rocket fired straight across the canal, away from every boat
+    const n = sim.track.nearest(lead.x, lead.y, lead.nearestIndex);
+    const s0 = sim.track.samples[n.index];
+    sim.hazards.bullets = [{ id: 900, x: s0.x + s0.tx * 400, y: s0.y + s0.ty * 400, heading: Math.atan2(s0.tx, -s0.ty), travelled: 0, target: lead.id, near: n.index, dead: false }];
+    const ev = events(sim, 1, () => {
+      keepAhead(sim, lead);
+      sim.hazards.bullets = sim.hazards.bullets.filter((b) => b.id === 900); // only that one
+      if (sim.hazards.police) sim.hazards.police.fireT = 9;
+    });
+    expect(ev).toContain('boom');
+    expect(sim.hazards.bullets).toHaveLength(0);
+    // nothing hits it for the rest of the chase: no ticket
+    let ticketed = false;
+    run(sim, TUNING.cops.chase + 2, () => {
+      keepAhead(sim, lead);
+      sim.hazards.bullets = [];
+      ticketed ||= hasEffect(lead, 'ticketed');
+    });
+    expect(ticketed).toBe(false);
+    expect(sim.hazards.police).toBeNull();
   });
 });
 
@@ -228,12 +255,37 @@ describe('birds, rowers and swimmers', () => {
     sim.hazards.critters = [{ id: 7, kind: 1, along: 500, lat: 20, dir: -1, age: 3, dead: false }];
     sim.hazards.anglers = [{ id: 8, target: r.id, side: -1, along: 900, age: 2, hooked: true, dead: false }];
     sim.hazards.police = { phase: 'ticket', target: r.id, t: 1, x: 10, y: 20, heading: 0.5, side: -1, fireT: 0.3 };
-    sim.hazards.bullets = [{ id: 9, x: 1, y: 2, heading: 3, travelled: 4, target: r.id, dead: false }];
+    sim.hazards.bullets = [{ id: 9, x: 1, y: 2, heading: 3, travelled: 4, target: r.id, near: 5, dead: false }];
     const copy = lone(2, true);
     applyState(copy, JSON.parse(JSON.stringify(encodeState(sim))));
     expect(copy.hazards.critters).toEqual(sim.hazards.critters);
     expect(copy.hazards.anglers).toEqual(sim.hazards.anglers);
     expect(copy.hazards.police).toEqual(sim.hazards.police);
     expect(copy.hazards.bullets).toEqual(sim.hazards.bullets);
+  });
+});
+
+describe('beer makes you drunk', () => {
+  it('a beer (and a beer dispenser) makes the boat weave for a few seconds, holding the same course', () => {
+    const sim = lone();
+    const r = sim.racers[0];
+    sim.items.give(r, 'beer');
+    sim.items.use(r, 0, 'forward');
+    expect(hasEffect(r, 'drunk')).toBe(true);
+    // the same steady controls for both: the drunk one turns from side to side
+    const headings: number[] = [];
+    const course = r.heading;
+    sim.setController(r.id, { update: () => ({ desiredHeading: course, throttle: 1, fire: null }) });
+    run(sim, 2.5, () => {
+      for (const o of sim.racers) if (o !== r) o.slots = [null, null];
+      headings.push(r.heading);
+    });
+    const spread = Math.max(...headings) - Math.min(...headings);
+    expect(spread).toBeGreaterThan(0.25);
+    run(sim, TUNING.beer.drunkTime);
+    expect(hasEffect(r, 'drunk')).toBe(false);
+    sim.items.give(r, 'beerDispenser');
+    sim.items.use(r, 0, 'forward');
+    expect(r.effects.find((e) => e.kind === 'drunk')?.remaining).toBe(TUNING.beerDispenser.drunkTime);
   });
 });

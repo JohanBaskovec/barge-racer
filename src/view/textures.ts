@@ -6,7 +6,7 @@ import { drawPeniche, drawPenicheAccent } from './peniche';
 import { drawBarge } from './bargeArt';
 import { CAR, CAR_COLORS, SHIRTS, STREET_ART_SCALE, drawAngler, drawCar, drawCyclist, drawDog, drawWalker } from './streetArt';
 import { TUNING } from '../data/items';
-import { drawDrillBit, drawBloodSplat, drawBullet, drawDuck, drawFeather, drawGib, drawNozzle, drawPolice, drawRowboat, drawSwimmer, drawBoobs, drawCheesePuddle, drawCheeseScreen, drawCrate, drawDildo, drawGlueBlob, drawGluePuddle, drawHam, drawNail, drawPotato, drawSaw, drawToxicSmoke, drawVolunteer, drawWaterTile } from './worldArt';
+import { drawRocket, drawDrillBit, drawBloodSplat, drawBullet, drawDuck, drawFeather, drawGib, drawNozzle, drawPolice, drawRowboat, drawSwimmer, drawBoobs, drawCheesePuddle, drawCheeseScreen, drawCrate, drawDildo, drawGlueBlob, drawGluePuddle, drawHam, drawNail, drawPotato, drawSaw, drawToxicSmoke, drawVolunteer, drawWaterTile } from './worldArt';
 
 type G = Phaser.GameObjects.Graphics;
 
@@ -85,6 +85,7 @@ export function generateTextures(scene: Phaser.Scene): void {
   // Hazards (hazards.ts) and the vacuum cleaner
   world('police', 96, 34, drawPolice, 2.5);
   world('bullet', 16, 4, drawBullet, 4);
+  world('rocket', 30, 10, drawRocket, 3);
   for (let k = 0; k < 2; k++) world(`duck_${k}`, 18, 12, (c) => drawDuck(c, k), 4);
   for (let k = 0; k < 2; k++) world(`rowboat_${k}`, 96, 64, (c) => drawRowboat(c, k), 3);
   ['#f2c12e', '#d23b2f', '#2f6fd8', '#f2f2f2'].forEach((cap, i) => {

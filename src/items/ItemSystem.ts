@@ -124,6 +124,7 @@ export class ItemSystem {
       case 'beer': {
         const before = r.hull;
         r.hull = Math.min(r.stats.maxHull, r.hull + r.stats.maxHull * TUNING.beer.healFraction);
+        addEffect(r, 'drunk', TUNING.beer.drunkTime);
         this.sim.emit({ type: 'heal', racer: r.id, amount: r.hull - before });
         break;
       }
@@ -184,6 +185,7 @@ export class ItemSystem {
         const before = r.hull;
         r.hull = r.stats.maxHull;
         addEffect(r, 'shielded', TUNING.beerDispenser.shieldTime);
+        addEffect(r, 'drunk', TUNING.beerDispenser.drunkTime);
         this.sim.emit({ type: 'heal', racer: r.id, amount: r.hull - before });
         break;
       }
