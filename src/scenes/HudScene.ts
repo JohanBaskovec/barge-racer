@@ -9,6 +9,7 @@ import { options } from '../options';
 import { net } from '../net/client';
 import { addFullscreenButton } from '../view/fullscreen';
 import { button, fitText, fmtTime, text } from '../view/ui';
+import { viewWidth } from '../view/layout';
 import type { RaceScene } from './RaceScene';
 import { DebugScene } from './DebugScene';
 import { STICK } from '../control/PointerController';
@@ -73,6 +74,14 @@ export class HudScene extends Phaser.Scene {
   private lastToxicPopup = -9999;
   private netText!: Phaser.GameObjects.Text;
 
+  /** The screen's width (layout.ts), its centre, and how far the right edge is past 1280. */
+  private W = 1280;
+  private cx = 640;
+  private right = 0;
+  private pauseBtn = PAUSE_BTN;
+  private tauntBtn = TAUNT_BTN;
+  private mapBox = MAP;
+
   constructor() {
     super('Hud');
   }
@@ -85,13 +94,22 @@ export class HudScene extends Phaser.Scene {
 
   create(): void {
     const race = this.race;
+    // Pinned to the real edges of a screen wider than 1280: left things stay, right things move
+    // right, centred things stay centred.
+    this.W = viewWidth(this);
+    this.cx = this.W / 2;
+    this.right = this.W - 1280;
+    const ox = this.cx - 640;
+    this.pauseBtn = { ...PAUSE_BTN, x: PAUSE_BTN.x + ox };
+    this.tauntBtn = { ...TAUNT_BTN, x: TAUNT_BTN.x + ox };
+    this.mapBox = { ...MAP, x: MAP.x + this.right };
     const stroke = '#0b3a5b';
     // First, so everything else of the HUD is drawn over it: the cheese covers the race, not the buttons.
-    this.cheese = this.add.image(640, 0, 'cheeseScreen').setOrigin(0.5, 0).setVisible(false);
-    this.paintScreen = this.add.image(640, 360, 'paintScreen').setVisible(false);
+    this.cheese = this.add.image(this.cx, 0, 'cheeseScreen').setOrigin(0.5, 0).setScale(this.W / 1280, 1).setVisible(false);
+    this.paintScreen = this.add.image(this.cx, 360, 'paintScreen').setVisible(false);
     this.steamGfx = this.add.graphics();
     this.steamHole = this.add.image(0, 0, 'steamHole').setVisible(false);
-    this.steamPuffs = Array.from({ length: 12 }, (_, i) => this.add.image((i * 233) % 1280, (i * 157) % 720, 'steamPuff').setDisplaySize(380, 380).setVisible(false));
+    this.steamPuffs = Array.from({ length: 12 }, (_, i) => this.add.image((i * 233) % this.W, (i * 157) % 720, 'steamPuff').setDisplaySize(380, 380).setVisible(false));
     this.steamLevel = 0;
     this.seen.clear();
     this.popupRows.clear();
@@ -99,10 +117,10 @@ export class HudScene extends Phaser.Scene {
     this.lapText = text(this, 26, 92, '', 30).setOrigin(0, 0).setStroke(stroke, 6);
     this.timeText = text(this, 26, 130, '', 26, '#ffe08a').setOrigin(0, 0).setStroke(stroke, 5);
 
-    this.netText = text(this, 640, 250, t('online.reconnecting'), 34, '#ffd0c4').setStroke(stroke, 7).setVisible(false);
+    this.netText = text(this, this.cx, 250, t('online.reconnecting'), 34, '#ffd0c4').setStroke(stroke, 7).setVisible(false);
     if (race.spectating) {
       // Beside the item buttons (which show the watched boat's items), on the other side.
-      const wx = options.itemsRight ? 470 : 810;
+      const wx = (options.itemsRight ? 470 : 810) + ox;
       this.watchText = text(this, wx, 640, '', 30).setStroke(stroke, 6);
       fitText(text(this, wx, 680, t('watch.hint'), 20, '#bfe1f7').setStroke(stroke, 4), 760);
     }
@@ -115,12 +133,12 @@ export class HudScene extends Phaser.Scene {
       minX = Math.min(minX, s.x); maxX = Math.max(maxX, s.x);
       minY = Math.min(minY, s.y); maxY = Math.max(maxY, s.y);
     }
-    this.mapScale = Math.min((MAP.w - 24) / (maxX - minX), (MAP.h - 24) / (maxY - minY));
-    this.mapOx = MAP.x + MAP.w / 2 - ((minX + maxX) / 2) * this.mapScale;
-    this.mapOy = MAP.y + MAP.h / 2 - ((minY + maxY) / 2) * this.mapScale;
+    this.mapScale = Math.min((this.mapBox.w - 24) / (maxX - minX), (this.mapBox.h - 24) / (maxY - minY));
+    this.mapOx = this.mapBox.x + this.mapBox.w / 2 - ((minX + maxX) / 2) * this.mapScale;
+    this.mapOy = this.mapBox.y + this.mapBox.h / 2 - ((minY + maxY) / 2) * this.mapScale;
     // The outline never changes: draw it once (decimated: real-world tracks have thousands of samples).
     const base = this.add.graphics();
-    base.fillStyle(0x0b3a5b, 0.55).fillRoundedRect(MAP.x, MAP.y, MAP.w, MAP.h, 10);
+    base.fillStyle(0x0b3a5b, 0.55).fillRoundedRect(this.mapBox.x, this.mapBox.y, this.mapBox.w, this.mapBox.h, 10);
     const step = Math.max(1, Math.floor(tr.samples.length / 400));
     const outline = tr.samples.filter((_, i) => i % step === 0).map((s) => new Phaser.Math.Vector2(s.x * this.mapScale + this.mapOx, s.y * this.mapScale + this.mapOy));
     base.lineStyle(7, 0xffffff, 0.35).strokePoints(outline, tr.closed, tr.closed);
@@ -139,7 +157,7 @@ export class HudScene extends Phaser.Scene {
     this.children.bringToTop(this.map);
 
     // Item buttons (tap = fire forward, swipe down = fire backward).
-    const slotBtns = options.itemsRight ? SLOT_BTNS : SLOT_BTNS.map((b) => ({ ...b, x: 1280 - b.x }));
+    const slotBtns = options.itemsRight ? SLOT_BTNS.map((b) => ({ ...b, x: b.x + this.right })) : SLOT_BTNS.map((b) => ({ ...b, x: 1280 - b.x }));
     this.slotUi = slotBtns.map((b, k) => {
       const ring = this.add.circle(b.x, b.y, b.r, 0x0b3a5b, 0.7).setStrokeStyle(6, 0xffffff, 0.9);
       const icon = this.add.image(b.x, b.y, 'icon_glue').setDisplaySize(ICON, ICON).setVisible(false);
@@ -187,9 +205,9 @@ export class HudScene extends Phaser.Scene {
     this.tripGfx = this.add.graphics().setDepth(50).setBlendMode(Phaser.BlendModes.SCREEN).setAlpha(0);
 
     // Pause
-    const pb = this.add.circle(PAUSE_BTN.x, PAUSE_BTN.y, PAUSE_BTN.r, 0x0b3a5b, 0.7).setStrokeStyle(4, 0xffffff, 0.9);
-    this.add.rectangle(PAUSE_BTN.x - 7, PAUSE_BTN.y, 8, 24, 0xffffff);
-    this.add.rectangle(PAUSE_BTN.x + 7, PAUSE_BTN.y, 8, 24, 0xffffff);
+    const pb = this.add.circle(this.pauseBtn.x, this.pauseBtn.y, this.pauseBtn.r, 0x0b3a5b, 0.7).setStrokeStyle(4, 0xffffff, 0.9);
+    this.add.rectangle(this.pauseBtn.x - 7, this.pauseBtn.y, 8, 24, 0xffffff);
+    this.add.rectangle(this.pauseBtn.x + 7, this.pauseBtn.y, 8, 24, 0xffffff);
     // Only a press that started on the button pauses (not a steering finger lifted over it).
     let pausePress = -1;
     pb.setInteractive({ useHandCursor: true })
@@ -200,25 +218,25 @@ export class HudScene extends Phaser.Scene {
       });
     this.input.keyboard?.on('keydown-ESC', () => this.togglePause());
 
-    const fs = addFullscreenButton(this, PAUSE_BTN.x + 80, PAUSE_BTN.y);
+    const fs = addFullscreenButton(this, this.pauseBtn.x + 80, this.pauseBtn.y);
     const zones = slotBtns.map((b) => ({ ...b, r: b.r * HIT_SCALE }));
-    const baseZones = fs ? [...zones, PAUSE_BTN, TAUNT_BTN, fs] : [...zones, PAUSE_BTN, TAUNT_BTN];
+    const baseZones = fs ? [...zones, this.pauseBtn, this.tauntBtn, fs] : [...zones, this.pauseBtn, this.tauntBtn];
     race.pointer.hudZones = baseZones;
 
     // Taunts: a speech-bubble button opens two rows of phrases; picking one says it (and closes them).
-    const tb = this.add.circle(TAUNT_BTN.x, TAUNT_BTN.y, TAUNT_BTN.r, 0x0b3a5b, 0.7).setStrokeStyle(4, 0xffffff, 0.9);
+    const tb = this.add.circle(this.tauntBtn.x, this.tauntBtn.y, this.tauntBtn.r, 0x0b3a5b, 0.7).setStrokeStyle(4, 0xffffff, 0.9);
     const icon = this.add.graphics();
-    icon.fillStyle(0xffffff, 1).fillRoundedRect(TAUNT_BTN.x - 15, TAUNT_BTN.y - 13, 30, 20, 7);
-    icon.fillTriangle(TAUNT_BTN.x - 8, TAUNT_BTN.y + 5, TAUNT_BTN.x + 1, TAUNT_BTN.y + 5, TAUNT_BTN.x - 10, TAUNT_BTN.y + 15);
+    icon.fillStyle(0xffffff, 1).fillRoundedRect(this.tauntBtn.x - 15, this.tauntBtn.y - 13, 30, 20, 7);
+    icon.fillTriangle(this.tauntBtn.x - 8, this.tauntBtn.y + 5, this.tauntBtn.x + 1, this.tauntBtn.y + 5, this.tauntBtn.x - 10, this.tauntBtn.y + 15);
     icon.fillStyle(0x0b3a5b, 1);
-    for (const dx of [-7, 0, 7]) icon.fillCircle(TAUNT_BTN.x + dx, TAUNT_BTN.y - 3, 2.2);
+    for (const dx of [-7, 0, 7]) icon.fillCircle(this.tauntBtn.x + dx, this.tauntBtn.y - 3, 2.2);
     let menu: Phaser.GameObjects.Container | null = null;
     const closeMenu = (): void => {
       menu?.destroy();
       menu = null;
       race.pointer.hudZones = baseZones;
     };
-    const chips = TAUNTS.map((id, k) => ({ id, x: 480 + (k % 3) * 160, y: 112 + Math.floor(k / 3) * 46 }));
+    const chips = TAUNTS.map((id, k) => ({ id, x: 480 + ox + (k % 3) * 160, y: 112 + Math.floor(k / 3) * 46 }));
     let tauntPress = -1;
     tb.setInteractive({ useHandCursor: true })
       .on('pointerdown', (p: Phaser.Input.Pointer) => (tauntPress = p.id))
@@ -233,11 +251,13 @@ export class HudScene extends Phaser.Scene {
         race.pointer.hudZones = [...baseZones, ...chips.map((c) => ({ x: c.x, y: c.y, r: 78 }))];
       });
 
-    this.big = text(this, 640, 300, '', 160).setStroke(stroke, 16);
-    this.endsText = text(this, 640, 104, '', 30, '#ffe08a').setStroke(stroke, 6);
+    this.big = text(this, this.cx, 300, '', 160).setStroke(stroke, 16);
+    this.endsText = text(this, this.cx, 104, '', 30, '#ffe08a').setStroke(stroke, 6);
 
     race.events.on('race-event', this.onEvent, this);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => race.events.off('race-event', this.onEvent, this));
+    // Laid out again (the screen changed shape) while the race was paused: the pause menu again.
+    if (race.scene.isPaused()) this.togglePause();
   }
 
   update(time: number): void {
@@ -315,7 +335,8 @@ export class HudScene extends Phaser.Scene {
     this.paintScreen.setVisible(!!pe);
     if (pe) {
       const age = pe.duration - pe.remaining;
-      this.paintScreen.setScale(1 + Math.max(0, 0.15 - age) * 1.5).setAlpha(0.9 * Math.min(1, pe.remaining));
+      const k = 1 + Math.max(0, 0.15 - age) * 1.5;
+      this.paintScreen.setScale((k * this.W) / 1280, k).setAlpha(0.9 * Math.min(1, pe.remaining));
     }
 
     const e = p.effects.find((x) => x.kind === 'cheesed' && x.remaining > 0);
@@ -356,13 +377,14 @@ export class HudScene extends Phaser.Scene {
     // Everything outside the hole's square is plain steam.
     const x0 = hx - R, x1 = hx + R, y0 = hy - R, y1 = hy + R;
     g.fillStyle(color, alpha);
-    g.fillRect(0, 0, 1280, Math.max(0, y0));
-    g.fillRect(0, Math.min(720, y1), 1280, Math.max(0, 720 - y1));
+    const W = this.W;
+    g.fillRect(0, 0, W, Math.max(0, y0));
+    g.fillRect(0, Math.min(720, y1), W, Math.max(0, 720 - y1));
     g.fillRect(0, Math.max(0, y0), Math.max(0, x0), Math.max(0, Math.min(720, y1) - Math.max(0, y0)));
-    g.fillRect(Math.min(1280, x1), Math.max(0, y0), Math.max(0, 1280 - x1), Math.max(0, Math.min(720, y1) - Math.max(0, y0)));
+    g.fillRect(Math.min(W, x1), Math.max(0, y0), Math.max(0, W - x1), Math.max(0, Math.min(720, y1) - Math.max(0, y0)));
     // Puffs rolling slowly across (never over the clear spot).
     this.steamPuffs.forEach((puff, i) => {
-      const x = ((i * 233 + time * (0.02 + (i % 3) * 0.008)) % 1600) - 160;
+      const x = ((i * 233 + time * (0.02 + (i % 3) * 0.008)) % (W + 320)) - 160;
       const y = ((i * 157) % 720) + Math.sin(time / 1700 + i) * 40;
       const d = Math.hypot(x - hx, y - hy);
       puff.setPosition(x, y).setAlpha(alpha * 0.8 * Math.max(0, Math.min(1, (d - R) / 200)));
@@ -374,12 +396,13 @@ export class HudScene extends Phaser.Scene {
     const level = this.race.drunk;
     const g = this.drunkGfx.clear();
     if (level <= 0.01) return;
-    g.fillStyle(0x4fd04a, 0.2 * level).fillRect(0, 0, 1280, 720);
+    const W = this.W;
+    g.fillStyle(0x4fd04a, 0.2 * level).fillRect(0, 0, W, 720);
     for (let k = 0; k < 6; k++) {
       const y0 = ((time / 14 + k * 140) % 860) - 70;
       const pts: Phaser.Math.Vector2[] = [];
-      for (let x = 0; x <= 1280; x += 40) pts.push(new Phaser.Math.Vector2(x, y0 + Math.sin(x / 140 + time / 420 + k) * 26));
-      for (let x = 1280; x >= 0; x -= 40) pts.push(new Phaser.Math.Vector2(x, y0 + 46 + Math.sin(x / 140 + time / 420 + k + 0.8) * 26));
+      for (let x = 0; x <= W; x += 40) pts.push(new Phaser.Math.Vector2(x, y0 + Math.sin(x / 140 + time / 420 + k) * 26));
+      for (let x = W; x >= 0; x -= 40) pts.push(new Phaser.Math.Vector2(x, y0 + 46 + Math.sin(x / 140 + time / 420 + k + 0.8) * 26));
       g.fillStyle(k % 2 ? 0x9dff6a : 0x2f9a3a, 0.1 * level).fillPoints(pts, true);
     }
   }
@@ -407,7 +430,7 @@ export class HudScene extends Phaser.Scene {
       const c = Phaser.Display.Color.HSVToRGB((time / 4000 + offset) % 1, 0.9, 1) as Phaser.Types.Display.ColorObject;
       return Phaser.Display.Color.GetColor(c.r, c.g, c.b);
     };
-    this.tripGfx.clear().fillGradientStyle(hue(0), hue(0.25), hue(0.5), hue(0.75), 1).fillRect(0, 0, 1280, 720);
+    this.tripGfx.clear().fillGradientStyle(hue(0), hue(0.25), hue(0.5), hue(0.75), 1).fillRect(0, 0, this.W, 720);
   }
 
   private drawMap(): void {
@@ -419,7 +442,7 @@ export class HudScene extends Phaser.Scene {
     for (const p of this.race.trafficView?.poses ?? []) {
       if (p.alpha < 0.5) continue;
       const x = p.x * this.mapScale + this.mapOx, y = p.y * this.mapScale + this.mapOy;
-      if (x < MAP.x || x > MAP.x + MAP.w || y < MAP.y || y > MAP.y + MAP.h) continue;
+      if (x < this.mapBox.x || x > this.mapBox.x + this.mapBox.w || y < this.mapBox.y || y > this.mapBox.y + this.mapBox.h) continue;
       g.fillRect(x - 1.5, y - 1.5, 3, 3);
     }
     for (const r of sim.racers) {
@@ -525,7 +548,7 @@ export class HudScene extends Phaser.Scene {
     while (this.popupRows.has(row) && row < 5) row++;
     this.popupRows.add(row);
     const y = 200 + row * 52;
-    const t = text(this, 640, y, s, 52, color).setStroke('#0b3a5b', 8);
+    const t = text(this, this.cx, y, s, 52, color).setStroke('#0b3a5b', 8);
     this.tweens.add({
       targets: t, y: y - 50, alpha: 0, delay: 1600, duration: 1000, ease: 'Cubic.easeIn',
       onComplete: () => {
@@ -541,7 +564,7 @@ export class HudScene extends Phaser.Scene {
     for (let i = 0; i < n; i++) {
       // Keep to the edges: the middle of the screen (where the boat is) stays clear.
       const left = Math.random() < 0.5;
-      const x = left ? 40 + Math.random() * 300 : 940 + Math.random() * 300;
+      const x = left ? 40 + Math.random() * 300 : this.W - 340 + Math.random() * 300;
       const y = 60 + Math.random() * 600;
       const size = 120 + Math.random() * 150;
       const b = this.add.image(x, y, 'bloodSplat').setDisplaySize(size, size).setRotation(Math.random() * Math.PI * 2).setAlpha(0.7).setDepth(47);
@@ -561,15 +584,16 @@ export class HudScene extends Phaser.Scene {
       audio.muteEngines(true);
     }
     audio.duckMusic(true);
-    const shade = this.add.rectangle(640, 360, 1280, 720, 0x000000, 0.6).setInteractive();
-    const title = text(this, 640, 160, t('pause.title'), 80).setStroke('#0b3a5b', 10);
-    const resume = button(this, 640, 280, 360, 72, t('pause.resume'), () => this.resume(), { fill: 0x2d9d5a, textSize: 36 });
-    const opts = button(this, 640, online ? 370 : 460, 360, 72, t('menu.options'), () => this.scene.launch('Options', { overlay: true }), { fill: 0x3d5266, textSize: 36 });
-    const restart = button(this, 640, 370, 360, 72, t('pause.restart'), () => {
+    const cx = this.cx;
+    const shade = this.add.rectangle(cx, 360, this.W, 720, 0x000000, 0.6).setInteractive();
+    const title = text(this, cx, 160, t('pause.title'), 80).setStroke('#0b3a5b', 10);
+    const resume = button(this, cx, 280, 360, 72, t('pause.resume'), () => this.resume(), { fill: 0x2d9d5a, textSize: 36 });
+    const opts = button(this, cx, online ? 370 : 460, 360, 72, t('menu.options'), () => this.scene.launch('Options', { overlay: true }), { fill: 0x3d5266, textSize: 36 });
+    const restart = button(this, cx, 370, 360, 72, t('pause.restart'), () => {
       this.resume();
       this.race.scene.restart();
     }, { textSize: 38 }).setVisible(!online);
-    const quit = button(this, 640, online ? 460 : 550, 360, 72, online ? t('pause.leave') : t('pause.quit'), () => {
+    const quit = button(this, cx, online ? 460 : 550, 360, 72, online ? t('pause.leave') : t('pause.quit'), () => {
       this.overlay?.destroy();
       this.paused = false;
       audio.muteEngines(false);
@@ -587,7 +611,7 @@ export class HudScene extends Phaser.Scene {
     const items: Phaser.GameObjects.GameObject[] = [shade, title, resume, restart, opts, quit];
     // Debug menu: single player, on a computer only.
     if (!online && !this.race.spectating && DebugScene.available(this.game)) {
-      items.push(button(this, 1150, 670, 200, 56, t('debug.button'), () => this.scene.launch('Debug'), { fill: 0x6b4a8a, textSize: 26 }));
+      items.push(button(this, 1150 + this.right, 670, 200, 56, t('debug.button'), () => this.scene.launch('Debug'), { fill: 0x6b4a8a, textSize: 26 }));
     }
     this.overlay = this.add.container(0, 0, items).setDepth(100);
   }

@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { sideRoom, viewWidth } from '../view/layout';
 import { LANGUAGES, getLanguage, setLanguage, t } from '../i18n';
 import { addFullscreenButton, enterFullscreen } from '../view/fullscreen';
 import { audio } from '../audio/AudioManager';
@@ -75,17 +76,17 @@ export class TitleScene extends Phaser.Scene {
     // Language picker (top left) and fullscreen (top right).
     LANGUAGES.forEach((lang, i) => {
       const current = lang.code === getLanguage().code;
-      const b = button(this, 90 + i * 150, 50, 136, 46, lang.name, () => {
+      const b = button(this, 90 - sideRoom(this) + i * 150, 50, 136, 46, lang.name, () => {
         setLanguage(lang.code);
         this.scene.restart();
       }, { fill: current ? 0x2d9d5a : 0x0b3a5b, textSize: 20 });
       b.setAlpha(current ? 1 : 0.8);
     });
-    addFullscreenButton(this, 1220, 50);
+    addFullscreenButton(this, 1220 + sideRoom(this), 50);
 
     // The version, written on the towpath.
     const pathY = (CANAL.towpath + CANAL.quay) / 2;
-    text(this, 1268, pathY, `v${__APP_VERSION__}`, 14, '#7a6a52', false).setOrigin(1, 0.5).setDepth(3);
+    text(this, 1268 + sideRoom(this), pathY, `v${__APP_VERSION__}`, 14, '#7a6a52', false).setOrigin(1, 0.5).setDepth(3);
   }
 
   /** Leave for another screen. On phones and tablets the first press also goes fullscreen (needs a tap). */
@@ -98,23 +99,25 @@ export class TitleScene extends Phaser.Scene {
 
   /** A stretch of canal seen from above: grass with trees, the towpath, a stone quay, then water. */
   private drawCanal(): void {
+    // Edge to edge on a wide screen (the layout is centred: x0 is the screen's left edge).
+    const x0 = -sideRoom(this) - 2, W = viewWidth(this) + 4;
     const g = this.add.graphics();
-    g.fillStyle(0x6f9a4a, 1).fillRect(0, CANAL.grass, 1280, CANAL.towpath - CANAL.grass);
-    g.fillStyle(0xd6c9a6, 1).fillRect(0, CANAL.towpath, 1280, CANAL.quay - CANAL.towpath);
-    g.fillStyle(0x8d8a83, 1).fillRect(0, CANAL.quay, 1280, CANAL.water - CANAL.quay);
-    g.fillStyle(0x2f6a92, 1).fillRect(0, CANAL.water, 1280, 720 - CANAL.water);
+    g.fillStyle(0x6f9a4a, 1).fillRect(x0, CANAL.grass, W, CANAL.towpath - CANAL.grass);
+    g.fillStyle(0xd6c9a6, 1).fillRect(x0, CANAL.towpath, W, CANAL.quay - CANAL.towpath);
+    g.fillStyle(0x8d8a83, 1).fillRect(x0, CANAL.quay, W, CANAL.water - CANAL.quay);
+    g.fillStyle(0x2f6a92, 1).fillRect(x0, CANAL.water, W, 720 - CANAL.water);
     // Quay stones
     g.lineStyle(1, 0x6f6c66, 0.8);
-    for (let x = 0; x < 1280; x += 26) g.lineBetween(x, CANAL.quay, x, CANAL.water);
+    for (let x = x0; x < x0 + W; x += 26) g.lineBetween(x, CANAL.quay, x, CANAL.water);
     // The grass edge is a little ragged.
     g.fillStyle(0x6f9a4a, 1);
-    for (let x = 0; x < 1280; x += 18) g.fillCircle(x + ((x * 7) % 11), CANAL.grass + 2, 9);
-    const waves = this.add.tileSprite(0, CANAL.water, 1280, 720 - CANAL.water, 'water').setOrigin(0).setAlpha(0.8);
+    for (let x = x0; x < x0 + W; x += 18) g.fillCircle(x + ((Math.abs(x) * 7) % 11), CANAL.grass + 2, 9);
+    const waves = this.add.tileSprite(x0, CANAL.water, W, 720 - CANAL.water, 'water').setOrigin(0).setAlpha(0.8);
     this.events.on('update', () => {
       waves.tilePositionX -= 0.3;
     });
     // A row of trees along the top bank (behind the menu, in front of the background).
-    for (let x = 14, i = 0; x < 1300; x += 56 + ((i * 37) % 44), i++) {
+    for (let x = x0 + 14, i = 0; x < x0 + W + 20; x += 56 + ((i * 37) % 44), i++) {
       const r = 18 + ((i * 13) % 11);
       const y = CANAL.grass + 6 + ((i * 17) % 14) - 4;
       const tint = [0x4f7a32, 0x5d8a3a, 0x3f6a2a, 0x6a9442][i % 4];
@@ -154,9 +157,10 @@ export class TitleScene extends Phaser.Scene {
         b.next = 0.05;
         this.wake.emitParticleAt(s.x - 80, s.y + Math.sin(s.x) * 3, 1);
       }
-      if (s.x > 1480) {
+      const room = sideRoom(this);
+      if (s.x > 1480 + room) {
         // Round again, with a new speed and maybe the other lane: the order keeps changing.
-        s.x = -220 - Math.random() * 400;
+        s.x = -220 - room - Math.random() * 400;
         b.speed = 150 + Math.random() * 110;
         b.lane = Math.random() < 0.5 ? 0 : 1;
       }

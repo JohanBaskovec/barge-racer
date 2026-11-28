@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { audio } from '../audio/AudioManager';
 import { FONT } from '../config';
+import { centreLayout, viewWidth } from './layout';
 
 export function text(scene: Phaser.Scene, x: number, y: number, s: string, size = 28, color = '#ffffff', bold = true): Phaser.GameObjects.Text {
   return scene.add
@@ -65,10 +66,12 @@ export function setSelected(b: Phaser.GameObjects.Container, on: boolean): void 
   (b.getData('setSelected') as ((on: boolean) => void) | undefined)?.(on);
 }
 
+/** A menu's background, edge to edge; it also centres the scene's 1280-wide layout (layout.ts). */
 export function background(scene: Phaser.Scene, top = 0x0b3a5b, bottom = 0x2f7fb5): void {
+  const ox = centreLayout(scene);
   const g = scene.add.graphics();
   g.fillGradientStyle(top, top, bottom, bottom, 1);
-  g.fillRect(0, 0, 1280, 720);
+  g.fillRect(-ox - 2, 0, viewWidth(scene) + 4, 720);
 }
 
 export function fmtTime(t: number): string {

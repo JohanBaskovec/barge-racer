@@ -121,6 +121,16 @@ people who steer with the left hand. Rules that keep the buttons out of the way:
   screen with no browser bars, using `public/manifest.webmanifest` and the
   `apple-mobile-web-app-*` tags in `index.html`.
 - In portrait a "please rotate your device" overlay covers the game.
+- **The game fills the whole screen, whatever its shape** (`src/view/layout.ts`). It is
+  always 720 px tall and as wide as the screen's proportions: 1280 on a 16:9 screen,
+  about 1600 on a 20:9 phone (up to 1760). Nothing is stretched: the race simply shows
+  more river at the sides, and the HUD keeps to the real screen edges (minimap and item
+  buttons in the corners, pause and taunt buttons in the middle). Menus are laid out for
+  1280 px and centred, their background reaching the edges. With no bands at the sides,
+  a finger steering with the joystick stays in the game right up to the edge of the screen.
+  When the screen changes shape (going fullscreen, rotating, resizing a window) the game
+  takes the new width and lays the screen out again; a paused race stays paused.
+  Narrower screens (4:3 tablets) keep 1280 and get bands above and below.
 
 ## Menus
 

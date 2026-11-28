@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { centreLayout, fullScreenRect } from '../view/layout';
 import { ITEM_INFO, type ItemId } from '../data/items';
 import { itemName, t } from '../i18n';
 import { button, fitText, setSelected, text } from '../view/ui';
@@ -27,7 +28,8 @@ export class DebugScene extends Phaser.Scene {
     const hud = this.scene.get('Hud') as HudScene;
     const sim = race.sim;
     const me = sim.player!;
-    this.add.rectangle(640, 360, 1280, 720, 0x06243a, 0.94).setInteractive();
+    centreLayout(this);
+    fullScreenRect(this, 0x06243a, 0.94).setInteractive();
     text(this, 640, 52, t('debug.title'), 52).setStroke('#0b3a5b', 8);
     const status = text(this, 640, 104, '', 24, '#ffe08a').setStroke('#0b3a5b', 5);
     const say = (s: string): void => {

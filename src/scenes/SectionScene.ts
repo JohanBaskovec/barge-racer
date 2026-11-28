@@ -106,17 +106,17 @@ export class SectionScene extends Phaser.Scene {
 
     // Drag the handles; a press on the bar moves the nearer handle there.
     this.input.on('pointerdown', (p: Phaser.Input.Pointer) => {
-      if (Math.abs(p.y - BAR.y) > 50 || p.x < BAR.x0 - 40 || p.x > BAR.x1 + 40) return;
-      const d = this.fromX(p.x);
+      if (Math.abs(p.worldY - BAR.y) > 50 || p.worldX < BAR.x0 - 40 || p.worldX > BAR.x1 + 40) return;
+      const d = this.fromX(p.worldX);
       this.dragging = Math.abs(d - this.section.start) <= Math.abs(d - this.section.finish) ? 'start' : 'finish';
       this.moveTo(d, false);
     });
     this.input.on('pointermove', (p: Phaser.Input.Pointer) => {
-      if (this.dragging && p.isDown) this.moveTo(this.fromX(p.x), false);
+      if (this.dragging && p.isDown) this.moveTo(this.fromX(p.worldX), false);
     });
     const release = (p: Phaser.Input.Pointer): void => {
       if (!this.dragging) return;
-      this.moveTo(this.fromX(p.x), true);
+      this.moveTo(this.fromX(p.worldX), true);
       this.dragging = null;
     };
     this.input.on('pointerup', release);

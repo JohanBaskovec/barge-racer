@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { centreLayout, fullScreenRect } from '../view/layout';
 import { audio } from '../audio/AudioManager';
 import { t, type TranslationKey } from '../i18n';
 import { type Options, options, setOption } from '../options';
@@ -22,7 +23,10 @@ export class OptionsScene extends Phaser.Scene {
   }
 
   create(): void {
-    if (this.overlay) this.add.rectangle(640, 360, 1280, 720, 0x06243a, 0.92).setInteractive();
+    if (this.overlay) {
+      centreLayout(this);
+      fullScreenRect(this, 0x06243a, 0.92).setInteractive();
+    }
     else background(this);
     fitText(text(this, 640, 70, t('options.title'), 56), 900).setStroke('#0b3a5b', 8);
 
