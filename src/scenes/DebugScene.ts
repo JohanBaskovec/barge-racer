@@ -19,10 +19,9 @@ export class DebugScene extends Phaser.Scene {
     super('Debug');
   }
 
-  /** Only on a computer (a desktop OS with a mouse or trackpad), never on a phone or tablet. */
-  static available(game: Phaser.Game): boolean {
-    const fine = typeof matchMedia === 'function' && matchMedia('(any-pointer: fine)').matches;
-    return game.device.os.desktop && fine;
+  /** Everywhere, phones and tablets too (the pause menu offers it in single player only). */
+  static available(_game: Phaser.Game): boolean {
+    return true;
   }
 
   create(): void {

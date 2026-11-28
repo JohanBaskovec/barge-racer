@@ -674,7 +674,7 @@ export class HudScene extends Phaser.Scene {
       }
     }, { fill: 0x8a4a4a, textSize: 36 });
     const items: Phaser.GameObjects.GameObject[] = [shade, title, resume, restart, opts, quit];
-    // Debug menu: single player, on a computer only.
+    // Debug menu: single player only (on any device).
     if (!online && !this.race.spectating && DebugScene.available(this.game)) {
       items.push(button(this, 1150 + this.right, 670, 200, 56, t('debug.button'), () => this.scene.launch('Debug'), { fill: 0x6b4a8a, textSize: 26 }));
     }
