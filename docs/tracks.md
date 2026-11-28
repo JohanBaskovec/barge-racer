@@ -157,7 +157,21 @@ Every track is drawn by the same renderer (`MapRenderer`, see
 [Real-world tracks](real-world-tracks.md#in-the-game)): streets with pavements and
 markings, roofs with shadows, single trees, a towpath and quay along the banks,
 animated water with a pale band of shallows along each bank. Only what the camera
-sees is drawn, in tiles.
+sees is drawn, in 512 px tiles (`src/view/MapRenderer.ts`), and drawing must never
+make the game stutter on a phone:
+
+- A tile is drawn **a layer at a time** (ground, roads, buildings, plants, tree
+  shadows and crowns in batches, water, bridges), a few milliseconds of it per
+  frame, and only shown once complete. Tiles up to 384 px beyond the view are
+  prepared ahead, nearest first, so they are ready before they come into view; one
+  already in view is finished at once whatever it costs.
+- Tiles are kept until 576 px beyond the view, and the last dozen to go out of range
+  are kept hidden, ready to show again (the next lap, or turning back).
+- While a tile is drawn, lines skip the segments that can't reach it (dashes still
+  line up across tiles) and big areas (woods, fields, water) are clipped to it
+  first: Reims has roads and woods kilometres long.
+- Street names (text, slow to make) appear one per frame and are kept hidden for a
+  while after they go.
 
 - The Reims canal's surroundings come from IGN's map.
 - The **invented tracks have theirs generated** by rules (`src/view/sceneryGen.ts`),

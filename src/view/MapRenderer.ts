@@ -6,7 +6,7 @@ import { drawLine } from './lines';
 import { type SceneryData, TOWPATH } from './scenery';
 import {
   type Box, drawBuilding, drawBuildingShadow, drawCemetery, drawLilyPad, drawRail, drawRoadBase, drawRoadMarkings, drawSport,
-  fastCircle, fillRing, type Plant, plants, thickLine, vegetationGround,
+  clipRing, fastCircle, fillRing, setLineClip, type Plant, plants, thickLine, vegetationGround,
 } from './mapArt';
 
 export type { SceneryData } from './scenery';
@@ -14,7 +14,17 @@ export type { SceneryData } from './scenery';
 const CHUNK = 512;
 /** Tiles overlap by this much so no seam shows between them when the camera zoom isn't 1. */
 const BLEED = 2;
-const MARGIN = 160;
+/** Chunks this far beyond the view are drawn ahead of time; they are dropped once beyond KEEP. */
+const MARGIN = 384;
+const KEEP = 576;
+/** Drawn chunks kept (hidden) after going out of range, ready to show again: a lap later, or back the other way. */
+const CACHE_CHUNKS = 12;
+/** Time spent drawing chunks per frame (ms), unless one in view must be finished. */
+const FRAME_BUDGET_MS = 5;
+/** Street names kept hidden after their chunks went, ready to show again. */
+const HIDDEN_STREETS = 40;
+/** Tree crowns stamped per drawing step. */
+const TREE_BATCH = 150;
 
 
 
@@ -41,6 +51,13 @@ interface ChunkIndex {
 }
 
 type Layer = 'ground' | 'shadow' | 'deck';
+/** A chunk of map: its tiles, and the drawing steps left until it's done. */
+interface Chunk {
+  cell: [number, number];
+  tiles: Phaser.GameObjects.RenderTexture[];
+  steps: Generator<void, void, void>;
+  done: boolean;
+}
 const DEPTH: Record<Layer, number> = { ground: 1, shadow: 9.5, deck: 20 };
 const BRIDGE_SHADOW = 25;
 /** How much of a street on land is laid over the end of a bridge deck that leads to it (px). */
@@ -54,16 +71,22 @@ const DECK_JOIN = 120;
  */
 export class MapRenderer {
   private index = new Map<string, ChunkIndex>();
-  /** Rendered tiles per chunk: the ground, plus bridge shadows (below boats) and decks (above). */
-  private active = new Map<string, Phaser.GameObjects.RenderTexture[]>();
+  /** Chunks in range (drawn or being drawn): the ground tile, plus bridge shadows (below boats) and decks (above). */
+  private active = new Map<string, Chunk>();
+  /** Drawn chunks gone out of range, oldest first: shown again at once if the camera comes back. */
+  private cache = new Map<string, Chunk>();
   private pools: Record<Layer, Phaser.GameObjects.RenderTexture[]> = { ground: [], shadow: [], deck: [] };
   private g: Phaser.GameObjects.Graphics;
   private eraser: Phaser.GameObjects.Graphics;
   private water: Phaser.GameObjects.TileSprite;
   private channel: { a: number; b: number }[] = [];
-  /** Street name texts currently on screen, shared by the tiles they overlap (reference counted). */
-  private streetTexts = new Map<number, { text: Phaser.GameObjects.Text; refs: number }>();
+  /** Street name texts, shared by the chunks they overlap (reference counted; kept hidden a while at 0). */
+  private streetTexts = new Map<number, { text: Phaser.GameObjects.Text | null; refs: number }>();
+  /** Street names waiting to be made (one per frame: each takes a while). */
+  private streetQueue: number[] = [];
   private first = true;
+  /** For profiling: chunks drawn, and drawing steps taken over budget because the chunk was already in view. */
+  readonly stats = { chunks: 0, late: 0 };
   /** Ground (not bridge) road pieces by vertex ("x,y"), to join bridge decks to the streets they lead to. */
   private groundAt = new Map<string, number[]>();
 
@@ -170,30 +193,98 @@ export class MapRenderer {
     this.water.tilePositionX = x0 + time * 0.012;
     this.water.tilePositionY = y0 + time * 0.008;
 
-    const cx0 = Math.floor((view.x - MARGIN) / CHUNK), cx1 = Math.floor((view.right + MARGIN) / CHUNK);
-    const cy0 = Math.floor((view.y - MARGIN) / CHUNK), cy1 = Math.floor((view.bottom + MARGIN) / CHUNK);
-    const needed = new Set<string>();
-    for (let cx = cx0; cx <= cx1; cx++) for (let cy = cy0; cy <= cy1; cy++) needed.add(`${cx},${cy}`);
-
-    for (const [key, tiles] of this.active) {
-      if (!needed.has(key)) {
-        for (const rt of tiles) {
-          rt.setVisible(false);
-          this.pools[rt.getData('layer') as Layer].push(rt);
-        }
-        this.active.delete(key);
-        for (const i of this.index.get(key)?.streets ?? []) this.releaseStreet(i);
+    // Chunks wanted: those in view plus a margin, drawn ahead of time; kept until they are further
+    // out than KEEP (so a boat weaving along a chunk's edge doesn't have it redrawn again and again).
+    const range = (m: number): [number, number, number, number] => [
+      Math.floor((view.x - m) / CHUNK), Math.floor((view.right + m) / CHUNK), Math.floor((view.y - m) / CHUNK), Math.floor((view.bottom + m) / CHUNK),
+    ];
+    const [kx0, kx1, ky0, ky1] = range(KEEP);
+    for (const [key, chunk] of this.active) {
+      const [cx, cy] = chunk.cell;
+      if (cx < kx0 || cx > kx1 || cy < ky0 || cy > ky1) this.retire(key, chunk);
+    }
+    // In order: those in view first, then the nearest to the middle of the view.
+    const [vx0, vx1, vy0, vy1] = range(0);
+    const [cx0, cx1, cy0, cy1] = range(MARGIN);
+    const mx = view.centerX / CHUNK - 0.5, my = view.centerY / CHUNK - 0.5;
+    const wanted: { key: string; cx: number; cy: number; inView: boolean; d: number }[] = [];
+    for (let cx = cx0; cx <= cx1; cx++) {
+      for (let cy = cy0; cy <= cy1; cy++) {
+        const key = `${cx},${cy}`;
+        const have = this.active.get(key);
+        if (have?.done) continue;
+        if (!have && this.revive(key)) continue;
+        const inView = cx >= vx0 && cx <= vx1 && cy >= vy0 && cy <= vy1;
+        wanted.push({ key, cx, cy, inView, d: (cx - mx) ** 2 + (cy - my) ** 2 });
       }
     }
-    // Draw a couple of tiles per frame to avoid hitches; everything at once on the first frame.
-    let budget = this.first ? Infinity : 2;
+    this.makeStreet();
+    if (!wanted.length) return;
+    wanted.sort((a, b) => Number(b.inView) - Number(a.inView) || a.d - b.d);
+    // A few milliseconds of drawing per frame (at least one step). A chunk already in view gets
+    // finished whatever the cost, or there would be a hole in the map; everything at once at first.
+    const t0 = performance.now();
+    const budget = this.first ? Infinity : FRAME_BUDGET_MS;
     this.first = false;
-    for (const key of needed) {
-      if (budget <= 0) break;
-      if (this.active.has(key)) continue;
-      this.renderChunk(key);
-      budget--;
+    let steps = 0;
+    for (const w of wanted) {
+      let chunk = this.active.get(w.key);
+      if (!chunk) {
+        const tiles: Phaser.GameObjects.RenderTexture[] = [];
+        chunk = { cell: [w.cx, w.cy], tiles, steps: this.chunkSteps(w.key, tiles), done: false };
+        this.active.set(w.key, chunk);
+      }
+      // Lines are limited to the tile being drawn (see setLineClip).
+      const x = w.cx * CHUNK, y = w.cy * CHUNK;
+      setLineClip({ x0: x - BLEED, y0: y - BLEED, x1: x + CHUNK + BLEED, y1: y + CHUNK + BLEED });
+      while (!chunk.done && (w.inView || steps === 0 || performance.now() - t0 < budget)) {
+        if (w.inView && steps > 0 && performance.now() - t0 >= budget) this.stats.late++;
+        chunk.done = !!chunk.steps.next().done;
+        steps++;
+      }
+      if (chunk.done) this.stats.chunks++;
+      setLineClip(null);
+      if (chunk.done) this.show(w.key, chunk);
+      else break;
     }
+    // At the start, every street name in view at once too.
+    if (budget === Infinity) while (this.streetQueue.length) this.makeStreet();
+  }
+
+  /** A finished chunk: its tiles appear, with the street names over it. */
+  private show(key: string, chunk: Chunk): void {
+    for (const rt of chunk.tiles) rt.setVisible(true);
+    for (const i of this.index.get(key)?.streets ?? []) this.retainStreet(i);
+  }
+
+  /** A chunk out of range: kept drawn but hidden for a while (it may come back), its tiles reused later. */
+  private retire(key: string, chunk: Chunk): void {
+    this.active.delete(key);
+    for (const rt of chunk.tiles) rt.setVisible(false);
+    if (!chunk.done) {
+      // Half drawn: its tiles go straight back to the pool.
+      for (const rt of chunk.tiles) this.pools[rt.getData('layer') as Layer].push(rt);
+      return;
+    }
+    for (const i of this.index.get(key)?.streets ?? []) this.releaseStreet(i);
+    this.cache.delete(key);
+    this.cache.set(key, chunk);
+    // The oldest kept chunks give their tiles back to the pool.
+    while (this.cache.size > CACHE_CHUNKS) {
+      const [oldKey, old] = this.cache.entries().next().value!;
+      this.cache.delete(oldKey);
+      for (const rt of old.tiles) this.pools[rt.getData('layer') as Layer].push(rt);
+    }
+  }
+
+  /** A chunk wanted again that is still kept: shown at once, nothing to draw. */
+  private revive(key: string): boolean {
+    const chunk = this.cache.get(key);
+    if (!chunk) return false;
+    this.cache.delete(key);
+    this.active.set(key, chunk);
+    this.show(key, chunk);
+    return true;
   }
 
   private tile(layer: Layer, x: number, y: number): Phaser.GameObjects.RenderTexture {
@@ -202,28 +293,33 @@ export class MapRenderer {
       rt = this.scene.add.renderTexture(0, 0, CHUNK + BLEED * 2, CHUNK + BLEED * 2).setOrigin(0).setDepth(DEPTH[layer]);
       rt.setData('layer', layer);
     }
-    return rt.setPosition(x - BLEED, y - BLEED).setVisible(true).clear();
+    // Hidden until the whole chunk is drawn.
+    return rt.setPosition(x - BLEED, y - BLEED).setVisible(false).clear();
   }
 
-  private renderChunk(key: string): void {
+  /**
+   * Draws a chunk's tiles one layer at a time, yielding between layers so the work can be spread
+   * over several frames (see update). The shared Graphics are cleared and used up within a step.
+   */
+  private *chunkSteps(key: string, tiles: Phaser.GameObjects.RenderTexture[]): Generator<void, void, void> {
     const [cx, cy] = key.split(',').map(Number);
     const x = cx * CHUNK, y = cy * CHUNK;
     const rt = this.tile('ground', x, y);
-    const tiles = [rt];
-    this.active.set(key, tiles);
+    tiles.push(rt);
     const ox = -(x - BLEED), oy = -(y - BLEED);
 
     const e = this.index.get(key);
-    for (const i of e?.streets ?? []) this.retainStreet(i);
-    const g = this.g.clear();
+    let g = this.g.clear();
     const d = this.data;
     const colors = this.track.def.colors;
     g.fillStyle(colors.land, 1).fillRect(x - BLEED, y - BLEED, CHUNK + BLEED * 2, CHUNK + BLEED * 2);
     const tileBox: Box = { x0: x - BLEED, y0: y - BLEED, x1: x + CHUNK + BLEED, y1: y + CHUNK + BLEED };
     const trees: Plant[] = [];
+    // Woods and fields cut down to this tile (with room for plants overhanging its edges).
+    const veg = (e?.vegetation ?? []).map((i) => clipRing(d.vegetation[i][1], { x0: tileBox.x0 - 90, y0: tileBox.y0 - 90, x1: tileBox.x1 + 90, y1: tileBox.y1 + 90 }));
     if (e) {
       // Ground: grass and woodland floors, cemeteries, sports grounds, the towpath and stone quays.
-      for (const i of e.vegetation) fillRing(g, d.vegetation[i][1], vegetationGround(d.vegetation[i][0]));
+      e.vegetation.forEach((i, k) => veg[k].length && fillRing(g, veg[k], vegetationGround(d.vegetation[i][0])));
       for (const i of e.cemeteries) drawCemetery(g, d.cemeteries![i], tileBox);
       for (const i of e.sports) drawSport(g, d.sports![i][0], d.sports![i][1]);
       g.fillStyle(colors.shore, 1);
@@ -231,6 +327,11 @@ export class MapRenderer {
       g.fillStyle(d.style?.quay ?? 0x8d8a83, 1);
       for (const i of e.channel) this.channelQuad(g, i, 6); // what's left of this after the water is cut out: a quay edge
       for (const i of e.water) thickLine(g, [...d.water[i], d.water[i][0], d.water[i][1]], 10, 0x8d8a83);
+    }
+    rt.draw(g, ox, oy);
+    if (e) {
+      yield;
+      g = this.g.clear();
 
       // Roads in layers, so streets that meet join up: footpaths, pavements and verges of all of
       // them, then all the asphalt, then (after the railways) all the markings, which a crossing
@@ -246,33 +347,50 @@ export class MapRenderer {
         if (!bridge) drawRail(g, w, line);
       }
       for (const i of groundRoads) drawRoadMarkings(g, d.roads[i][0], d.roads[i][1], d.roads[i][3]);
+      rt.draw(g, ox, oy);
+      yield;
+      g = this.g.clear();
 
       // Buildings: shadows, then roofs
       for (const i of e.buildings) drawBuildingShadow(g, d.buildings[i][0], d.buildings[i][2]);
       for (const i of e.buildings) drawBuilding(g, d.buildings[i][1], d.buildings[i][2], d.style?.tiled);
+      rt.draw(g, ox, oy);
+      yield;
+      g = this.g.clear();
 
       // Trees last (stamped below): their crowns overhang paths and road edges, as they do.
-      for (const i of e.vegetation) trees.push(...plants(g, d.vegetation[i][0], d.vegetation[i][1], tileBox));
+      e.vegetation.forEach((i, k) => veg[k].length && trees.push(...plants(g, d.vegetation[i][0], veg[k], tileBox, d.vegetation[i][1])));
       for (const i of e.trees) {
         const [tx, ty, r, color] = d.trees![i];
         trees.push({ x: tx, y: ty, r, color });
       }
+      rt.draw(g, ox, oy);
     }
-    rt.draw(g, ox, oy);
     // Tree crowns are textures stamped in one batch: far cheaper than drawing thousands of circles.
-    if (trees.length) {
-      rt.beginDraw();
-      for (const p of trees) rt.stamp('crownShadow', undefined, p.x + p.r * 0.35 + ox, p.y + p.r * 0.45 + oy, { scale: p.r / 30, alpha: 0.22, skipBatch: true });
-      for (const p of trees) rt.stamp('crown', undefined, p.x + ox, p.y + oy, { scale: p.r / 30, tint: p.color, skipBatch: true });
-      rt.endDraw();
+    // In batches (a wood has hundreds per tile): all the shadows, then all the crowns.
+    for (const crowns of [false, true]) {
+      for (let k = 0; k < trees.length; k += TREE_BATCH) {
+        yield;
+        rt.beginDraw();
+        for (const p of trees.slice(k, k + TREE_BATCH)) {
+          if (crowns) rt.stamp('crown', undefined, p.x + ox, p.y + oy, { scale: p.r / 30, tint: p.color, skipBatch: true });
+          else rt.stamp('crownShadow', undefined, p.x + p.r * 0.35 + ox, p.y + p.r * 0.45 + oy, { scale: p.r / 30, alpha: 0.22, skipBatch: true });
+        }
+        rt.endDraw();
+      }
     }
 
     // Cut out the water so the animated layer underneath shows.
     if (e && (e.water.length || e.channel.length)) {
+      yield;
       const er = this.eraser.clear().fillStyle(0xffffff, 1);
-      for (const i of e.water) er.fillPoints(toPts(d.water[i]), true);
+      for (const i of e.water) {
+        const ring = clipRing(d.water[i], { x0: tileBox.x0 - 4, y0: tileBox.y0 - 4, x1: tileBox.x1 + 4, y1: tileBox.y1 + 4 });
+        if (ring.length) er.fillPoints(toPts(ring), true);
+      }
       for (const i of e.channel) this.channelQuad(er, i, 0);
       rt.erase(er, ox, oy);
+      yield;
       // On the water just cut out: a pale band along each bank (shallows and the wash against the
       // quay), a thin bright line at the very edge, and any lily pads.
       const w = g.clear();
@@ -284,23 +402,44 @@ export class MapRenderer {
 
     // Bridges: a shadow tile below the boats and a deck tile above them, only where there are bridges.
     if (e && e.bridges.length) {
+      yield;
       const shadow = this.tile('shadow', x, y).setAlpha(0.22);
       this.drawBridges(g.clear(), e.bridges, true);
       shadow.draw(g, ox, oy);
+      tiles.push(shadow);
+      yield;
       const deck = this.tile('deck', x, y);
       this.drawBridges(g.clear(), e.bridges, false);
       deck.draw(g, ox, oy);
-      tiles.push(shadow, deck);
+      tiles.push(deck);
     }
   }
 
-  /** Street names are text objects (crisp at any size), created while a tile that shows them is on screen. */
+  /**
+   * Street names are text objects (crisp at any size), shown while a chunk that shows them is.
+   * Making one is slow (drawn on a canvas, then uploaded), so those no longer shown are kept hidden
+   * for a while, in case they come back.
+   */
   private retainStreet(i: number): void {
     const have = this.streetTexts.get(i);
     if (have) {
-      have.refs++;
+      if (have.refs++ === 0) have.text?.setVisible(true);
       return;
     }
+    this.streetTexts.set(i, { text: null, refs: 1 });
+    this.streetQueue.push(i);
+  }
+
+  /** Make the next street name waiting, if it's still wanted. */
+  private makeStreet(): void {
+    let i = -1, entry;
+    while (this.streetQueue.length) {
+      i = this.streetQueue.shift()!;
+      entry = this.streetTexts.get(i);
+      if (entry && !entry.text) break;
+      entry = undefined;
+    }
+    if (!entry) return;
     const [x, y, angle, font, name, len] = this.data.streets![i];
     const text = this.scene.add
       .text(x, y, name, {
@@ -311,14 +450,25 @@ export class MapRenderer {
       .setDepth(20.5); // above bridge decks, so a street running onto a bridge keeps its name (labels stay 8 m from the water, away from boats)
     text.setLetterSpacing(1);
     if (text.width > len) text.setScale(len / text.width); // never run past the stretch of road it was fitted to
-    this.streetTexts.set(i, { text, refs: 1 });
+    entry.text = text.setVisible(entry.refs > 0);
   }
 
   private releaseStreet(i: number): void {
     const have = this.streetTexts.get(i);
     if (!have || --have.refs > 0) return;
-    have.text.destroy();
+    have.text?.setVisible(false);
+    // Kept in the order they were hidden: the oldest go when there are too many.
     this.streetTexts.delete(i);
+    this.streetTexts.set(i, have);
+    let hidden = 0;
+    for (const v of this.streetTexts.values()) if (v.refs === 0) hidden++;
+    for (const [k, v] of this.streetTexts) {
+      if (hidden <= HIDDEN_STREETS) break;
+      if (v.refs > 0) continue;
+      v.text?.destroy();
+      this.streetTexts.delete(k);
+      hidden--;
+    }
   }
 
   private channelQuad(g: Phaser.GameObjects.Graphics, i: number, extra: number): void {

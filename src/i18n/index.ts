@@ -70,8 +70,14 @@ export function t(key: TranslationKey, params?: Record<string, string | number>)
 export const ordinal = (n: number): string => current.ordinal(n);
 
 /** A number with a fixed count of decimals, in the current language's style (9.9 / 9,9). */
-export const formatNumber = (n: number, digits = 1): string =>
-  new Intl.NumberFormat(current.code, { minimumFractionDigits: digits, maximumFractionDigits: digits }).format(n);
+/** Number formatters by language and digits: making one is slow, and the HUD formats every frame. */
+const formatters = new Map<string, Intl.NumberFormat>();
+export function formatNumber(n: number, digits = 1): string {
+  const k = `${current.code}/${digits}`;
+  let f = formatters.get(k);
+  if (!f) formatters.set(k, (f = new Intl.NumberFormat(current.code, { minimumFractionDigits: digits, maximumFractionDigits: digits })));
+  return f.format(n);
+}
 
 // Names of game content, looked up by id so the data files stay language-free.
 const key = (s: string): TranslationKey => s as TranslationKey;

@@ -46,6 +46,8 @@ export class HudScene extends Phaser.Scene {
   private mapOx = 0;
   private mapOy = 0;
   private paused = false;
+  /** The 50 ms tick the race clock was last shown at. */
+  private clockTick = -3;
   private overlay?: Phaser.GameObjects.Container;
   private lastPopup = 0;
   private watchText?: Phaser.GameObjects.Text;
@@ -62,6 +64,7 @@ export class HudScene extends Phaser.Scene {
   init(data: { race: RaceScene }): void {
     this.race = data.race;
     this.paused = false;
+    this.clockTick = -3;
   }
 
   create(): void {
@@ -197,7 +200,12 @@ export class HudScene extends Phaser.Scene {
       const left = Math.max(0, sim.track.lapLength - Math.max(0, p.progress)) / (sim.track.def.pxPerM ?? 10) / 1000;
       this.lapText.setText(t('hud.remaining', { km: formatNumber(p.finished ? 0 : left) }));
     }
-    this.timeText.setText(sim.phase === 'countdown' ? '' : fmtTime(sim.time));
+    // The clock 20 times a second: each change redraws the text and uploads it to the GPU again.
+    const tick = sim.phase === 'countdown' ? -1 : Math.floor(time / 50);
+    if (tick !== this.clockTick) {
+      this.clockTick = tick;
+      this.timeText.setText(tick === -1 ? '' : fmtTime(sim.time));
+    }
     this.netText.setVisible(net.reconnecting);
     this.updateStatus(p);
     if (this.watchText) fitText(this.watchText.setText(t('watch.title', { name: p.name })), 760);

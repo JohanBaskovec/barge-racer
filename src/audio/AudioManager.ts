@@ -16,6 +16,8 @@ export function engineKind(boat: BoatDef): EngineKind {
 
 /** A continuous engine sound whose pitch and loudness follow the boat. */
 export class EngineVoice {
+  /** When set() last passed its values on (audio clock, s). */
+  private lastSet = -1;
   private out: GainNode;
   private pan: StereoPannerNode | null;
   /** The tone oscillators and their pitch ratio to the engine's base frequency. */
@@ -78,6 +80,10 @@ export class EngineVoice {
   /** speed and throttle 0..1, volume 0..1, pan -1..1 */
   set(speed: number, throttle: number, volume: number, pan: number): void {
     const t = this.ctx.currentTime;
+    // 20 times a second is plenty (the changes are smoothed over 50-100 ms anyway): each change is
+    // a message to the audio thread, and four engines at 60 frames a second add up on a phone.
+    if (t - this.lastSet < 0.05 && t >= this.lastSet) return;
+    this.lastSet = t;
     const s = Math.max(0, Math.min(1.4, speed));
     const th = Math.max(0, Math.min(1, throttle));
     let base: number;

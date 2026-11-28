@@ -29,6 +29,40 @@ export function pointInRing(x: number, y: number, r: number[]): boolean {
   return inside;
 }
 
+/**
+ * The part of a ring (flat x, y list) inside a box (Sutherland-Hodgman). Inside the box it fills
+ * and answers pointInRing exactly as the whole ring does, for a fraction of the work when the ring
+ * is a big wood or field and the box a map tile. Returns the ring itself if it's already inside.
+ */
+export function clipRing(r: number[], b: Box): number[] {
+  const rb = ringBox(r);
+  if (rb.x0 >= b.x0 && rb.x1 <= b.x1 && rb.y0 >= b.y0 && rb.y1 <= b.y1) return r;
+  if (rb.x1 < b.x0 || rb.x0 > b.x1 || rb.y1 < b.y0 || rb.y0 > b.y1) return [];
+  let pts = r;
+  // One edge of the box at a time: keep what's on the inner side, add the crossing points.
+  const edges: [(x: number, y: number) => boolean, (ax: number, ay: number, bx: number, by: number) => [number, number]][] = [
+    [(x) => x >= b.x0, (ax, ay, bx, by) => [b.x0, ay + ((by - ay) * (b.x0 - ax)) / (bx - ax)]],
+    [(x) => x <= b.x1, (ax, ay, bx, by) => [b.x1, ay + ((by - ay) * (b.x1 - ax)) / (bx - ax)]],
+    [(_, y) => y >= b.y0, (ax, ay, bx, by) => [ax + ((bx - ax) * (b.y0 - ay)) / (by - ay), b.y0]],
+    [(_, y) => y <= b.y1, (ax, ay, bx, by) => [ax + ((bx - ax) * (b.y1 - ay)) / (by - ay), b.y1]],
+  ];
+  for (const [inside, cross] of edges) {
+    const out: number[] = [];
+    const n = pts.length;
+    if (n < 6) return [];
+    for (let i = 0; i < n; i += 2) {
+      const ax = pts[(i - 2 + n) % n], ay = pts[(i - 1 + n) % n], bx = pts[i], by = pts[i + 1];
+      const ain = inside(ax, ay), bin = inside(bx, by);
+      if (bin) {
+        if (!ain) out.push(...cross(ax, ay, bx, by));
+        out.push(bx, by);
+      } else if (ain) out.push(...cross(ax, ay, bx, by));
+    }
+    pts = out;
+  }
+  return pts.length >= 6 ? pts : [];
+}
+
 export function ringBox(r: number[]): Box {
   const b = { x0: Infinity, y0: Infinity, x1: -Infinity, y1: -Infinity };
   for (let i = 0; i + 1 < r.length; i += 2) {
@@ -121,30 +155,60 @@ export function fastCircle(g: G, x: number, y: number, r: number): void {
   for (let k = 0; k < FAN; k++) g.fillTriangle(x, y, x + COS[k] * r, y + SIN[k] * r, x + COS[k + 1] * r, y + SIN[k + 1] * r);
 }
 
+/**
+ * While a map tile is drawn, lines are limited to it: thickLine and dashedLine skip the segments that
+ * can't reach it (a long road crossing many tiles is otherwise drawn whole in each). Dashes keep
+ * counting over skipped segments, so they line up from one tile to the next.
+ */
+let clip: Box | null = null;
+export function setLineClip(b: Box | null): void {
+  clip = b;
+}
+/** Whether a segment comes within m of the clip box (always true with no clip). */
+function reaches(ax: number, ay: number, bx: number, by: number, m: number): boolean {
+  return !clip || !(Math.max(ax, bx) < clip.x0 - m || Math.min(ax, bx) > clip.x1 + m || Math.max(ay, by) < clip.y0 - m || Math.min(ay, by) > clip.y1 + m);
+}
+
 /** Thick line with round joins (Phaser's thick strokes leave gaps at corners). */
 export function thickLine(g: G, r: number[], width: number, color: number, alpha = 1): void {
   if (r.length < 4) return;
-  g.lineStyle(width, color, alpha).strokePoints(pts(r), false, false);
-  if (width >= 8) {
-    g.fillStyle(color, alpha);
-    for (let i = 0; i + 1 < r.length; i += 2) fastCircle(g, r[i], r[i + 1], width / 2);
+  g.lineStyle(width, color, alpha);
+  if (width >= 8) g.fillStyle(color, alpha);
+  const m = width / 2 + 2;
+  // Runs of consecutive segments that reach the tile (the whole line without a clip).
+  let start = -1;
+  for (let i = 0; i + 3 < r.length + 2; i += 2) {
+    const near = i + 3 < r.length && reaches(r[i], r[i + 1], r[i + 2], r[i + 3], m);
+    if (near && start < 0) start = i;
+    if (!near && start >= 0) {
+      // Segments start..i-2 reach the tile: points start .. i
+      const run = r.slice(start, i + 2);
+      g.strokePoints(pts(run), false, false);
+      if (width >= 8) for (let k = 0; k + 1 < run.length; k += 2) fastCircle(g, run[k], run[k + 1], width / 2);
+      start = -1;
+    }
   }
 }
 
 /** Dashed line along a polyline. */
 export function dashedLine(g: G, r: number[], width: number, color: number, dash: number, gap: number, alpha = 1): void {
   g.lineStyle(width, color, alpha);
+  const period = dash + gap;
   let phase = 0; // distance into the current dash+gap period
   for (let i = 2; i + 1 < r.length; i += 2) {
     const ax = r[i - 2], ay = r[i - 1], bx = r[i], by = r[i + 1];
     const len = Math.hypot(bx - ax, by - ay);
+    if (!reaches(ax, ay, bx, by, width + 2)) {
+      phase = (phase + len) % period;
+      continue;
+    }
     let s = 0;
     while (s < len) {
       const inDash = phase < dash;
-      const step = Math.min(len - s, inDash ? dash - phase : dash + gap - phase);
+      const step = Math.min(len - s, inDash ? dash - phase : period - phase);
       if (inDash) g.lineBetween(ax + ((bx - ax) * s) / len, ay + ((by - ay) * s) / len, ax + ((bx - ax) * (s + step)) / len, ay + ((by - ay) * (s + step)) / len);
       s += step;
-      phase = (phase + step) % (dash + gap);
+      phase = (phase + step) % period;
     }
   }
 }
@@ -199,13 +263,14 @@ export interface Plant {
 export const vegetationGround = (kind: number): number =>
   kind === VEG.vineyard ? 0xc9c48e : kind === VEG.orchard ? 0xa7c47c : kind === VEG.meadow ? 0xb3cc84 : kind === VEG.hedge ? 0x6f9a55 : 0x5f8c4c;
 
-export function plants(g: G, kind: number, ring: number[], tile: Box): Plant[] {
+/** `ring` may be cut down to the tile (clipRing); `whole` is the full ring, for anything aligned with it. */
+export function plants(g: G, kind: number, ring: number[], tile: Box, whole = ring): Plant[] {
   const b = ringBox(ring);
   const area: Box = { x0: Math.max(b.x0, tile.x0 - 50), y0: Math.max(b.y0, tile.y0 - 50), x1: Math.min(b.x1, tile.x1 + 50), y1: Math.min(b.y1, tile.y1 + 50) };
   if (area.x0 >= area.x1 || area.y0 >= area.y1) return [];
 
   if (kind === VEG.vineyard) {
-    const ob = orientedBox(ring);
+    const ob = orientedBox(whole);
     for (let x = area.x0; x <= area.x1; x += 11) {
       for (let y = area.y0; y <= area.y1; y += 11) {
         const along = x * ob.ux + y * ob.uy, across = x * ob.vx + y * ob.vy;
