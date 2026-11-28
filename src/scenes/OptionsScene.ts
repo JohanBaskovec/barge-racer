@@ -4,7 +4,7 @@ import { t, type TranslationKey } from '../i18n';
 import { type Options, options, setOption } from '../options';
 import { background, button, fitText, setSelected, text } from '../view/ui';
 
-type BoolKey = 'itemsRight' | 'autoFire' | 'reducedShake';
+type BoolKey = 'itemsRight' | 'stickSteer' | 'autoFire' | 'reducedShake';
 
 /**
  * Volumes and gameplay options. Opened from the title screen (full screen) or from the pause
@@ -26,13 +26,14 @@ export class OptionsScene extends Phaser.Scene {
     else background(this);
     fitText(text(this, 640, 70, t('options.title'), 56), 900).setStroke('#0b3a5b', 8);
 
-    this.volumeRow(170, 'options.music', 'musicVolume');
-    this.volumeRow(255, 'options.sfx', 'sfxVolume');
-    this.toggleRow(360, 'options.itemsRight', 'itemsRight');
-    this.toggleRow(440, 'options.autoFire', 'autoFire');
-    this.toggleRow(520, 'options.reducedShake', 'reducedShake');
+    this.volumeRow(160, 'options.music', 'musicVolume');
+    this.volumeRow(236, 'options.sfx', 'sfxVolume');
+    this.toggleRow(326, 'options.stickSteer', 'stickSteer', ['options.stickPoint', 'options.stickStick']);
+    this.toggleRow(398, 'options.itemsRight', 'itemsRight');
+    this.toggleRow(470, 'options.autoFire', 'autoFire');
+    this.toggleRow(542, 'options.reducedShake', 'reducedShake');
 
-    button(this, 640, 640, 300, 72, t('common.back'), () => this.close(), { fill: 0x555f6b, textSize: 32 });
+    button(this, 640, 646, 300, 72, t('common.back'), () => this.close(), { fill: 0x555f6b, textSize: 32 });
     this.input.keyboard?.on('keydown-ESC', () => this.close());
   }
 
@@ -62,11 +63,11 @@ export class OptionsScene extends Phaser.Scene {
     paint();
   }
 
-  /** On / off, as two buttons; the current choice is outlined. */
-  private toggleRow(y: number, key: TranslationKey, opt: BoolKey): void {
+  /** On / off (or two named choices), as two buttons; the current choice is outlined. */
+  private toggleRow(y: number, key: TranslationKey, opt: BoolKey, names: [TranslationKey, TranslationKey] = ['options.off', 'options.on']): void {
     this.label(y, key);
-    const off = button(this, 830, y, 150, 56, t('options.off'), () => set(false), { textSize: 26, fill: 0x3d5266 });
-    const on = button(this, 1000, y, 150, 56, t('options.on'), () => set(true), { textSize: 26, fill: 0x2d9d5a });
+    const off = button(this, 830, y, 150, 56, t(names[0]), () => set(false), { textSize: 26, fill: 0x3d5266 });
+    const on = button(this, 1000, y, 150, 56, t(names[1]), () => set(true), { textSize: 26, fill: 0x2d9d5a });
     const set = (v: boolean): void => {
       setOption(opt, v as Options[BoolKey]);
       setSelected(on, v);

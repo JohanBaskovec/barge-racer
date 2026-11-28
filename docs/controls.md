@@ -4,10 +4,37 @@ The game is played with **one pointer only**: a mouse on desktop or one finger
 on a touch screen. Keyboard and gamepad are optional extras for later and are
 never required.
 
-## Steering: "point where you want to go"
+## Steering on a touch screen: the joystick (default)
 
-While the pointer is **held down** (left mouse button, or a finger on the
-screen), the boat drives towards it.
+A thumb put down anywhere (except on a button) becomes the centre of an invisible
+stick; sliding it steers.
+
+```
+        thumb went down here      thumb now
+                 o ------------------> x
+                     direction = the boat's heading
+                     length    = throttle
+```
+
+- **Direction**: from where the thumb landed to where it is now. The boat turns
+  towards that direction on screen at its `handling` turn rate, as before.
+- **Throttle**: the length of the slide, in game pixels (about 85 per cm on a phone
+  held sideways): under 12 px nothing (coast, heading held), full throttle at
+  110 px (about 1.3 cm), linear in between (`STICK` in `PointerController.ts`).
+- **The centre follows**: slide further than 130 px and the centre is dragged
+  along behind the thumb, so turning back never needs a long slide.
+- **Reverse** and **release** work as with pointing (below).
+- The stick is drawn faintly under the thumb: a ring for the full-throttle
+  distance and a knob.
+
+The point: the steering thumb stays in a small area wherever the river goes (the
+right half for most people), so it never ends up over the item buttons, nor over
+the river ahead. The option **Touch steering: Point** brings back the old way.
+
+## Steering with a mouse (or with "Point"): "point where you want to go"
+
+While the pointer is **held down** (left mouse button, or a finger with the
+option), the boat drives towards it. A mouse always steers this way.
 
 ```
               pointer
@@ -21,14 +48,12 @@ screen), the boat drives towards it.
 - **Direction**: the vector from the player's boat (in screen space) to the
   pointer is the *desired heading*. The boat turns towards it at the turn rate
   allowed by its `handling` stat; it does not snap.
-- **Throttle**: the distance `d` between boat and pointer, in screen pixels,
+- **Throttle**: the distance `d` between boat and pointer, in game pixels,
   sets the throttle:
-  - `d < deadZone` (40 px at 1x scale): throttle 0, heading held. This lets you
+  - `d < deadZone` (40 px): throttle 0, heading held. This lets you
     hold your finger on the boat to coast without turning.
   - `d >= fullThrottleDistance` (180 px): throttle 1.
   - In between: linear from 0 to 1.
-  Distances are in CSS pixels and scaled with the game's zoom so they feel the
-  same on phones and monitors.
 - **Pointer released**: throttle 0, the boat coasts and slows down from water
   drag. There is no brake; turning hard and releasing slows you down quickly
   enough.
@@ -55,7 +80,7 @@ buttons are bottom left for the left thumb; the option "Item buttons on the righ
 people who steer with the left hand. Rules that keep the buttons out of the way:
 
 - **A button never blocks steering.** A finger that lands on a button while no other finger is
-  steering also steers. If it's a quick tap (under 0.3 s, moving less than 30 px) the item fires
+  steering also steers (with the joystick, the stick is centred on the button). If it's a quick tap (under 0.3 s, moving less than 30 px) the item fires
   as well; if it stays down or drags, it was only steering. A quick downward flick fires backwards.
 - **With a finger already steering**, a press on a button is just a press on the button: it fires
   when the thumb lifts (backwards after a downward flick), however long it was held.
@@ -77,11 +102,8 @@ people who steer with the left hand. Rules that keep the buttons out of the way:
   shows its item's picture and its **name underneath** (and `x2`/`x3` for
   multi-use items).
 - Right and middle click work even when the pointer is over an item button.
-- The item buttons are large (about 116 px across in the 1280 x 720 game), out
-  of the area where the steering finger usually is, and are meant to be placed
-  bottom left in left-handed mode.
-- A pointer down that starts on the item slot or on a HUD button is **never**
-  treated as steering.
+- The item buttons are large (140 px across in the 1280 x 720 game, a little
+  over 1.5 cm on a phone), bottom left, away from the steering thumb.
 - Backwards fire: Volunteers are thrown backwards in a straight line (no homing),
   and the Drill and the Silicone Gun are fired backwards. Glue and Fake Crates are
   always dropped behind, and so are the cheese of the Raclette and the smoke of the

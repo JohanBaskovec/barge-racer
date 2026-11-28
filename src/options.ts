@@ -11,6 +11,11 @@ export interface Options {
    * on the left when set).
    */
   itemsRight: boolean;
+  /**
+   * Touch steering with a joystick centred where the finger lands (default); off: the old way,
+   * the boat drives towards the finger. A mouse always points.
+   */
+  stickSteer: boolean;
   /** Fire held items automatically when a good target is in range. */
   autoFire: boolean;
   /** No screen shake and no hit pauses. */
@@ -24,6 +29,7 @@ export const DEFAULT_OPTIONS: Options = {
   musicVolume: 0.6,
   sfxVolume: 0.8,
   itemsRight: false,
+  stickSteer: true,
   autoFire: false,
   reducedShake: false,
 };
@@ -42,6 +48,7 @@ export function parseOptions(raw: unknown): Options {
   out.musicVolume = vol(r.musicVolume, out.musicVolume);
   out.sfxVolume = vol(r.sfxVolume, out.sfxVolume);
   out.itemsRight = bool(r.itemsRight, out.itemsRight);
+  out.stickSteer = bool(r.stickSteer, out.stickSteer);
   out.autoFire = bool(r.autoFire, out.autoFire);
   out.reducedShake = bool(r.reducedShake, out.reducedShake);
   return out;

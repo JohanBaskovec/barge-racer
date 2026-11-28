@@ -8,7 +8,7 @@ export const en = {
 
   'title.subtitle': 'Race, shove, saw and glue your way to the finish',
   'title.play': 'Play',
-  'title.hint': 'Hold to steer · tap an item button to fire (mouse: right and middle click)',
+  'title.hint': 'Slide a finger to steer · tap an item button to fire (mouse: hold to steer, right and middle click to fire)',
 
   'common.back': 'Back',
   'menu.options': 'Options',
@@ -64,6 +64,9 @@ export const en = {
   'options.title': 'Options',
   'options.music': 'Music',
   'options.sfx': 'Sound effects',
+  'options.stickSteer': 'Touch steering',
+  'options.stickPoint': 'Point',
+  'options.stickStick': 'Joystick',
   'options.itemsRight': 'Item buttons on the right (steer with the left hand)',
   'options.autoFire': 'Auto-fire items',
   'options.reducedShake': 'Reduce screen shake',

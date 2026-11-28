@@ -8,6 +8,12 @@ import { options } from '../options';
 import { AIController } from './AIController';
 
 export const STEER = { deadZone: 40, fullThrottle: 180 };
+/**
+ * The joystick (touch, default): a stick centred where the finger landed. Distances in game pixels
+ * (a 1280-wide game on a phone held sideways: about 85 px per cm). `max`: beyond it, the centre
+ * follows the finger, so turning back never needs a long slide.
+ */
+export const STICK = { deadZone: 12, fullThrottle: 110, max: 130 };
 
 /** Screen-space rectangles/circles where a press belongs to the HUD, never to steering. */
 export interface HudZone {
@@ -22,6 +28,8 @@ export interface HudZone {
  */
 export class PointerController implements Controller {
   private steerId: number | null = null;
+  /** Joystick steering: the centre of the stick for the steering finger (null: point steering). */
+  private anchor: { x: number; y: number } | null = null;
   private pendingFire: FireCommand | null = null;
   hudZones: HudZone[] = [];
   /** Auto-fire option: the AI's own judgement of when an item is worth firing. */
@@ -67,7 +75,7 @@ export class PointerController implements Controller {
     }
     if (this.inHud(p)) return;
     if (this.steerId === null) {
-      if (p.wasTouch || p.leftButtonDown()) this.steerId = p.id;
+      if (p.wasTouch || p.leftButtonDown()) this.startSteering(p);
     } else if (p.id !== this.steerId && p.wasTouch) {
       this.pendingFire = { slot: 0, dir: 'forward' }; // second finger tap: first item
     }
@@ -78,6 +86,13 @@ export class PointerController implements Controller {
     // Releasing the right (fire) button must not end a left-button hold.
     if (!p.wasTouch && p.leftButtonDown()) return;
     this.steerId = null;
+    this.anchor = null;
+  }
+
+  /** A finger steers with a stick centred where it landed (unless the option says point); the mouse points. */
+  private startSteering(p: Phaser.Input.Pointer): void {
+    this.steerId = p.id;
+    this.anchor = p.wasTouch && options.stickSteer ? { x: p.x, y: p.y } : null;
   }
 
   update(r: Racer, sim: RaceSimulation, dt: number): ControlIntent {
@@ -88,15 +103,34 @@ export class PointerController implements Controller {
     const p = this.scene.input.manager.pointers.find((q) => q.id === this.steerId);
     if (!p || !p.isDown) {
       this.steerId = null;
+      this.anchor = null;
       return intent;
     }
-    const b = this.boatScreen();
-    const dx = p.x - b.x;
-    const dy = p.y - b.y;
-    const d = Math.hypot(dx, dy);
-    if (d < STEER.deadZone) return intent;
-    const heading = Math.atan2(dy, dx);
-    let throttle = clamp((d - STEER.deadZone) / (STEER.fullThrottle - STEER.deadZone), 0, 1);
+    let heading: number, throttle: number;
+    const a = this.anchor;
+    if (a) {
+      // Joystick: the way from the stick's centre to the finger, the further the faster.
+      let dx = p.x - a.x, dy = p.y - a.y;
+      let d = Math.hypot(dx, dy);
+      if (d > STICK.max) {
+        a.x = p.x - (dx / d) * STICK.max;
+        a.y = p.y - (dy / d) * STICK.max;
+        dx = p.x - a.x;
+        dy = p.y - a.y;
+        d = STICK.max;
+      }
+      if (d < STICK.deadZone) return intent;
+      heading = Math.atan2(dy, dx);
+      throttle = clamp((d - STICK.deadZone) / (STICK.fullThrottle - STICK.deadZone), 0, 1);
+    } else {
+      // Pointing: from the boat to the pointer.
+      const b = this.boatScreen();
+      const dx = p.x - b.x, dy = p.y - b.y;
+      const d = Math.hypot(dx, dy);
+      if (d < STEER.deadZone) return intent;
+      heading = Math.atan2(dy, dx);
+      throttle = clamp((d - STEER.deadZone) / (STEER.fullThrottle - STEER.deadZone), 0, 1);
+    }
     // Pointing behind a nearly stopped boat reverses.
     const behind = Math.abs(Phaser.Math.Angle.Wrap(heading - r.heading)) > (120 * Math.PI) / 180;
     if (behind && speedOf(r) < 0.2 * r.stats.topSpeed) throttle = -0.5;
@@ -112,11 +146,18 @@ export class PointerController implements Controller {
    */
   claim(p: Phaser.Input.Pointer): boolean {
     if (this.steerId !== null || !(p.wasTouch || p.leftButtonDown())) return false;
-    this.steerId = p.id;
+    this.startSteering(p);
     return true;
   }
 
   get steering(): boolean {
     return this.steerId !== null;
+  }
+
+  /** The joystick to draw: its centre and the finger (game pixels), or null when not steering with it. */
+  get stick(): { ax: number; ay: number; x: number; y: number } | null {
+    if (this.steerId === null || !this.anchor) return null;
+    const p = this.scene.input.manager.pointers.find((q) => q.id === this.steerId);
+    return p && p.isDown ? { ax: this.anchor.x, ay: this.anchor.y, x: p.x, y: p.y } : null;
   }
 }

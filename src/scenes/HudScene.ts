@@ -10,15 +10,18 @@ import { net } from '../net/client';
 import { addFullscreenButton } from '../view/fullscreen';
 import { button, fitText, fmtTime, text } from '../view/ui';
 import type { RaceScene } from './RaceScene';
+import { STICK } from '../control/PointerController';
 
 /**
  * Two item buttons: the first is fired with right click, the second with middle click. Bottom left
  * by default (for the left thumb while the right hand steers); bottom right with the option.
  */
 const SLOT_BTNS = [
-  { x: 1170, y: 578, r: 58 },
-  { x: 985, y: 593, r: 58 },
+  { x: 1166, y: 568, r: 70 },
+  { x: 966, y: 586, r: 70 },
 ];
+/** The item picture inside a button. */
+const ICON = 92;
 /** The buttons answer a little beyond their drawn ring: a thumb doesn't aim. */
 const HIT_SCALE = 1.25;
 /** A press on a button that also started steering fires only if it was this short (ms) and stayed put. */
@@ -34,6 +37,8 @@ export class HudScene extends Phaser.Scene {
   private timeText!: Phaser.GameObjects.Text;
   private slotUi: { ring: Phaser.GameObjects.Arc; icon: Phaser.GameObjects.Image; name: Phaser.GameObjects.Text; count: Phaser.GameObjects.Text }[] = [];
   private tripGfx!: Phaser.GameObjects.Graphics;
+  /** The joystick under the steering finger. */
+  private stickGfx!: Phaser.GameObjects.Graphics;
   private endsText!: Phaser.GameObjects.Text;
   private big!: Phaser.GameObjects.Text;
   private map!: Phaser.GameObjects.Graphics;
@@ -112,15 +117,15 @@ export class HudScene extends Phaser.Scene {
     const slotBtns = options.itemsRight ? SLOT_BTNS : SLOT_BTNS.map((b) => ({ ...b, x: 1280 - b.x }));
     this.slotUi = slotBtns.map((b, k) => {
       const ring = this.add.circle(b.x, b.y, b.r, 0x0b3a5b, 0.7).setStrokeStyle(6, 0xffffff, 0.9);
-      const icon = this.add.image(b.x, b.y, 'icon_glue').setDisplaySize(76, 76).setVisible(false);
-      const count = text(this, b.x + 38, b.y + 38, '', 26, '#ffe08a').setStroke(stroke, 5);
+      const icon = this.add.image(b.x, b.y, 'icon_glue').setDisplaySize(ICON, ICON).setVisible(false);
+      const count = text(this, b.x + 48, b.y + 48, '', 28, '#ffe08a').setStroke(stroke, 5);
       // The name sits under the button, wrapped to two lines so long names stay on screen.
       const name = this.add
         .text(b.x, b.y + b.r + 8, '', { fontFamily: FONT, fontSize: '20px', fontStyle: 'bold', color: '#ffffff', align: 'center', stroke, strokeThickness: 4, wordWrap: { width: 172 }, resolution: 2 })
         .setOrigin(0.5, 0);
       // Small number badge so the two buttons are told apart.
-      this.add.circle(b.x - 44, b.y - 44, 14, 0xffe08a).setStrokeStyle(3, 0x0b3a5b);
-      text(this, b.x - 44, b.y - 44, String(k + 1), 18, '#0b3a5b');
+      this.add.circle(b.x - 53, b.y - 53, 15, 0xffe08a).setStrokeStyle(3, 0x0b3a5b);
+      text(this, b.x - 53, b.y - 53, String(k + 1), 19, '#0b3a5b');
       // Presses that started on this button, by pointer: only those can fire it (a steering finger
       // that slides onto the button and lifts there doesn't).
       const presses = new Map<number, { x: number; y: number; t: number; steering: boolean }>();
@@ -152,6 +157,7 @@ export class HudScene extends Phaser.Scene {
       return { ring, icon, name, count };
     });
     // Full-screen colour wash used by the mushroom effect (the camera effect is in the race scene).
+    this.stickGfx = this.add.graphics().setDepth(49);
     this.tripGfx = this.add.graphics().setDepth(50).setBlendMode(Phaser.BlendModes.SCREEN).setAlpha(0);
 
     // Pause
@@ -215,13 +221,14 @@ export class HudScene extends Phaser.Scene {
         if (held.uses > 1) count = `×${held.uses}`;
       }
       ui.icon.setVisible(icon !== '');
-      if (icon) ui.icon.setTexture(icon).setDisplaySize(76, 76);
+      if (icon) ui.icon.setTexture(icon).setDisplaySize(ICON, ICON);
       ui.name.setText(name);
       ui.count.setText(count);
       ui.ring.setStrokeStyle(6, held ? 0xffe08a : 0xffffff, held ? 1 : 0.6);
       ui.ring.setScale(held ? 1 + Math.sin(time / 180 + k) * 0.03 : 1);
     });
     this.drawTrip(time);
+    this.drawStick();
 
     this.drawMap();
   }
@@ -250,6 +257,20 @@ export class HudScene extends Phaser.Scene {
   }
 
   /** A slowly cycling rainbow wash over the whole screen while the player is tripping. */
+  /** The stick: a ring where the finger landed and a knob under it (drawn slightly faint, it's under a thumb). */
+  private drawStick(): void {
+    const g = this.stickGfx.clear();
+    const st = this.paused || this.race.spectating ? null : this.race.pointer.stick;
+    if (!st) return;
+    const dx = st.x - st.ax, dy = st.y - st.ay;
+    const d = Math.hypot(dx, dy);
+    const k = d > STICK.fullThrottle ? STICK.fullThrottle / d : 1;
+    g.fillStyle(0x0b3a5b, 0.22).fillCircle(st.ax, st.ay, STICK.fullThrottle);
+    g.lineStyle(4, 0xffffff, 0.45).strokeCircle(st.ax, st.ay, STICK.fullThrottle);
+    g.fillStyle(0xffffff, 0.4).fillCircle(st.ax + dx * k, st.ay + dy * k, 34);
+    g.lineStyle(3, 0x0b3a5b, 0.5).strokeCircle(st.ax + dx * k, st.ay + dy * k, 34);
+  }
+
   private drawTrip(time: number): void {
     const level = this.race.trip;
     this.tripGfx.setAlpha(level * 0.42).setVisible(level > 0.01);

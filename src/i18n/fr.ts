@@ -6,7 +6,7 @@ export const fr: Record<TranslationKey, string> = {
 
   'title.subtitle': "Faites la course, bousculez, sciez et collez jusqu'à l'arrivée",
   'title.play': 'Jouer',
-  'title.hint': "Maintenez pour diriger · touchez un bouton d'objet pour tirer (souris : clic droit et clic molette)",
+  'title.hint': "Glissez le doigt pour diriger · touchez un bouton d'objet pour tirer (souris : maintenez pour diriger, clic droit et clic molette pour tirer)",
 
   'common.back': 'Retour',
   'menu.options': 'Options',
@@ -62,6 +62,9 @@ export const fr: Record<TranslationKey, string> = {
   'options.title': 'Options',
   'options.music': 'Musique',
   'options.sfx': 'Effets sonores',
+  'options.stickSteer': 'Direction au doigt',
+  'options.stickPoint': 'Pointer',
+  'options.stickStick': 'Joystick',
   'options.itemsRight': "Boutons d'objets à droite (diriger de la main gauche)",
   'options.autoFire': 'Tir automatique des objets',
   'options.reducedShake': "Réduire les secousses de l'écran",
