@@ -15,14 +15,19 @@ export class ModeScene extends Phaser.Scene {
     background(this);
     audio.playMusic('menu');
     fitText(text(this, 640, 60, t('mode.title'), 52), 1000).setStroke('#0b3a5b', 8);
-    this.card(370, t('mode.single'), t('mode.singleDesc'), (g, x, y) => this.flag(g, x, y), () => this.scene.start('TrackSelect'));
-    this.card(910, t('cup.title'), t('mode.cupDesc'), (g, x, y) => this.trophy(g, x, y), () => this.scene.start('CupSetup'));
+    this.card(250, t('mode.single'), t('mode.singleDesc'), (g, x, y) => this.flag(g, x, y), () => this.scene.start('TrackSelect'));
+    this.card(640, t('cup.title'), t('mode.cupDesc'), (g, x, y) => this.trophy(g, x, y), () => this.scene.start('CupSetup'));
+    this.card(1030, t('mode.battle'), t('mode.battleDesc'), (_g, x, y) => {
+      // the two teams' flags, crossed
+      this.add.image(x - 34, y - 6, 'flagPole_0').setDisplaySize(96, 108).setRotation(-0.25);
+      this.add.image(x + 34, y - 6, 'flagPole_1').setDisplaySize(96, 108).setRotation(0.25).setFlipX(true);
+    }, () => this.scene.start('BattleSetup'));
     button(this, 150, 660, 200, 64, t('common.back'), () => this.scene.start('BoatSelect'), { fill: 0x555f6b, textSize: 28 });
   }
 
   /** A big card to tap: a picture, a name, what it is. */
   private card(x: number, title: string, desc: string, draw: (g: Phaser.GameObjects.Graphics, x: number, y: number) => void, go: () => void): void {
-    const frame = this.add.rectangle(x, 350, 470, 420, 0x0b3a5b, 0.7).setStrokeStyle(5, 0xffffff, 0.6).setInteractive({ useHandCursor: true });
+    const frame = this.add.rectangle(x, 350, 370, 420, 0x0b3a5b, 0.7).setStrokeStyle(5, 0xffffff, 0.6).setInteractive({ useHandCursor: true });
     frame.on('pointerover', () => frame.setStrokeStyle(7, 0xffe08a, 1));
     frame.on('pointerout', () => frame.setStrokeStyle(5, 0xffffff, 0.6));
     frame.on('pointerup', () => {
@@ -30,9 +35,9 @@ export class ModeScene extends Phaser.Scene {
       go();
     });
     draw(this.add.graphics(), x, 250);
-    fitText(text(this, x, 400, title, 44), 430).setStroke('#0b3a5b', 6);
+    fitText(text(this, x, 400, title, 40), 340).setStroke('#0b3a5b', 6);
     this.add
-      .text(x, 440, desc, { fontFamily: F, fontSize: '21px', color: '#d7efff', align: 'center', wordWrap: { width: 420 }, resolution: 2 })
+      .text(x, 440, desc, { fontFamily: F, fontSize: '19px', color: '#d7efff', align: 'center', wordWrap: { width: 330 }, resolution: 2 })
       .setOrigin(0.5, 0);
   }
 

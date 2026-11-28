@@ -2,6 +2,9 @@ import Phaser from 'phaser';
 import { PAINT_COLORS } from '../view/worldArt';
 import type { TauntId } from '../data/taunts';
 import { tauntBubble } from '../view/tauntBubble';
+import { BOATS } from '../data/boats';
+import { AI_NAMES } from '../race/RaceSimulation';
+import { TEAM_COLORS } from '../race/battle';
 import { type CupState, cupGrid, cupRace, cupTrack, scoreRace } from '../cup/championship';
 import { activeCup } from '../cup/offlineCup';
 import { DEBUG } from '../config';
@@ -94,10 +97,17 @@ export class RaceScene extends Phaser.Scene {
   private taunts: { c: Phaser.GameObjects.Container; racer: number; dy: number }[] = [];
   private lastPositions: number[] = [];
   private aiTauntAt = -1e9;
+  /** A single-player battle: its mode, arena, boats and the player's team (null: not a battle). */
+  private battleSetup: Selection['battle'] | null = null;
+  /** Battle: the bases on the water and the flags on their poles. */
+  private baseGfx: Phaser.GameObjects.Graphics | null = null;
+  private flagSprites: Phaser.GameObjects.Image[] = [];
   /** A single-player championship race: who is in each seat (null: not a championship race). */
   private cupKeys: string[] | null = null;
 
-  init(data: Selection & { online?: Extract<ServerMsg, { t: 'start' }>; cup?: boolean }): void {
+  init(data: Selection & { online?: Extract<ServerMsg, { t: 'start' }>; cup?: boolean; battle?: boolean }): void {
+    // A single-player battle: the setup chosen on the battle screen.
+    this.battleSetup = data.battle && !data.online ? session.battle ?? null : null;
     // Online, the room's settings say which stretch is raced; offline, the stretch saved for the track.
     this.onlineStart = data.online ?? null;
     this.online = null;
@@ -109,6 +119,8 @@ export class RaceScene extends Phaser.Scene {
       : this.cupKeys && activeCup ? { ...data, trackId: cupTrack(activeCup.state), difficulty: activeCup.difficulty } : data;
     this.views = [];
     this.taunts = [];
+    this.baseGfx = null;
+    this.flagSprites = [];
     this.lastPositions = [];
     this.aiTauntAt = -1e9;
     this.accumulator = 0;
@@ -187,6 +199,22 @@ export class RaceScene extends Phaser.Scene {
           if (p.leftButtonDown() || p.wasTouch) this.watchNext();
         });
       }
+    } else if (this.battleSetup) {
+      // A battle: the player and AI boats, the teams balanced (the player's team first).
+      const B = this.battleSetup;
+      const names = [...AI_NAMES, 'Barnacle Ben', 'Lady Lock', 'Rusty Rudder', 'Marge'];
+      const pool = BOATS.map((b) => b.id).filter((id) => id !== sel.boatId);
+      const roster: { name: string; boatId: string; human: boolean; controller?: PointerController }[] = [{ name: 'You', boatId: sel.boatId, human: true, controller: this.pointer }];
+      for (let i = 1; i < B.boats; i++) roster.push({ name: names[(i - 1) % names.length], boatId: pool[(i - 1) % pool.length], human: false });
+      this.sim = new RaceSimulation({
+        track,
+        difficulty: sel.difficulty as Difficulty,
+        seed: DEBUG.seed ?? (Date.now() & 0xffff),
+        forcedItem: DEBUG.item,
+        roster,
+        mode: B.mode,
+        teams: roster.map((_, i) => (B.team + i) % 2),
+      });
     } else if (this.cupKeys && activeCup) {
       // A championship race: always the same boats, the leader at the back of the grid.
       const grid = cupGrid(activeCup.state, activeCup.boats, (b) => b.key);
@@ -242,6 +270,19 @@ export class RaceScene extends Phaser.Scene {
     cam.setZoom(0.9);
     cam.centerOn(p.x, p.y);
 
+    // Battle: the teams' bases (rings on the water) and, in capture the flag, their flags.
+    const battle = this.sim.battle;
+    if (battle && battle.teams.some((tm) => tm >= 0)) {
+      const g = (this.baseGfx = this.add.graphics().setDepth(4.5));
+      for (const team of [0, 1]) {
+        const b = battle.basePoint(team);
+        const col = TEAM_COLORS[team];
+        g.fillStyle(col, 0.16).fillCircle(b.x, b.y, 150);
+        g.lineStyle(6, col, 0.7).strokeCircle(b.x, b.y, 150);
+        g.lineStyle(2, 0xffffff, 0.6).strokeCircle(b.x, b.y, 158);
+      }
+      this.flagSprites = battle.flags.map((f) => this.add.image(f.x, f.y, `flagPole_${f.team}`).setOrigin(0.12, 0.95).setDisplaySize(72, 81).setDepth(14));
+    }
     this.scene.launch('Hud', { race: this });
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.scene.stop('Hud'));
 
@@ -301,8 +342,25 @@ export class RaceScene extends Phaser.Scene {
     this.raceAudio.update(dt);
     this.updateCamera(dt, time);
     this.updateTaunts(time);
+    this.updateFlags(time);
     for (const e of this.online ? this.online.takeEvents() : this.sim.takeEvents()) this.handleEvent(e);
     if (this.fpsText) this.fpsText.setText(`${this.game.loop.actualFps.toFixed(0)} fps`);
+  }
+
+  /** Capture the flag: each flag on its base, on the boat carrying it (where it is shown), or lying in the water. */
+  private updateFlags(time: number): void {
+    const battle = this.sim.battle;
+    if (!battle) return;
+    // The bases pulse a little, so they read as places, not as paint on the water.
+    this.baseGfx?.setAlpha(0.8 + Math.sin(time / 400) * 0.2);
+    battle.flags.forEach((f, i) => {
+      const s = this.flagSprites[i];
+      if (!s) return;
+      if (f.carrier >= 0) {
+        const v = this.views[f.carrier];
+        s.setPosition(v.x - 6, v.y - 10).setScale(s.scaleX, s.scaleY).setAngle(Math.sin(time / 120) * 6);
+      } else s.setPosition(f.x, f.y).setAngle(f.dropped ? 70 : Math.sin(time / 500 + i) * 3);
+    });
   }
 
   /** A taunt in a bubble over a boat (one bubble per boat at a time). */
@@ -820,6 +878,7 @@ export class RaceScene extends Phaser.Scene {
   private finish(): void {
     if (this.over) return;
     this.over = true;
+    const b = this.sim.battle;
     const rows = this.sim.results().map((r) => ({
       name: r.racer.isPlayer ? t('you') : r.racer.name,
       boatId: r.racer.boat.id,
@@ -827,7 +886,9 @@ export class RaceScene extends Phaser.Scene {
       time: r.time,
       finished: r.finished,
       isPlayer: r.racer.isPlayer,
+      ...(b ? { team: b.teams[r.racer.id], ...b.stats[r.racer.id] } : {}),
     }));
+    const battle = b ? { mode: b.mode, teamScores: [...b.teamScores], winnerTeam: b.winnerTeam } : undefined;
     // A championship race counts for the standings.
     let cup: CupState | undefined;
     if (this.cupKeys && activeCup) {
@@ -836,7 +897,7 @@ export class RaceScene extends Phaser.Scene {
       cup = activeCup.state = scoreRace(activeCup.state, this.sim.results().map((r) => ({ ...boats.get(keys[r.racer.id])! })));
     }
     this.time.delayedCall(400, () => {
-      this.scene.start('Results', { rows, trackId: this.sim.track.def.id, selection: this.selection, cup, you: 'you' });
+      this.scene.start('Results', { rows, trackId: this.sim.track.def.id, selection: this.selection, cup, you: 'you', battle, again: this.battleSetup ? { ...this.selection, battle: true } : undefined });
     });
   }
 

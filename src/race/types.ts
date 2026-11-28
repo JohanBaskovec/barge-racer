@@ -262,6 +262,12 @@ export type RaceEvent =
   | { type: 'hit'; racer: number; by: number | null; source: HitSource; damage: number }
   | { type: 'shieldPop'; racer: number }
   /** The police after a leader: warned for speeding, chased, pulled over (ticket), gone. */
+  /** Battle: a boat sank, sunk by `by` (null: nobody's kill). */
+  | { type: 'kill'; racer: number; by: number | null }
+  /** Capture the flag: a team's flag was taken, dropped, sent home or captured (by `racer`; -1: by itself). */
+  | { type: 'flag'; team: number; action: 'taken' | 'dropped' | 'returned' | 'captured'; racer: number }
+  /** Battle over (`team`: the winning team, -1 for none or a draw). */
+  | { type: 'battleOver'; team: number }
   /** Drove through wet paint (painting workshop). */
   | { type: 'painted'; racer: number; by: number }
   /** `noise`: sent by a noise complaint (an item) rather than for speeding. */

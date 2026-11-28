@@ -1,0 +1,274 @@
+import { addEffect } from '../effects/effects';
+import { isTouching } from '../physics/collisions';
+import type { RaceSimulation } from './RaceSimulation';
+import type { Racer } from './types';
+
+/**
+ * Battle modes, played on the arenas (wide loops of open water around an island): instead of
+ * laps, boats score.
+ *
+ * - **Deathmatch**: sinking a boat (it sinks while your hit was the last within KILL_CREDIT s)
+ *   scores a point; free for all, or in two teams (the team's points add up).
+ * - **Capture the flag**: two teams, Corsica and Brittany, each with its flag at its base. Touch
+ *   the other team's flag to take it, bring it to your own base while your flag is there: a
+ *   capture. A boat that sinks drops the flag it carries; touched by its own team a dropped flag
+ *   goes home, touched by the other team it is taken again, left alone it goes home after a while.
+ *
+ * A boat that sinks comes back at its team's base (a random spot there, away from opponents), or
+ * in free for all, on the spot of the arena farthest from any opponent. Pure logic, seeded like
+ * the rest of the race, so it runs on the server too.
+ */
+
+export type GameMode = 'race' | 'deathmatch' | 'teamDeathmatch' | 'ctf';
+export const GAME_MODES: GameMode[] = ['race', 'deathmatch', 'teamDeathmatch', 'ctf'];
+export const isBattle = (m: GameMode | undefined): boolean => !!m && m !== 'race';
+export const isTeamMode = (m: GameMode | undefined): boolean => m === 'teamDeathmatch' || m === 'ctf';
+
+/** Team 0 is Corsica, team 1 Brittany (the colours of their boats). */
+export const TEAM_COLORS = [0xd8352b, 0x2f6fd8];
+
+export const BATTLE = {
+  /** Seconds a match lasts at most (deathmatch, capture the flag). */
+  timeLimit: { deathmatch: 240, teamDeathmatch: 240, ctf: 300 },
+  /** Points that win straight away. */
+  fragLimit: 8,
+  teamFragLimit: 15,
+  captureLimit: 3,
+  /** The last hit counts for this long when a boat sinks. */
+  killCredit: 6,
+  /** Touching a flag (px, added to the boat's size). */
+  flagRadius: 26,
+  /** A dropped flag goes home by itself after this long. */
+  flagReturn: 20,
+  /** A team's base: this far along the loop either side of its spot, this share of the width. */
+  baseAlong: 260,
+  baseAcross: 0.6,
+  /** After the end, a moment before the results. */
+  endPause: 2.5,
+};
+
+export interface Flag {
+  team: number;
+  x: number;
+  y: number;
+  homeX: number;
+  homeY: number;
+  /** The boat carrying it, or -1. */
+  carrier: number;
+  /** Lying where its carrier sank (not at home, not carried). */
+  dropped: boolean;
+  droppedT: number;
+}
+
+export interface BattleStats {
+  kills: number;
+  deaths: number;
+  captures: number;
+}
+
+export class BattleSystem {
+  /** Each boat's team (-1: free for all). */
+  readonly teams: number[];
+  readonly stats: BattleStats[];
+  teamScores = [0, 0];
+  flags: Flag[] = [];
+  timeLeft: number;
+  over = false;
+  /** The team that won (team modes), or -1. */
+  winnerTeam = -1;
+  private endT = -1;
+  private lastHit = new Map<number, { by: number; t: number }>();
+
+  constructor(private sim: RaceSimulation, readonly mode: Exclude<GameMode, 'race'>, teams?: number[]) {
+    const n = sim.racers.length;
+    this.teams = isTeamMode(mode) ? Array.from({ length: n }, (_, i) => (teams?.[i] === 0 || teams?.[i] === 1 ? teams[i] : i % 2)) : Array(n).fill(-1);
+    this.stats = Array.from({ length: n }, () => ({ kills: 0, deaths: 0, captures: 0 }));
+    this.timeLeft = BATTLE.timeLimit[mode];
+    if (mode === 'ctf') {
+      for (const team of [0, 1]) {
+        const b = this.basePoint(team);
+        this.flags.push({ team, x: b.x, y: b.y, homeX: b.x, homeY: b.y, carrier: -1, dropped: false, droppedT: 0 });
+      }
+    }
+  }
+
+  /** Where a team's base is: its spot along the arena's loop (the track's `bases`), in the middle. */
+  basePoint(team: number): { x: number; y: number; heading: number; along: number } {
+    const track = this.sim.track;
+    const at = (track.def.bases ?? [0, 0.5])[team] ?? team * 0.5;
+    const along = track.alongOf(at * track.lapLength);
+    const p = track.pointAt(along, 0);
+    return { ...p, along };
+  }
+
+  /** Starting positions: each team spread round its base; free for all, spread round the arena. */
+  startSpot(i: number): { x: number; y: number; heading: number } {
+    const track = this.sim.track;
+    const team = this.teams[i];
+    if (team >= 0) {
+      const mates = this.teams.filter((t) => t === team).length;
+      const k = this.teams.slice(0, i).filter((t) => t === team).length;
+      const b = this.basePoint(team);
+      const along = b.along + (k - (mates - 1) / 2) * 90;
+      const hw = track.sampleAt(along).width / 2;
+      return track.pointAt(along, ((k % 2) * 2 - 1) * hw * 0.3);
+    }
+    const n = this.teams.length;
+    return track.pointAt(track.alongOf(((i + 0.5) / n) * track.lapLength), 0);
+  }
+
+  get scores(): number[] {
+    return this.mode === 'ctf' ? this.stats.map((s) => s.captures) : this.stats.map((s) => s.kills);
+  }
+
+  /** A hit by `by` on `r`: if `r` sinks soon after, `by` scores. */
+  noteHit(r: Racer, by: number | null): void {
+    if (by !== null && by !== r.id) this.lastHit.set(r.id, { by, t: this.sim.time });
+  }
+
+  /** A boat sank: the kill goes to the last boat that hit it, lately; a flag it carried drops. */
+  onSunk(r: Racer): void {
+    if (this.over) return;
+    this.stats[r.id].deaths++;
+    const last = this.lastHit.get(r.id);
+    this.lastHit.delete(r.id);
+    let by: number | null = null;
+    if (last && this.sim.time - last.t <= BATTLE.killCredit && (this.teams[r.id] < 0 || this.teams[last.by] !== this.teams[r.id])) {
+      by = last.by;
+      this.stats[by].kills++;
+      if (this.mode === 'teamDeathmatch') this.teamScores[this.teams[by]]++;
+    }
+    this.sim.emit({ type: 'kill', racer: r.id, by });
+    for (const f of this.flags) {
+      if (f.carrier !== r.id) continue;
+      f.carrier = -1;
+      f.dropped = true;
+      f.droppedT = 0;
+      f.x = r.x;
+      f.y = r.y;
+      this.sim.emit({ type: 'flag', team: f.team, action: 'dropped', racer: r.id });
+    }
+    this.checkEnd();
+  }
+
+  /**
+   * Where a sunk boat comes back: at its team's base, the spot there farthest from opponents; free
+   * for all, the spot of the arena farthest from any opponent.
+   */
+  respawnPoint(r: Racer): { x: number; y: number; heading: number } {
+    const track = this.sim.track, rng = this.sim.rng;
+    const team = this.teams[r.id];
+    const foes = this.sim.racers.filter((o) => o !== r && o.sinkTimer <= 0 && (team < 0 || this.teams[o.id] !== team));
+    const far = (p: { x: number; y: number }): number => foes.reduce((m, o) => Math.min(m, Math.hypot(o.x - p.x, o.y - p.y)), Infinity);
+    let best: { x: number; y: number; heading: number } | null = null, bestD = -1;
+    for (let k = 0; k < 12; k++) {
+      let along: number;
+      if (team >= 0) along = this.basePoint(team).along + rng.range(-BATTLE.baseAlong, BATTLE.baseAlong);
+      else along = rng.range(0, track.length);
+      along = ((along % track.length) + track.length) % track.length;
+      const hw = track.sampleAt(along).width / 2;
+      const p = track.pointAt(along, rng.range(-1, 1) * hw * BATTLE.baseAcross);
+      // Facing either way round the loop at random.
+      const spot = { x: p.x, y: p.y, heading: rng.chance(0.5) ? p.heading : p.heading + Math.PI };
+      const d = far(spot);
+      if (d > bestD) {
+        bestD = d;
+        best = spot;
+      }
+    }
+    return best!;
+  }
+
+  update(dt: number): void {
+    if (this.sim.phase !== 'racing') return;
+    if (this.over) {
+      this.endT -= dt;
+      return;
+    }
+    this.timeLeft -= dt;
+    if (this.mode === 'ctf') this.updateFlags(dt);
+    if (this.timeLeft <= 0) {
+      this.timeLeft = 0;
+      this.finish();
+    }
+  }
+
+  /** The match is over and the results can show. */
+  get done(): boolean {
+    return this.over && this.endT <= 0;
+  }
+
+  private updateFlags(dt: number): void {
+    const sim = this.sim;
+    for (const f of this.flags) {
+      if (f.carrier >= 0) {
+        const c = sim.racers[f.carrier];
+        f.x = c.x;
+        f.y = c.y;
+        // A capture: back at its own base, its own flag at home.
+        const own = this.flags[this.teams[c.id]];
+        if (own.carrier < 0 && !own.dropped && Math.hypot(c.x - own.homeX, c.y - own.homeY) < BATTLE.flagRadius + c.stats.radius + 20) {
+          this.stats[c.id].captures++;
+          this.teamScores[this.teams[c.id]]++;
+          f.carrier = -1;
+          f.dropped = false;
+          f.x = f.homeX;
+          f.y = f.homeY;
+          sim.emit({ type: 'flag', team: f.team, action: 'captured', racer: c.id });
+          this.checkEnd();
+        }
+        continue;
+      }
+      if (f.dropped) {
+        f.droppedT += dt;
+        if (f.droppedT > BATTLE.flagReturn) this.sendHome(f, -1);
+      }
+      for (const r of sim.racers) {
+        if (r.sinkTimer > 0 || sim.isIntangible(r)) continue;
+        if (!isTouching(r, f.x, f.y, BATTLE.flagRadius)) continue;
+        if (this.teams[r.id] === f.team) {
+          if (f.dropped) this.sendHome(f, r.id);
+        } else if (!this.flags.some((o) => o.carrier === r.id)) {
+          f.carrier = r.id;
+          f.dropped = false;
+          sim.emit({ type: 'flag', team: f.team, action: 'taken', racer: r.id });
+        }
+        break;
+      }
+    }
+  }
+
+  private sendHome(f: Flag, by: number): void {
+    f.dropped = false;
+    f.carrier = -1;
+    f.x = f.homeX;
+    f.y = f.homeY;
+    this.sim.emit({ type: 'flag', team: f.team, action: 'returned', racer: by });
+  }
+
+  private checkEnd(): void {
+    const won = this.mode === 'deathmatch'
+      ? this.stats.some((s) => s.kills >= BATTLE.fragLimit)
+      : this.teamScores.some((s) => s >= (this.mode === 'ctf' ? BATTLE.captureLimit : BATTLE.teamFragLimit));
+    if (won) this.finish();
+  }
+
+  private finish(): void {
+    if (this.over) return;
+    this.over = true;
+    this.endT = BATTLE.endPause;
+    if (isTeamMode(this.mode)) this.winnerTeam = this.teamScores[0] === this.teamScores[1] ? -1 : this.teamScores[0] > this.teamScores[1] ? 0 : 1;
+    // Everyone stops shooting: blinking boats can't be hurt any more.
+    for (const r of this.sim.racers) addEffect(r, 'invulnerable', BATTLE.endPause + 1);
+    this.sim.emit({ type: 'battleOver', team: this.winnerTeam });
+  }
+
+  /** The standings: team modes by team then points; free for all by points, then fewest deaths. */
+  order(): Racer[] {
+    const s = this.scores;
+    return [...this.sim.racers].sort((a, b) => {
+      if (isTeamMode(this.mode) && this.teams[a.id] !== this.teams[b.id]) return this.teamScores[this.teams[b.id]] - this.teamScores[this.teams[a.id]];
+      return s[b.id] - s[a.id] || this.stats[a.id].deaths - this.stats[b.id].deaths || a.id - b.id;
+    });
+  }
+}

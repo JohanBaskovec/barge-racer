@@ -4,6 +4,7 @@ import { type ItemId, TUNING } from '../data/items';
 import { addEffect, hasEffect, removeEffect, tickEffects } from '../effects/effects';
 import { ItemSystem } from '../items/ItemSystem';
 import { HazardSystem } from './hazards';
+import { BattleSystem, type GameMode, TEAM_COLORS, isBattle } from './battle';
 import { setRacerSize, stepBoat } from '../physics/BoatPhysics';
 import { resolveBank, resolveBoatPair, resolveStatic } from '../physics/collisions';
 import { type BargePose, Traffic, bargeCapsule } from './traffic';
@@ -47,6 +48,10 @@ export interface RaceSetup {
   roster?: RosterEntry[];
   /** With a roster: which racer this screen follows (isPlayer). Defaults to the first human. */
   localRacer?: number;
+  /** A race (default) or a battle mode on an arena. */
+  mode?: GameMode;
+  /** Team modes: each boat's team (0 Corsica, 1 Brittany), by grid order; default alternate. */
+  teams?: number[];
 }
 
 export interface RosterEntry {
@@ -76,6 +81,8 @@ export class RaceSimulation {
   readonly forcedItem: ItemId | null;
   player: Racer | null = null;
 
+  /** Battle modes: scores, flags, respawns (null in a race). */
+  readonly battle: BattleSystem | null = null;
   /** Barges going up and down the canal. */
   readonly traffic: Traffic;
   /** Where they are this step. */
@@ -120,6 +127,19 @@ export class RaceSimulation {
       this.controllers.set(r.id, own ?? new AIController(this.rng, diff, b.isPlayer ? 0 : this.rng.range(-0.25, 0.25)));
     });
     if (setup.roster && !this.player) this.player = this.racers.find((r) => r.human) ?? null;
+    // A battle: boats start at their bases (or round the arena), in their team's colours.
+    if (isBattle(setup.mode)) {
+      const battle = new BattleSystem(this, setup.mode as Exclude<GameMode, 'race'>, setup.teams);
+      this.battle = battle;
+      for (const r of this.racers) {
+        const p = battle.startSpot(r.id);
+        r.x = p.x;
+        r.y = p.y;
+        r.heading = p.heading;
+        r.nearestIndex = this.track.nearest(p.x, p.y, -1).index;
+        if (battle.teams[r.id] >= 0) r.color = TEAM_COLORS[battle.teams[r.id]];
+      }
+    }
     // Its own random numbers, so the traffic is the same on every screen whatever else happens.
     this.traffic = new Traffic(this.track, (setup.seed ^ 0x5eed) >>> 0);
     this.trafficPoses = this.traffic.poses(0);
@@ -199,7 +219,7 @@ export class RaceSimulation {
     this.stepClock(dt);
     const canDrive = this.phase === 'racing';
 
-    this.updateCatchUp();
+    if (!this.battle) this.updateCatchUp();
 
     // 1. Intents
     const intents = new Map<number, ControlIntent>();
@@ -349,6 +369,7 @@ export class RaceSimulation {
       r.vx *= 0.3;
       r.vy *= 0.3;
     }
+    this.battle?.noteHit(r, by);
     this.emit({ type: 'hit', racer: r.id, by, source, damage });
     if (r.hull <= 0) this.sink(r);
     return true;
@@ -408,6 +429,7 @@ export class RaceSimulation {
     r.sinceHit = 0;
     r.vx *= slow;
     r.vy *= slow;
+    this.battle?.noteHit(r, by);
     this.emit({ type: 'hit', racer: r.id, by, source: 'nailGun', damage });
     if (r.hull <= 0) this.sink(r);
     return true;
@@ -420,16 +442,26 @@ export class RaceSimulation {
     addEffect(r, 'sinking', TUNING.sinkTime);
     r.vx = r.vy = 0;
     this.emit({ type: 'sunk', racer: r.id });
+    this.battle?.onSunk(r);
   }
 
   /** Put a boat back on the centre line with full hull (after sinking or when stuck). */
   respawn(r: Racer): void {
-    const n = this.track.nearest(r.x, r.y, r.nearestIndex, 60);
-    const s = this.track.samples[n.index];
-    r.x = s.x;
-    r.y = s.y;
+    if (this.battle) {
+      // A battle: back at the team's base, or wherever is farthest from the others.
+      const p = this.battle.respawnPoint(r);
+      r.x = p.x;
+      r.y = p.y;
+      r.heading = p.heading;
+    } else {
+      const n0 = this.track.nearest(r.x, r.y, r.nearestIndex, 60);
+      const s = this.track.samples[n0.index];
+      r.x = s.x;
+      r.y = s.y;
+      r.heading = Math.atan2(s.ty, s.tx);
+    }
+    const n = this.track.nearest(r.x, r.y, -1);
     r.vx = r.vy = 0;
-    r.heading = Math.atan2(s.ty, s.tx);
     r.hull = r.stats.maxHull;
     r.sinkTimer = 0;
     r.stuckTimer = 0;
@@ -458,7 +490,7 @@ export class RaceSimulation {
     const n = this.track.nearest(r.x, r.y, r.nearestIndex, 40);
     r.nearestIndex = n.index;
     r.progress = this.track.advance(r.progress, n.along);
-    if (r.finished) return;
+    if (r.finished || this.battle) return; // no laps in a battle
 
     const cps = this.track.def.checkpoints;
     while (r.nextCheckpoint < cps.length && r.progress >= (r.lapsDone + cps[r.nextCheckpoint]) * L) r.nextCheckpoint++;
@@ -480,6 +512,10 @@ export class RaceSimulation {
   }
 
   updateRanking(): void {
+    if (this.battle) {
+      this.battle.order().forEach((r, i) => (r.position = i));
+      return;
+    }
     const order = [...this.racers].sort((a, b) => {
       if (a.finished && b.finished) return a.finishTime - b.finishTime;
       if (a.finished) return -1;
@@ -490,6 +526,14 @@ export class RaceSimulation {
   }
 
   private checkEnd(dt: number): void {
+    if (this.battle) {
+      this.battle.update(dt);
+      if (this.battle.done) {
+        this.phase = 'over';
+        this.emit({ type: 'raceOver' });
+      }
+      return;
+    }
     if (this.endTimer < 0) {
       const humans = this.racers.filter((r) => r.human);
       let done: boolean;
@@ -514,6 +558,8 @@ export class RaceSimulation {
 
   /** Finishing order. Boats still racing get a time estimated from their progress so far. */
   results(): RaceResult[] {
+    // A battle: the standings (time: the length of the match).
+    if (this.battle) return this.battle.order().map((r) => ({ racer: r, time: this.time, finished: true }));
     const total = this.track.raceDistance;
     const out: RaceResult[] = this.racers.map((r) => {
       if (r.finished) return { racer: r, time: r.finishTime, finished: true };

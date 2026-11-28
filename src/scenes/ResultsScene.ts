@@ -13,6 +13,18 @@ export interface ResultRow {
   time: number;
   finished: boolean;
   isPlayer: boolean;
+  /** Battle: the boat's team (-1: none) and its tally. */
+  team?: number;
+  kills?: number;
+  deaths?: number;
+  captures?: number;
+}
+
+/** A battle's outcome: the mode, the teams' scores, the winning team (-1: none or a draw). */
+export interface BattleResult {
+  mode: 'deathmatch' | 'teamDeathmatch' | 'ctf';
+  teamScores: number[];
+  winnerTeam: number;
 }
 
 export class ResultsScene extends Phaser.Scene {
@@ -21,15 +33,29 @@ export class ResultsScene extends Phaser.Scene {
   }
 
   /** `cup`: a championship race, with the standings after it; `you`: your key in them. */
-  create(data: { rows: ResultRow[]; trackId: string; selection: Selection; online?: boolean; cup?: CupState; you?: string }): void {
+  create(data: { rows: ResultRow[]; trackId: string; selection: Selection; online?: boolean; cup?: CupState; you?: string; battle?: BattleResult; again?: object }): void {
     background(this);
     const pos = data.rows.findIndex((r) => r.isPlayer);
+    const battle = data.battle;
+    const myTeam = pos >= 0 ? data.rows[pos].team ?? -1 : -1;
+    // A team battle is won or lost by the team; anything else by place.
+    const won = battle && battle.winnerTeam >= 0 ? battle.winnerTeam === myTeam : pos === 0;
     audio.playMusic(null);
-    audio.play(pos <= 0 ? 'win' : 'lose');
+    audio.play(won ? 'win' : 'lose');
     this.time.delayedCall(2200, () => audio.playMusic('menu'));
     // pos -1: watched the race online without racing in it.
-    const title = pos < 0 ? t('results.over') : pos === 0 ? t('results.won') : t('results.finished', { place: ordinal(pos + 1) });
-    fitText(text(this, 640, 70, title, 64, pos === 0 ? '#ffe08a' : '#ffffff'), 1150).setStroke('#0b3a5b', 10);
+    const title = battle && battle.mode !== 'deathmatch'
+      ? battle.winnerTeam < 0 ? t('results.draw') : t(battle.winnerTeam === 0 ? 'results.win0' : 'results.win1')
+      : pos < 0 ? t('results.over') : pos === 0 ? t('results.won') : t('results.finished', { place: ordinal(pos + 1) });
+    fitText(text(this, 640, 70, title, 64, won ? '#ffe08a' : '#ffffff'), 1150).setStroke('#0b3a5b', 10);
+    if (battle && battle.mode !== 'deathmatch') {
+      // The teams' scores either side of the title's line: flag, score.
+      [0, 1].forEach((team) => {
+        const x = team === 0 ? 170 : 1110;
+        this.add.image(x - 40, 70, `flatFlag_${team}`).setDisplaySize(60, 40);
+        text(this, x + 30, 70, String(battle.teamScores[team]), 48, '#ffffff').setStroke('#0b3a5b', 8);
+      });
+    }
     const sub = data.cup ? `${t('cup.title')} · ${t('cup.race', { n: data.cup.done, total: data.cup.total })} · ${trackName(data.trackId)}` : trackName(data.trackId);
     fitText(text(this, 640, 130, sub, 28, '#bfe1f7', false), 1100);
     const timeX = data.cup ? 850 : 900;
@@ -46,14 +72,27 @@ export class ResultsScene extends Phaser.Scene {
       this.add.circle(400, y, 16 * k, r.color).setStrokeStyle(3, 0xffffff);
       if (n <= 5) {
         this.add.text(430, y - 29, r.name, { fontSize: '28px', fontStyle: 'bold', color: '#fff', fontFamily: 'Trebuchet MS, Verdana, sans-serif', resolution: 2 });
-        this.add.text(430, y + 9, boatName(r.boatId), { fontSize: '18px', color: '#bfe1f7', fontFamily: 'Trebuchet MS, Verdana, sans-serif', resolution: 2 });
+        const bn = this.add.text(430, y + 9, boatName(r.boatId), { fontSize: '18px', color: '#bfe1f7', fontFamily: 'Trebuchet MS, Verdana, sans-serif', resolution: 2 });
+        if (battle && bn.width > 260) bn.setScale(260 / bn.width);
       } else {
         // one line: the name, then the boat
         const nm = this.add.text(430, y, r.name, { fontSize: '24px', fontStyle: 'bold', color: '#fff', fontFamily: 'Trebuchet MS, Verdana, sans-serif', resolution: 2 }).setOrigin(0, 0.5);
         if (nm.width > 230) nm.setScale(230 / nm.width);
-        this.add.text(670, y, boatName(r.boatId), { fontSize: '17px', color: '#bfe1f7', fontFamily: 'Trebuchet MS, Verdana, sans-serif', resolution: 2 }).setOrigin(0, 0.5);
+        const bn = this.add.text(battle ? 430 + Math.min(230, nm.width * nm.scaleX) + 14 : 670, y, boatName(r.boatId), { fontSize: '17px', color: '#bfe1f7', fontFamily: 'Trebuchet MS, Verdana, sans-serif', resolution: 2 }).setOrigin(0, 0.5);
+        // In a battle the stats start at 760: the boat shrinks to fit before them.
+        const room = battle ? 740 - bn.x : 330;
+        if (bn.width > room) bn.setScale(room / bn.width);
       }
-      text(this, timeX, y, (r.finished ? '' : '~') + fmtTime(r.time), Math.round(30 * Math.max(0.8, k)), r.finished ? '#ffffff' : '#9fc7e2');
+      if (battle) {
+        // Sinkings and losses (and flags, in capture the flag) instead of a time.
+        const size = Math.round(24 * Math.max(0.8, k));
+        const cols = battle.mode === 'ctf' ? [['results.captures', r.captures], ['results.kills', r.kills], ['results.deaths', r.deaths]] : [['results.kills', r.kills], ['results.deaths', r.deaths]];
+        cols.forEach(([key, v], c) => {
+          const x = 975 - (cols.length - 1 - c) * 95;
+          text(this, x, y - 10 * k, t(key as 'results.kills'), Math.round(14 * Math.max(0.8, k)), '#bfe1f7', false);
+          text(this, x, y + 12 * k, String(v ?? 0), size, '#ffffff');
+        });
+      } else text(this, timeX, y, (r.finished ? '' : '~') + fmtTime(r.time), Math.round(30 * Math.max(0.8, k)), r.finished ? '#ffffff' : '#9fc7e2');
       // Championship points for the place.
       if (data.cup) text(this, 970, y, `+${pointsFor(i)}`, Math.round(30 * Math.max(0.8, k)), '#9dff9d');
     });
@@ -78,8 +117,8 @@ export class ResultsScene extends Phaser.Scene {
       }, { fill: 0x8a4a4a, textSize: 30 });
       return;
     }
-    button(this, 280, 640, 300, 72, t('results.again'), () => this.scene.start('Race', data.selection), { fill: 0x2d9d5a, textSize: 32 });
-    button(this, 640, 640, 300, 72, t('results.changeRace'), () => this.scene.start('TrackSelect'), { textSize: 32 });
+    button(this, 280, 640, 300, 72, t('results.again'), () => this.scene.start('Race', data.again ?? data.selection), { fill: 0x2d9d5a, textSize: 32 });
+    button(this, 640, 640, 300, 72, t('results.changeRace'), () => this.scene.start(battle ? 'BattleSetup' : 'TrackSelect'), { textSize: 32 });
     button(this, 1000, 640, 300, 72, t('results.changeBoat'), () => this.scene.start('BoatSelect'), { fill: 0x555f6b, textSize: 32 });
   }
 }

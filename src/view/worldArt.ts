@@ -1312,3 +1312,134 @@ export function drawCircularSaw(c: Ctx): void {
   disc(c, '#2c333c', cx, cy, 4);
   disc(c, '#c9d0d7', cx, cy, 1.6);
 }
+
+/**
+ * The flag of Corsica (w x h): white, a black Moor's head in profile, looking left, with a white
+ * headband tied at the back.
+ */
+export function drawCorsicaFlag(c: Ctx, w: number, h: number): void {
+  c.fillStyle = '#ffffff';
+  c.fillRect(0, 0, w, h);
+  const s = h / 64, cx = w * 0.5, cy = h * 0.5;
+  c.save();
+  c.translate(cx, cy);
+  c.scale(s, s);
+  c.fillStyle = '#111111';
+  // neck and head, in profile looking left
+  c.beginPath();
+  c.moveTo(6, 30);
+  c.lineTo(-8, 30);
+  c.quadraticCurveTo(-8, 20, -12, 14);
+  c.lineTo(-15, 8);
+  c.quadraticCurveTo(-18, 6, -16, 3); // chin
+  c.lineTo(-18, -1); // lips
+  c.lineTo(-16, -3);
+  c.lineTo(-21, -7); // nose
+  c.lineTo(-16, -11);
+  c.quadraticCurveTo(-16, -24, -2, -26); // forehead and crown
+  c.quadraticCurveTo(15, -26, 16, -10);
+  c.quadraticCurveTo(17, 4, 10, 12);
+  c.quadraticCurveTo(7, 20, 6, 30);
+  c.closePath();
+  c.fill();
+  // the white headband on the forehead, the knot and its ends at the back
+  c.fillStyle = '#ffffff';
+  c.beginPath();
+  c.moveTo(-17, -12);
+  c.quadraticCurveTo(0, -19, 16, -15);
+  c.lineTo(16, -10);
+  c.quadraticCurveTo(0, -14, -17, -7);
+  c.closePath();
+  c.fill();
+  c.beginPath();
+  c.moveTo(15, -14);
+  c.lineTo(24, -6);
+  c.lineTo(20, -3);
+  c.lineTo(14, -10);
+  c.closePath();
+  c.moveTo(16, -12);
+  c.lineTo(26, -14);
+  c.lineTo(25, -10);
+  c.closePath();
+  c.fill();
+  // the eye
+  c.fillStyle = '#ffffff';
+  c.beginPath();
+  c.ellipse(-10, -6, 1.6, 1, 0, 0, Math.PI * 2);
+  c.fill();
+  c.restore();
+}
+
+/**
+ * The flag of Brittany, the Gwenn-ha-Du (w x h): nine stripes, five black and four white, and a
+ * white canton with eleven ermine spots.
+ */
+export function drawBretonFlag(c: Ctx, w: number, h: number): void {
+  const sh = h / 9;
+  for (let k = 0; k < 9; k++) {
+    c.fillStyle = k % 2 === 0 ? '#111111' : '#ffffff';
+    c.fillRect(0, k * sh, w, sh + 0.5);
+  }
+  const cw = w * 0.42, ch = sh * 5;
+  c.fillStyle = '#ffffff';
+  c.fillRect(0, 0, cw, ch);
+  // ermine spots: a tail of three points, three dots on top
+  const ermine = (x: number, y: number, s: number): void => {
+    c.fillStyle = '#111111';
+    c.beginPath();
+    c.moveTo(x, y - s * 0.3);
+    c.lineTo(x - s * 0.5, y + s);
+    c.lineTo(x, y + s * 0.7);
+    c.lineTo(x + s * 0.5, y + s);
+    c.closePath();
+    c.fill();
+    for (const [dx, dy] of [[0, -0.75], [-0.45, -0.45], [0.45, -0.45]]) {
+      c.beginPath();
+      c.arc(x + dx * s, y + dy * s, s * 0.2, 0, Math.PI * 2);
+      c.fill();
+    }
+  };
+  const rows = [4, 3, 4];
+  const s = Math.min(cw / 9, ch / 7);
+  rows.forEach((n, r) => {
+    for (let k = 0; k < n; k++) {
+      const x = (cw / (n + (n === 3 ? 1 : 0))) * (k + (n === 3 ? 1 : 0.5));
+      ermine(x, (ch / 3) * (r + 0.42), s);
+    }
+  });
+}
+
+/** A team's flag on its pole, seen from above at an angle (64 x 72): the pole, the flag flying. */
+export function drawFlagOnPole(c: Ctx, team: number): void {
+  // the pole and its shadow
+  c.fillStyle = 'rgba(0,0,0,0.25)';
+  c.fillRect(8, 8, 4, 64);
+  c.fillStyle = '#c9a060';
+  c.fillRect(6, 4, 4, 66);
+  c.fillStyle = '#f2c12e';
+  c.beginPath();
+  c.arc(8, 4, 4, 0, Math.PI * 2);
+  c.fill();
+  // the flag, a slight wave, an outline
+  c.save();
+  c.translate(10, 6);
+  c.beginPath();
+  c.moveTo(0, 0);
+  c.quadraticCurveTo(26, -6, 52, 2);
+  c.lineTo(52, 36);
+  c.quadraticCurveTo(26, 28, 0, 34);
+  c.closePath();
+  c.clip();
+  if (team === 0) drawCorsicaFlag(c, 52, 36);
+  else drawBretonFlag(c, 52, 36);
+  c.restore();
+  c.strokeStyle = '#2b3038';
+  c.lineWidth = 1.5;
+  c.beginPath();
+  c.moveTo(10, 6);
+  c.quadraticCurveTo(36, 0, 62, 8);
+  c.lineTo(62, 42);
+  c.quadraticCurveTo(36, 34, 10, 40);
+  c.closePath();
+  c.stroke();
+}

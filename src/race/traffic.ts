@@ -46,7 +46,8 @@ export class Traffic {
     const T = TUNING.traffic;
     const rng = new Rng(seed);
     const L = track.length;
-    const n = Math.max(1, Math.floor(L / (track.def.traffic ?? T.every)));
+    // (none at all on a track that says 0: the arenas)
+    const n = track.def.traffic === 0 ? 0 : Math.max(1, Math.floor(L / (track.def.traffic ?? T.every)));
     let id = 1;
     for (const dir of [1, -1] as const) {
       // Evenly spaced, so barges going the same way (same speed) never meet; none on the starting grid.

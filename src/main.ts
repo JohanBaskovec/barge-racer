@@ -17,6 +17,7 @@ import { ResultsScene } from './scenes/ResultsScene';
 import { StandingsScene } from './scenes/StandingsScene';
 import { ModeScene } from './scenes/ModeScene';
 import { CupSetupScene } from './scenes/CupSetupScene';
+import { BattleSetupScene } from './scenes/BattleSetupScene';
 import { TitleScene } from './scenes/TitleScene';
 import { TrackSelectScene } from './scenes/TrackSelectScene';
 
@@ -34,7 +35,7 @@ const game = new Phaser.Game({
   // HTML text fields (player name, room code) on the online screen.
   dom: { createContainer: true },
   render: { antialias: true },
-  scene: [BootScene, TitleScene, BoatSelectScene, ModeScene, TrackSelectScene, CupSetupScene, RaceScene, HudScene, ResultsScene, StandingsScene, OptionsScene, OnlineScene, LobbyScene, SectionScene, DebugScene],
+  scene: [BootScene, TitleScene, BoatSelectScene, ModeScene, TrackSelectScene, CupSetupScene, BattleSetupScene, RaceScene, HudScene, ResultsScene, StandingsScene, OptionsScene, OnlineScene, LobbyScene, SectionScene, DebugScene],
 });
 
 /**

@@ -15,6 +15,7 @@ import { DebugScene } from './DebugScene';
 import { STICK } from '../control/PointerController';
 import { endOfflineCup } from '../cup/offlineCup';
 import { TAUNTS } from '../data/taunts';
+import { TEAM_COLORS } from '../race/battle';
 
 /**
  * Two item buttons: the first is fired with right click, the second with middle click. Bottom left
@@ -76,6 +77,8 @@ export class HudScene extends Phaser.Scene {
   private lastToxicPopup = -9999;
   private netText!: Phaser.GameObjects.Text;
 
+  /** Team battles: the teams' scores beside their flags, top left. */
+  private teamScoreTexts: Phaser.GameObjects.Text[] = [];
   /** The screen's width (layout.ts), its centre, and how far the right edge is past 1280. */
   private W = 1280;
   private cx = 640;
@@ -117,6 +120,17 @@ export class HudScene extends Phaser.Scene {
     this.seen.clear();
     this.popupRows.clear();
     this.posText = text(this, 24, 22, '', 60).setOrigin(0, 0).setStroke(stroke, 8);
+    this.teamScoreTexts = [];
+    const battle = race.sim.battle;
+    if (battle && battle.teams.some((tm) => tm >= 0)) {
+      const mine = battle.teams[race.sim.player!.id];
+      [0, 1].forEach((team) => {
+        const x = 50 + team * 130;
+        if (team === mine) this.add.rectangle(x + 30, 52, 122, 56, 0xffffff, 0.18).setStrokeStyle(3, 0xffe08a, 1);
+        this.add.image(x, 52, `flatFlag_${team}`).setDisplaySize(54, 36);
+        this.teamScoreTexts.push(text(this, x + 60, 52, '0', 40).setStroke(stroke, 7));
+      });
+    }
     this.lapText = text(this, 26, 92, '', 30).setOrigin(0, 0).setStroke(stroke, 6);
     this.timeText = text(this, 26, 130, '', 26, '#ffe08a').setOrigin(0, 0).setStroke(stroke, 5);
 
@@ -266,8 +280,22 @@ export class HudScene extends Phaser.Scene {
   update(time: number): void {
     const sim = this.race.sim;
     const p = sim.player!;
-    this.posText.setText(`${ordinal(p.position + 1)}`);
-    if (sim.track.closed) {
+    const battle = sim.battle;
+    if (battle) {
+      // A battle: your place by score (free for all) or the teams' scores, your score, the time left.
+      const team = battle.teams[p.id];
+      this.posText.setText(team >= 0 ? '' : `${ordinal(p.position + 1)}`);
+      this.teamScoreTexts.forEach((tx, k) => tx.setText(String(battle.teamScores[k])));
+      this.lapText.setText(t('hud.score', { n: battle.scores[p.id] }));
+      const secs = Math.ceil(battle.timeLeft);
+      if (secs !== this.clockTick) {
+        this.clockTick = secs;
+        this.timeText.setText(sim.phase === 'countdown' ? '' : `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`).setColor(secs <= 30 ? '#ff8a7a' : '#ffe08a');
+      }
+    } else this.posText.setText(`${ordinal(p.position + 1)}`);
+    if (battle) {
+      /* score and clock above */
+    } else if (sim.track.closed) {
       const lap = Math.min(sim.track.laps, p.lapsDone + 1);
       this.lapText.setText(t('hud.lap', { n: lap, total: sim.track.laps }));
     } else {
@@ -277,7 +305,7 @@ export class HudScene extends Phaser.Scene {
     }
     // The clock 20 times a second: each change redraws the text and uploads it to the GPU again.
     const tick = sim.phase === 'countdown' ? -1 : Math.floor(time / 50);
-    if (tick !== this.clockTick) {
+    if (!battle && tick !== this.clockTick) {
       this.clockTick = tick;
       this.timeText.setText(tick === -1 ? '' : fmtTime(sim.time));
     }
@@ -507,6 +535,19 @@ export class HudScene extends Phaser.Scene {
       if (x < this.mapBox.x || x > this.mapBox.x + this.mapBox.w || y < this.mapBox.y || y > this.mapBox.y + this.mapBox.h) continue;
       g.fillRect(x - 1.5, y - 1.5, 3, 3);
     }
+    // Battle: the bases, and the flags (on their carriers when carried).
+    const battle = sim.battle;
+    if (battle && battle.teams.some((tm) => tm >= 0)) {
+      for (const team of [0, 1]) {
+        const b = battle.basePoint(team);
+        g.lineStyle(2, TEAM_COLORS[team], 1).strokeCircle(b.x * this.mapScale + this.mapOx, b.y * this.mapScale + this.mapOy, 9);
+      }
+      for (const f of battle.flags) {
+        const x = f.x * this.mapScale + this.mapOx, y = f.y * this.mapScale + this.mapOy;
+        g.fillStyle(0xffffff, 1).fillRect(x - 5, y - 13, 2, 13);
+        g.fillStyle(TEAM_COLORS[f.team], 1).fillRect(x - 3, y - 13, 9, 6);
+      }
+    }
     for (const r of sim.racers) {
       const x = r.x * this.mapScale + this.mapOx;
       const y = r.y * this.mapScale + this.mapOy;
@@ -522,6 +563,25 @@ export class HudScene extends Phaser.Scene {
     switch (e.type) {
       case 'countdown':
         this.flashBig(e.value === 0 ? t('hud.go') : String(e.value), e.value === 0 ? '#62d26f' : '#ffffff');
+        break;
+      case 'kill':
+        // Battle: who sank whom (only what concerns you, or the screen would be all messages).
+        if (e.by === me) this.popup(t('hud.youSank', { name: sim.racers[e.racer].name }), '#ffe08a');
+        else if (e.racer === me && e.by !== null) this.popup(t('hud.sankYou', { name: sim.racers[e.by].name }), '#ff8a7a');
+        break;
+      case 'flag': {
+        const flag = t(e.team === 0 ? 'battle.flag0' : 'battle.flag1');
+        const name = e.racer >= 0 ? (e.racer === me ? t('you') : sim.racers[e.racer].name) : '';
+        if (e.action === 'taken') {
+          if (e.racer === me) this.flashBig(t('hud.youHaveFlag'), '#ffe08a', 46);
+          else this.popup(t('hud.flagTaken', { name, flag }), '#ffd23f');
+        } else if (e.action === 'dropped') this.popup(t('hud.flagDropped', { flag }), '#bfe1f7');
+        else if (e.action === 'returned') this.popup(t('hud.flagReturned', { flag }), '#9dff9d');
+        else this.flashBig(t('hud.flagCaptured', { name, flag }), '#ffe08a', 56);
+        break;
+      }
+      case 'battleOver':
+        if (sim.battle?.mode !== 'deathmatch') this.flashBig(e.team < 0 ? t('results.draw') : t(e.team === 0 ? 'results.win0' : 'results.win1'), '#ffe08a', 80);
         break;
       case 'itemUsed':
         if (e.racer === me && e.item === 'noise') this.popup(t('hud.noiseCalled'), '#9fd8ff');

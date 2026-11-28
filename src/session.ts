@@ -1,6 +1,7 @@
 import type { Difficulty } from './data/difficulty';
 import type { Section } from './data/tracks';
 import type { CupRace } from './cup/championship';
+import type { GameMode } from './race/battle';
 
 export interface Selection {
   boatId: string;
@@ -10,6 +11,8 @@ export interface Selection {
   sections?: Record<string, Section>;
   /** The single-player championship's races, as last set up. */
   cupPlan?: CupRace[];
+  /** The last battle set up in single player. */
+  battle?: { mode: Exclude<GameMode, 'race'>; arena: string; boats: number; team: number };
 }
 
 const KEY = 'barge-racer-selection';

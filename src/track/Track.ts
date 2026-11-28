@@ -27,8 +27,12 @@ export interface TrackDef {
   crateSpacing?: { every: number; count: number };
   /** Named places along the canal for the stretch picker: [x, y, kind, name], kind 0 end, 1 named bridge, 2 lock, 3 bridge named by its street, 4 railway bridge. */
   places?: [number, number, number, string][];
-  /** Distance between traffic barges going the same way (px); default TUNING.traffic.every. */
+  /** Distance between traffic barges going the same way (px); default TUNING.traffic.every; 0: none. */
   traffic?: number;
+  /** An arena for the battle modes (open water, no racing). */
+  arena?: boolean;
+  /** Arenas: where each team's base is, as fractions of the loop (default 0 and 0.5). */
+  bases?: number[];
   /** Real-world tracks: pixels per metre, scenery file (in public/) and data attribution. */
   pxPerM?: number;
   scenery?: string;

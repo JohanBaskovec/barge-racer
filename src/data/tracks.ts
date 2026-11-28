@@ -150,7 +150,47 @@ export const TRACK_DEFS: TrackDef[] = [
   },
 ];
 
-export const getTrackDef = (id: string): TrackDef => TRACK_DEFS.find((t) => t.id === id) ?? TRACK_DEFS[0];
+/**
+ * The arenas, for the battle modes: wide loops of open water round an island, each team's base on
+ * either side (`bases`). No barges, no laps. Not in the race lists.
+ */
+export const ARENA_DEFS: TrackDef[] = [
+  {
+    // A great round basin in a canal town: a ring of water 700 px wide round a walled island.
+    id: 'arenaBasin',
+    laps: 1,
+    arena: true,
+    theme: 'canal',
+    traffic: 0,
+    bases: [0, 0.5],
+    centerLine: pts([
+      [1600, 250, 700], [2550, 600, 700], [2900, 1400, 700], [2550, 2200, 700],
+      [1600, 2550, 700], [650, 2200, 700], [300, 1400, 700], [650, 600, 700],
+    ]),
+    checkpoints: [0.25, 0.5, 0.75],
+    crateRows: [0.06, 0.19, 0.31, 0.44, 0.56, 0.69, 0.81, 0.94].map((at) => ({ at, count: 6 })),
+    colors: { land: 0xcfc4a2, shore: 0xddcfa6, water: 0x2f7fb5, waterDeep: 0x1f5f94 },
+  },
+  {
+    // Two wide lakes, one for each team, joined by two narrow channels either side of an island.
+    id: 'arenaLakes',
+    laps: 1,
+    arena: true,
+    theme: 'lagoon',
+    traffic: 0,
+    bases: [0.25, 0.75],
+    centerLine: pts([
+      [2050, 520, 320], [3150, 720, 820], [3250, 1350, 900], [3150, 1980, 820],
+      [2050, 2180, 320], [950, 1980, 820], [850, 1350, 900], [950, 720, 820],
+    ]),
+    checkpoints: [0.25, 0.5, 0.75],
+    crateRows: [0.0, 0.12, 0.25, 0.38, 0.5, 0.62, 0.75, 0.88].map((at) => ({ at, count: 6 })),
+    colors: { land: 0xe8d9a2, shore: 0xf2e6bb, water: 0x2fb0b5, waterDeep: 0x1f8d9c },
+  },
+];
+
+const ALL_DEFS = [...TRACK_DEFS, ...ARENA_DEFS];
+export const getTrackDef = (id: string): TrackDef => ALL_DEFS.find((t) => t.id === id) ?? TRACK_DEFS[0];
 
 /** A stretch of a point-to-point track to race, as distances along its centre line (pixels). */
 export interface Section {

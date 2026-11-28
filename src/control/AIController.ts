@@ -48,6 +48,8 @@ export class AIController implements Controller {
 
     this.updatePace(r, sim);
     if (!this.autopilot && sim.clock < this.startAt) return { ...intent, desiredHeading: r.heading };
+    // A battle: no racing line, a target to go to, either way round the arena.
+    if (sim.battle && !this.autopilot && !this.tow) return this.battleUpdate(r, sim, dt, speed, intent);
 
     // --- Steering target on the racing line -------------------------------
     const along = track.alongOf(r.progress);
@@ -221,6 +223,11 @@ export class AIController implements Controller {
       r.pace = 1;
       return;
     }
+    if (sim.battle) {
+      // No rubber-banding in a battle: there is no "ahead".
+      r.pace = this.diff.speedMult;
+      return;
+    }
     let pace = this.diff.speedMult;
     const player = sim.player;
     if (player && r !== player && r.progress < sim.track.raceDistance - 0.5 * sim.track.lapLength) {
@@ -228,6 +235,94 @@ export class AIController implements Controller {
       pace *= 1 - this.diff.rubberBand * f;
     }
     r.pace = pace;
+  }
+
+  /** Where the target was on the centre line last time (a hint to find it again cheaply). */
+  private targetIdx = -1;
+
+  /**
+   * Battle: steer for a target. Close by (or on the same stretch), straight at it; further, along
+   * the arena's loop the short way round, drifting to its side of the water. Stuck recovery and
+   * items as in a race.
+   */
+  private battleUpdate(r: Racer, sim: RaceSimulation, dt: number, speed: number, intent: ControlIntent): ControlIntent {
+    const track = sim.track;
+    const target = this.battleTarget(r, sim);
+    const me = track.nearest(r.x, r.y, r.nearestIndex, 40);
+    const t = track.nearest(target.x, target.y, this.targetIdx, this.targetIdx < 0 ? undefined : 80);
+    this.targetIdx = t.index;
+    const L = track.length;
+    let d = t.along - me.along;
+    d = ((d % L) + L * 1.5) % L - L / 2;
+    let desired: number;
+    if (Math.abs(d) < 420) desired = Math.atan2(target.y - r.y, target.x - r.x);
+    else {
+      const ahead = me.along + Math.sign(d) * (150 + 0.8 * speed);
+      const hw = track.sampleAt(ahead).width / 2;
+      const p = track.pointAt(ahead, clamp(t.lateral, -hw * 0.55, hw * 0.55));
+      desired = Math.atan2(p.y - r.y, p.x - r.x);
+    }
+    const blind = hasEffect(r, 'cheesed') || hasEffect(r, 'steamed') || hasEffect(r, 'stairsDown');
+    if (blind) desired += Math.sin(sim.time * 3.1 + this.noisePhase) * 0.45;
+    intent.desiredHeading = desired;
+    intent.throttle = blind ? 0.75 : 1;
+    if (Math.abs(angleDiff(desired, r.heading)) > 1.2) intent.throttle = Math.min(intent.throttle, 0.55);
+    // Stuck against the bank: back off towards the middle of the water, then try again.
+    if (sim.phase === 'racing' && sim.time > 1.5 && speed < 25 && !hasEffect(r, 'spinOut')) r.stuckTimer += dt;
+    else r.stuckTimer = Math.max(0, r.stuckTimer - dt);
+    if (this.reverseT > 0) {
+      this.reverseT -= dt;
+      const c = track.pointAt(me.along, 0);
+      intent.desiredHeading = Math.atan2(c.y - r.y, c.x - r.x);
+      intent.throttle = -0.8;
+    } else if (r.stuckTimer > 1.5) {
+      this.reverseT = 0.8;
+      r.stuckTimer = 0.5;
+    }
+    intent.fire = this.decideFire(r, sim, dt, speed);
+    return intent;
+  }
+
+  /**
+   * What to go for in a battle. Capture the flag: the flag you carry goes home; a thief carrying
+   * your flag is chased; your dropped flag is fetched; otherwise attackers go for the other flag and
+   * defenders keep near home, going for any opponent who comes close. Deathmatch: a crate if your
+   * hands are empty and one is near, else the nearest opponent (the weaker the likelier).
+   */
+  private battleTarget(r: Racer, sim: RaceSimulation): { x: number; y: number } {
+    const b = sim.battle!;
+    const team = b.teams[r.id];
+    const foes = sim.racers.filter((o) => o !== r && o.sinkTimer <= 0 && (team < 0 || b.teams[o.id] !== team));
+    const dist = (p: { x: number; y: number }): number => Math.hypot(p.x - r.x, p.y - r.y);
+    const nearestFoe = (from: { x: number; y: number }, within = Infinity): Racer | null => {
+      let best: Racer | null = null, bd = within;
+      for (const o of foes) {
+        const d = Math.hypot(o.x - from.x, o.y - from.y) - (o.stats.maxHull - o.hull) * 3;
+        if (d < bd) (best = o), (bd = d);
+      }
+      return best;
+    };
+    if (b.mode === 'ctf' && team >= 0) {
+      const own = b.flags[team], theirs = b.flags[1 - team];
+      const home = { x: own.homeX, y: own.homeY };
+      if (theirs.carrier === r.id) return home;
+      if (own.carrier >= 0) return sim.racers[own.carrier];
+      if (own.dropped) return own;
+      const defender = Math.floor(r.id / 2) % 2 === 1;
+      if (defender) return nearestFoe(home, 900) ?? home;
+      if (theirs.carrier >= 0) return nearestFoe(sim.racers[theirs.carrier], 900) ?? sim.racers[theirs.carrier];
+      return theirs;
+    }
+    if (r.slots.every((s) => s === null) && !r.rouletteItem) {
+      let crate: { x: number; y: number } | null = null, cd = 700;
+      for (const c of sim.items.crates) {
+        if (c.respawn > 0) continue;
+        const d = dist(c);
+        if (d < cd) (crate = c), (cd = d);
+      }
+      if (crate) return crate;
+    }
+    return nearestFoe(r) ?? r;
   }
 
   /** Checks both slots in turn and returns the first item the AI wants to fire now. */

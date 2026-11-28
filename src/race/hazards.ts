@@ -104,8 +104,11 @@ export class HazardSystem {
     if (this.sim.phase !== 'racing') return;
     // The hazards that come by themselves (off in some tests); those set off by items always run.
     if (this.enabled) {
-      this.updatePolice(dt);
-      this.updateAnglers(dt);
+      // The police and anglers are for a race's leader: not in a battle.
+      if (!this.sim.battle) {
+        this.updatePolice(dt);
+        this.updateAnglers(dt);
+      }
       this.spawnCritters(dt);
     }
     this.noisePolice = this.noisePolice.filter((p) => !this.stepPolice(p, dt));

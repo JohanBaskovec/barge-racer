@@ -98,8 +98,11 @@ export class MapRenderer {
     this.g = scene.make.graphics({}, false);
     this.eraser = scene.make.graphics({}, false);
     this.buildIndex();
-    drawLine(scene, track, track.startDist);
-    drawLine(scene, track, track.startDist + track.lapLength);
+    // An arena has no start line: the boats start (and come back) at their bases.
+    if (!track.def.arena) {
+      drawLine(scene, track, track.startDist);
+      drawLine(scene, track, track.startDist + track.lapLength);
+    }
     this.addBridgeLabels();
   }
 

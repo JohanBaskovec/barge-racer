@@ -317,7 +317,7 @@ export class ItemSystem {
     this.updateVacuum(dt);
     this.updateCircularSaws();
     this.updateStairs(dt);
-    this.updateDrops(dt);
+    if (!this.sim.battle) this.updateDrops(dt); // crates tossed to the boats behind: a race thing
     this.stopAtBarges();
     this.volunteers = this.volunteers.filter((v) => !v.dead);
     this.drills = this.drills.filter((d) => !d.dead);
@@ -436,12 +436,12 @@ export class ItemSystem {
     const item = drawItem(this.sim.rng, {
       position: r.position,
       count: this.sim.racers.length,
-      farBehind: leader - r.progress > this.sim.track.lapLength,
+      farBehind: !this.sim.battle && leader - r.progress > this.sim.track.lapLength,
       volunteersInFlight: this.volunteersInFlight,
       recentItems: r.recentItems,
     });
     r.rouletteItem = this.sim.forcedItem ?? item;
-    r.rouletteTriple = this.rollTriple(r.rouletteItem, r.position, leader - r.progress > this.sim.track.lapLength);
+    r.rouletteTriple = this.rollTriple(r.rouletteItem, r.position, !this.sim.battle && leader - r.progress > this.sim.track.lapLength);
     r.rouletteT = TUNING.rouletteTime;
     this.sim.emit({ type: 'itemPickup', racer: r.id, item: r.rouletteItem });
   }

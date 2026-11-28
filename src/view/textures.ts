@@ -6,7 +6,7 @@ import { drawPeniche, drawPenicheAccent } from './peniche';
 import { drawBarge } from './bargeArt';
 import { CAR, CAR_COLORS, SHIRTS, STREET_ART_SCALE, drawAngler, drawCar, drawCyclist, drawDog, drawWalker } from './streetArt';
 import { TUNING } from '../data/items';
-import { drawRocket, drawDrillBit, drawBloodSplat, drawBullet, drawDuck, drawFeather, drawGib, drawNozzle, drawPolice, drawRowboat, drawSwimmer, drawBoobs, drawCheesePuddle, drawCheeseScreen, drawCrate, drawDildo, drawGlueBlob, drawGluePuddle, drawHam, drawNail, drawPotato, drawSaw, drawToxicSmoke, drawVolunteer, drawWaterTile, PAINT_COLORS, drawPaintPuddle, drawPaintScreen, drawCouch, drawSteamPuff, drawSteamHole, drawCircularSaw } from './worldArt';
+import { drawRocket, drawDrillBit, drawBloodSplat, drawBullet, drawDuck, drawFeather, drawGib, drawNozzle, drawPolice, drawRowboat, drawSwimmer, drawBoobs, drawCheesePuddle, drawCheeseScreen, drawCrate, drawDildo, drawGlueBlob, drawGluePuddle, drawHam, drawNail, drawPotato, drawSaw, drawToxicSmoke, drawVolunteer, drawWaterTile, PAINT_COLORS, drawPaintPuddle, drawPaintScreen, drawCouch, drawSteamPuff, drawSteamHole, drawCircularSaw, drawCorsicaFlag, drawBretonFlag, drawFlagOnPole } from './worldArt';
 
 type G = Phaser.GameObjects.Graphics;
 
@@ -105,6 +105,10 @@ export function generateTextures(scene: Phaser.Scene): void {
   world('steamPuff', 128, 128, drawSteamPuff, 1);
   world('steamHole', 256, 256, drawSteamHole, 1);
   world('circSaw', 40, 40, drawCircularSaw, 3);
+  // Capture the flag: the flags of Corsica and Brittany, on a pole (in the race) and flat (menus, HUD).
+  for (const team of [0, 1]) world(`flagPole_${team}`, 64, 72, (c) => drawFlagOnPole(c, team), 3);
+  world('flatFlag_0', 96, 64, (c) => drawCorsicaFlag(c, 96, 64), 3);
+  world('flatFlag_1', 96, 64, (c) => drawBretonFlag(c, 96, 64), 3);
   // Traffic barges, with a little margin round the hull
   const T = TUNING.traffic;
   for (let k = 0; k < 3; k++) world(`barge_${k}`, T.length + 4, T.width + 4, (c) => (c.translate(2, 2), drawBarge(c, k, T.length, T.width)), 2.5);
