@@ -26,7 +26,7 @@ const KEY = 'barge-racer-options';
 
 export const DEFAULT_OPTIONS: Options = {
   version: 1,
-  musicVolume: 0.6,
+  musicVolume: 0, // off until turned on in the options
   sfxVolume: 0.8,
   itemsRight: false,
   stickSteer: true,

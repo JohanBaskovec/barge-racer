@@ -4,9 +4,7 @@ export const fr: Record<TranslationKey, string> = {
   you: 'Vous',
   rotate: 'Tournez votre appareil en mode paysage',
 
-  'title.subtitle': "Faites la course, bousculez, sciez et collez jusqu'à l'arrivée",
   'title.play': 'Jouer',
-  'title.hint': "Glissez le doigt pour diriger · touchez un bouton d'objet pour tirer (souris : maintenez pour diriger, clic droit et clic molette pour tirer)",
 
   'common.back': 'Retour',
   'menu.options': 'Options',

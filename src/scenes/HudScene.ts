@@ -52,12 +52,13 @@ export class HudScene extends Phaser.Scene {
   /** The 50 ms tick the race clock was last shown at. */
   private clockTick = -3;
   private overlay?: Phaser.GameObjects.Container;
-  private lastPopup = 0;
   private watchText?: Phaser.GameObjects.Text;
   /** Melted cheese covering the view (raclette), and which status effects were on last frame (to announce new ones). */
   private cheese!: Phaser.GameObjects.Image;
   private seen = new Set<string>();
   private lastSplatPopup = 0;
+  /** Rows taken by messages on screen. */
+  private popupRows = new Set<number>();
   private lastToxicPopup = -9999;
   private netText!: Phaser.GameObjects.Text;
 
@@ -77,6 +78,7 @@ export class HudScene extends Phaser.Scene {
     // First, so everything else of the HUD is drawn over it: the cheese covers the race, not the buttons.
     this.cheese = this.add.image(640, 0, 'cheeseScreen').setOrigin(0.5, 0).setVisible(false);
     this.seen.clear();
+    this.popupRows.clear();
     this.posText = text(this, 24, 22, '', 60).setOrigin(0, 0).setStroke(stroke, 8);
     this.lapText = text(this, 26, 92, '', 30).setOrigin(0, 0).setStroke(stroke, 6);
     this.timeText = text(this, 26, 130, '', 26, '#ffe08a').setOrigin(0, 0).setStroke(stroke, 5);
@@ -389,6 +391,7 @@ export class HudScene extends Phaser.Scene {
         if (e.racer === me) this.popup(t('hud.hooked'), '#ff8a7a');
         break;
       case 'splat':
+        if (e.racer === me && e.kind !== 0) this.bloodOnScreen();
         if (e.racer === me && this.time.now - this.lastSplatPopup > 2500) {
           this.lastSplatPopup = this.time.now;
           this.popup(t(e.kind === 0 ? 'hud.splatBirds' : e.kind === 1 ? 'hud.splatRowers' : 'hud.splatSwimmers'), '#ff6b6b');
@@ -403,15 +406,41 @@ export class HudScene extends Phaser.Scene {
     this.big.setText(s).setColor(color).setFontSize(size).setAlpha(1).setScale(1.4);
     this.tweens.killTweensOf(this.big);
     this.tweens.add({ targets: this.big, scale: 1, duration: 200, ease: 'Back.easeOut' });
-    this.tweens.add({ targets: this.big, alpha: 0, delay: 700, duration: 350 });
+    this.tweens.add({ targets: this.big, alpha: 0, delay: 1400, duration: 700 });
   }
 
+  /**
+   * A message under the top of the screen: it stays a good while (about 2.6 s), then drifts up
+   * and fades. Messages on screen at the same time take the next free row, so none hide another.
+   */
   private popup(s: string, color: string): void {
-    const now = this.time.now;
-    const y = 200 + ((now - this.lastPopup) < 400 ? 40 : 0);
-    this.lastPopup = now;
+    let row = 0;
+    while (this.popupRows.has(row) && row < 5) row++;
+    this.popupRows.add(row);
+    const y = 200 + row * 52;
     const t = text(this, 640, y, s, 52, color).setStroke('#0b3a5b', 8);
-    this.tweens.add({ targets: t, y: y - 50, alpha: 0, duration: 1300, ease: 'Cubic.easeOut', onComplete: () => t.destroy() });
+    this.tweens.add({
+      targets: t, y: y - 50, alpha: 0, delay: 1600, duration: 1000, ease: 'Cubic.easeIn',
+      onComplete: () => {
+        t.destroy();
+        this.popupRows.delete(row);
+      },
+    });
+  }
+
+  /** Running people over: splashes of blood on the screen, round its edges, that run and fade. */
+  private bloodOnScreen(): void {
+    const n = 3 + Math.floor(Math.random() * 3);
+    for (let i = 0; i < n; i++) {
+      // Keep to the edges: the middle of the screen (where the boat is) stays clear.
+      const left = Math.random() < 0.5;
+      const x = left ? 40 + Math.random() * 300 : 940 + Math.random() * 300;
+      const y = 60 + Math.random() * 600;
+      const size = 120 + Math.random() * 150;
+      const b = this.add.image(x, y, 'bloodSplat').setDisplaySize(size, size).setRotation(Math.random() * Math.PI * 2).setAlpha(0.7).setDepth(47);
+      this.tweens.add({ targets: b, y: y + 30 + Math.random() * 40, duration: 4000, ease: 'Sine.easeIn' });
+      this.tweens.add({ targets: b, alpha: 0, delay: 2500, duration: 1500, onComplete: () => b.destroy() });
+    }
   }
 
   private togglePause(): void {

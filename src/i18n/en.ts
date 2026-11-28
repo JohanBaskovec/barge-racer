@@ -6,9 +6,7 @@ export const en = {
   you: 'You',
   rotate: 'Please rotate your device to landscape',
 
-  'title.subtitle': 'Race, shove, saw and glue your way to the finish',
   'title.play': 'Play',
-  'title.hint': 'Slide a finger to steer · tap an item button to fire (mouse: hold to steer, right and middle click to fire)',
 
   'common.back': 'Back',
   'menu.options': 'Options',

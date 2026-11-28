@@ -58,7 +58,6 @@ export class TitleScene extends Phaser.Scene {
       else wave.lineTo(380 + x, y);
     }
     wave.strokePath();
-    fitText(text(this, 640, 266, t('title.subtitle'), 28, '#d7efff', false), 1100);
 
     // The menu.
     const items = [
@@ -84,9 +83,8 @@ export class TitleScene extends Phaser.Scene {
     });
     addFullscreenButton(this, 1220, 50);
 
-    // Controls reminder and version, written on the towpath.
+    // The version, written on the towpath.
     const pathY = (CANAL.towpath + CANAL.quay) / 2;
-    fitText(text(this, 640, pathY, t('title.hint'), 17, '#5a4a32', false), 1000).setDepth(3);
     text(this, 1268, pathY, `v${__APP_VERSION__}`, 14, '#7a6a52', false).setOrigin(1, 0.5).setDepth(3);
   }
 
