@@ -33,7 +33,7 @@ export type InputTuple = [number, number | null, number, number, number];
 export interface RoomSettings {
   trackId: string;
   difficulty: Difficulty;
-  /** How many people may join (2 to MAX_PLAYERS), set by the host. */
+  /** How many boats race (1 to MAX_PLAYERS, never fewer than the people in the room): the seats people don't take are AI boats. */
   size?: number;
   /** For a track whose stretch can be picked: the stretch (otherwise absent). */
   section?: Section;
@@ -80,7 +80,7 @@ export type ClientMsg =
   | { t: 'boat'; boatId: string }
   | { t: 'ready'; ready: boolean }
   | { t: 'settings'; settings: RoomSettings }
-  /** Host: add an AI boat, or take one out. */
+  /** Host: one more seat (an AI boat in it), or take an AI boat out along with its seat. */
   | { t: 'addBot' }
   | { t: 'removeBot'; id: string }
   | { t: 'start' }

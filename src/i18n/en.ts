@@ -46,7 +46,6 @@ export const en = {
   'lobby.copied': 'Link copied: send it to your friends!',
   'lobby.boats': 'Boats {n}/{max}',
   'lobby.size': 'Room size',
-  'lobby.addAi': '+ AI boat',
   'lobby.ai': 'AI',
   'lobby.host': 'Host',
   'lobby.ready': 'Ready',

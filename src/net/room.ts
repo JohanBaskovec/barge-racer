@@ -39,8 +39,8 @@ interface Player {
 }
 
 const AI_NAMES = ['Captain Bob', 'Molly Moor', 'Dredge', 'Admiral Fizz', 'Bilge', 'Skipper Sue', 'Barnacle Ben', 'Lady Lock', 'Rusty Rudder', 'Marge'];
-/** AI boats in a new room (with its host, the four boats of a single-player race). */
-const DEFAULT_BOTS = 3;
+/** Boats in a new room: its host and three AI boats, like a single-player race. */
+const DEFAULT_SIZE = 4;
 
 /** Clean up a player name: printable, trimmed, at most 16 characters. */
 export function cleanName(raw: unknown): string {
@@ -56,9 +56,11 @@ function randomKey(): string {
 
 /**
  * One multiplayer room: a lobby where up to eight people pick boats, then a race simulated here
- * (the authoritative copy). The host (first to join) picks the track, how many people may join
- * (the room size) and which AI boats race too (added and removed one by one; people and AI boats
- * together at most MAX_PLAYERS), and starts. Pure TypeScript: the Cloudflare Durable Object only feeds it connections,
+ * (the authoritative copy). The host (first to join) picks the track and the room size, and starts.
+ * The room size is how many boats race (at most MAX_PLAYERS): the seats people don't take are AI
+ * boats. Someone joining takes the first AI boat's seat (the room is full once every seat is a
+ * person); someone leaving the lobby gives theirs back to a new AI boat. Making the room smaller
+ * removes AI boats from the end of the list, never people. Pure TypeScript: the Cloudflare Durable Object only feeds it connections,
  * messages and a timer (see server/worker.ts).
  *
  * Someone who loses the connection during a race keeps their seat (the AI drives meanwhile) and
@@ -68,8 +70,8 @@ export class RoomCore {
   private players = new Map<string, Player>();
   private order: string[] = [];
   private byConn = new Map<string, string>();
-  settings: RoomSettings = { trackId: TRACK_DEFS[0].id, difficulty: 'river', size: MAX_PLAYERS };
-  /** The AI boats that race too. */
+  settings: RoomSettings = { trackId: TRACK_DEFS[0].id, difficulty: 'river', size: DEFAULT_SIZE };
+  /** The AI boats in the seats nobody has taken. */
   bots: LobbyBot[] = [];
   private botCount = 0;
   sim: RaceSimulation | null = null;
@@ -82,17 +84,31 @@ export class RoomCore {
 
   constructor(readonly code: string, private now: () => number = () => Date.now(), seed = Date.now()) {
     this.rng = new Rng(seed);
-    for (let i = 0; i < DEFAULT_BOTS; i++) this.addBot();
+    this.fillSeats();
   }
 
-  /** How many people may be in the room. */
+  /** How many boats race: people, and AI boats in the other seats. */
   get size(): number {
-    return this.settings.size ?? MAX_PLAYERS;
+    return this.settings.size ?? DEFAULT_SIZE;
+  }
+
+  /** Change the room size; never below the number of people in the room. False if refused. */
+  private resize(size: number): boolean {
+    const n = Math.min(MAX_PLAYERS, Math.round(size));
+    if (!Number.isFinite(n) || n < Math.max(1, this.order.length)) return false;
+    this.settings.size = n;
+    this.fillSeats();
+    return true;
+  }
+
+  /** AI boats in every seat nobody has taken: added at the end, removed from the end. */
+  private fillSeats(): void {
+    while (this.order.length + this.bots.length < this.size) this.addBot();
+    while (this.order.length + this.bots.length > this.size && this.bots.length) this.bots.pop();
   }
 
   /** An AI boat, with a name and a boat nobody has taken yet (when there is one). */
-  private addBot(): boolean {
-    if (this.order.length + this.bots.length >= MAX_PLAYERS) return false;
+  private addBot(): void {
     const usedNames = new Set(this.bots.map((b) => b.name));
     const names = AI_NAMES.filter((n) => !usedNames.has(n));
     const taken = new Set([...this.bots.map((b) => b.boatId), ...this.order.map((id) => this.players.get(id)!.boatId)]);
@@ -103,7 +119,6 @@ export class RoomCore {
       name: names.length ? names[this.rng.int(0, names.length - 1)] : `AI ${this.botCount}`,
       boatId: boats[this.rng.int(0, boats.length - 1)],
     });
-    return true;
   }
 
   get racing(): boolean {
@@ -196,23 +211,22 @@ export class RoomCore {
       case 'settings':
         if (!this.racing && p.id === this.hostId && msg.settings && TRACK_DEFS.some((t) => t.id === msg.settings.trackId) && msg.settings.difficulty in DIFFICULTIES) {
           const def = getTrackDef(msg.settings.trackId);
-          const size = Number(msg.settings.size);
-          this.settings = {
-            trackId: def.id,
-            difficulty: msg.settings.difficulty as Difficulty,
-            // People already in stay, even if the room is made smaller: nobody new gets in then.
-            size: Number.isFinite(size) ? Math.max(2, Math.min(MAX_PLAYERS, Math.round(size))) : this.size,
-          };
+          this.settings = { trackId: def.id, difficulty: msg.settings.difficulty as Difficulty, size: this.size };
           if (hasSections(def)) this.settings.section = clampSection(def, msg.settings.section);
+          // A size that would leave people without a seat is refused (the rest still applies).
+          if (msg.settings.size !== undefined) this.resize(Number(msg.settings.size));
           this.broadcast(this.lobbyState());
         }
         break;
       case 'addBot':
-        if (!this.racing && p.id === this.hostId && this.addBot()) this.broadcast(this.lobbyState());
+        // One more seat, for an AI boat.
+        if (!this.racing && p.id === this.hostId && this.resize(this.size + 1)) this.broadcast(this.lobbyState());
         break;
       case 'removeBot':
+        // That AI boat and its seat go.
         if (!this.racing && p.id === this.hostId && this.bots.some((b) => b.id === msg.id)) {
           this.bots = this.bots.filter((b) => b.id !== msg.id);
+          this.settings.size = this.order.length + this.bots.length;
           this.broadcast(this.lobbyState());
         }
         break;
@@ -256,9 +270,9 @@ export class RoomCore {
       this.welcome(back);
       return;
     }
-    if (this.order.length >= this.size) return this.send(conn, { t: 'error', reason: 'full' });
-    // People first: an AI boat makes way if the race would have too many boats.
-    if (this.order.length + this.bots.length >= MAX_PLAYERS) this.bots.pop();
+    // The newcomer takes the first AI boat's seat; with no AI boat left, every seat is a person's.
+    if (!this.bots.length) return this.send(conn, { t: 'error', reason: 'full' });
+    this.bots.shift();
     const player: Player = {
       id: conn.id, conn, key: randomKey(), name: cleanName(msg.name),
       boatId: BOATS.some((b) => b.id === msg.boatId) ? msg.boatId : BOATS[0].id,
@@ -290,6 +304,7 @@ export class RoomCore {
     } else {
       this.players.delete(pid);
       this.order = this.order.filter((id) => id !== pid);
+      if (!this.sim) this.fillSeats(); // an AI boat takes the seat
     }
     if (this.connected.length === 0) {
       this.emptySince = this.now();
@@ -305,9 +320,9 @@ export class RoomCore {
     this.players.clear();
     this.byConn.clear();
     this.order = [];
-    this.settings = { trackId: TRACK_DEFS[0].id, difficulty: 'river', size: MAX_PLAYERS };
+    this.settings = { trackId: TRACK_DEFS[0].id, difficulty: 'river', size: DEFAULT_SIZE };
     this.bots = [];
-    for (let i = 0; i < DEFAULT_BOTS; i++) this.addBot();
+    this.fillSeats();
   }
 
   private startRace(): void {
@@ -318,7 +333,7 @@ export class RoomCore {
       h.idle = false;
       return { name: h.name, boatId: h.boatId, human: true, playerId: h.id, input: h.input };
     });
-    // The AI boats the host chose (people first, at most MAX_PLAYERS boats).
+    // AI boats in the other seats.
     for (const b of this.bots.slice(0, MAX_PLAYERS - roster.length)) roster.push({ name: b.name, boatId: b.boatId, human: false, playerId: null });
     const seed = this.rng.int(1, 2 ** 30);
     this.sim = new RaceSimulation({
@@ -392,6 +407,7 @@ export class RoomCore {
     }));
     this.sim = null;
     this.startMsg = null;
+    this.fillSeats(); // AI boats take the seats of those who left
     for (const id of this.order) {
       const p = this.players.get(id)!;
       p.ready = false;

@@ -1,7 +1,7 @@
 # Online multiplayer
 
-Up to eight people race together in a **room** identified by a 4-letter code, with the AI
-boats the host adds (eight boats at most). The server runs the race; each screen shows it and sends its player's
+Up to eight people race together in a **room** identified by a 4-letter code; AI boats fill
+the seats nobody has taken. The server runs the race; each screen shows it and sends its player's
 controls.
 
 ## How it works
@@ -13,7 +13,7 @@ own boat and **interpolation** of everyone else.
  screen A ──controls (30/s)──▶ ┌──────────────────────────┐ ──snapshots (20/s)──▶ screen A
  screen B ──controls (30/s)──▶ │ room ABCD                │ ──snapshots (20/s)──▶ screen B
                                │ the real race, 60 steps/s│
-                               │ + the host's AI boats    │
+                               │ + AI boats in free seats │
                                └──────────────────────────┘
 ```
 
@@ -69,15 +69,20 @@ own boat and **interpolation** of everyone else.
 - In the lobby everyone picks a boat. The host picks the race (and, on the Reims canal, the
   stretch) and the AI difficulty, and starts
   once everyone else is ready. Alone, the host races the AI.
-- **Room size**: the host sets how many people may join, 2 to 8 (8 by default). People
-  already in stay if it is made smaller; nobody new gets in then. A full room refuses the
-  next person (watchers and reconnecting players count).
-- **AI boats**: a new room has 3 (with its host, the four boats of a single-player race).
-  The host adds them one by one ("+ AI boat") and takes them out (the ✕ on their row);
-  each gets a name and a boat nobody has taken yet. People and AI boats together are at
-  most 8: when someone joins a room with 8 boats, the last AI boat makes way. The race has
-  exactly the people and the AI boats in the list, in that order on the grid (two abreast,
-  four rows) and in those colours.
+- **Room size**: how many boats race, 1 to 8 (4 by default: the host and three AI boats,
+  like a single-player race). The host sets it with − and +; the header shows "Boats n/size".
+  Every seat people don't take is an **AI boat**, with a name and a boat nobody has taken yet.
+  - **Bigger**: AI boats are added at the end of the list.
+  - **Someone joins**: they take the **first** AI boat's seat. With no AI boat left, every
+    seat is a person's and the room refuses the next person (watchers count).
+  - **Smaller**: the **last** AI boat goes. It can't go below the number of people in the
+    room (− is greyed out then, and the server refuses it).
+  - **The ✕ on an AI boat's row** removes that boat and its seat: the room gets one smaller.
+  - **Someone leaves** the lobby (or never comes back during a race): a new AI boat takes their
+    seat, so the size stays the same. A player who loses the connection mid-race keeps theirs
+    until the race ends.
+- The race has exactly the people and the AI boats in the list, in that order on the grid (two
+  abreast, four rows) and in those colours.
 - With more than four boats the position-based rules (item odds, better versions, birds
   and swimmers) spread the places over their four columns: in a race of eight, 1st and
   2nd use the first column, 7th and 8th the last.

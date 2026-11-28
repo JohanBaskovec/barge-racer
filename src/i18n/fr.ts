@@ -44,7 +44,6 @@ export const fr: Record<TranslationKey, string> = {
   'lobby.copied': 'Lien copié : envoyez-le à vos amis !',
   'lobby.boats': 'Bateaux {n}/{max}',
   'lobby.size': 'Places',
-  'lobby.addAi': '+ Bateau IA',
   'lobby.ai': 'IA',
   'lobby.host': 'Hôte',
   'lobby.ready': 'Prêt',

@@ -15,8 +15,9 @@ import { background, button, fitText, setSelected, text } from '../view/ui';
 
 /**
  * The room before a race: its code and an invite link, who is in (up to eight people), each
- * player's boat, the AI boats that race too, and the track and difficulty. The host picks the
- * track, how many people may join, adds and removes AI boats, and starts once everyone is ready.
+ * player's boat, the AI boats in the other seats, and the track and difficulty. The host picks the
+ * track and the room size (how many boats race), can remove an AI boat (and its seat), and starts
+ * once everyone is ready.
  */
 export class LobbyScene extends Phaser.Scene {
   private dyn!: Phaser.GameObjects.Container;
@@ -79,15 +80,18 @@ export class LobbyScene extends Phaser.Scene {
     const F = 'Trebuchet MS, Verdana, sans-serif';
     add(this.add.rectangle(330, 395, 560, 400, 0x0b3a5b, 0.65).setStrokeStyle(3, 0xffffff, 0.5));
     const boats = lobby.players.length + lobby.bots.length;
-    add(this.add.text(72, 220, t('lobby.boats', { n: boats, max: MAX_PLAYERS }), { fontFamily: F, fontSize: '22px', fontStyle: 'bold', color: '#ffe08a', resolution: 2 }).setOrigin(0, 0.5));
-    // Room size: how many people may join (the host sets it)
-    const size = lobby.settings.size ?? MAX_PLAYERS;
+    // Room size: how many boats race; the seats people don't take are AI boats (the host sets it).
+    const size = lobby.settings.size ?? boats;
+    add(this.add.text(72, 220, t('lobby.boats', { n: boats, max: size }), { fontFamily: F, fontSize: '22px', fontStyle: 'bold', color: '#ffe08a', resolution: 2 }).setOrigin(0, 0.5));
     add(this.add.text(host ? 418 : 590, 220, host ? t('lobby.size') : `${t('lobby.size')} ${size}`, { fontFamily: F, fontSize: '19px', color: '#bfe1f7', resolution: 2 }).setOrigin(1, 0.5));
     if (host) {
-      const setSize = (n: number): void => send(lobby.settings.trackId, lobby.settings.difficulty, Math.max(2, Math.min(MAX_PLAYERS, n)));
-      add(button(this, 448, 220, 40, 34, '−', () => setSize(size - 1), { textSize: 24 }));
+      // Smaller removes the last AI boat (never a person); bigger adds one.
+      const canShrink = size > lobby.players.length;
+      const canGrow = size < MAX_PLAYERS;
+      const setSize = (n: number): void => send(lobby.settings.trackId, lobby.settings.difficulty, n);
+      add(button(this, 448, 220, 40, 34, '−', () => canShrink && setSize(size - 1), { textSize: 24, fill: canShrink ? undefined : 0x55606a }));
       add(text(this, 497, 220, String(size), 24));
-      add(button(this, 546, 220, 40, 34, '+', () => setSize(size + 1), { textSize: 24 }));
+      add(button(this, 546, 220, 40, 34, '+', () => canGrow && setSize(size + 1), { textSize: 24, fill: canGrow ? undefined : 0x55606a }));
     }
     const rows: { name: string; boatId: string; tag: string; tagColor: string; bot?: string; me?: boolean }[] = [
       ...lobby.players.map((p) => ({
@@ -110,7 +114,6 @@ export class LobbyScene extends Phaser.Scene {
       add(fitText(text(this, r.bot && host ? 520 : 540, y, r.tag, 17, r.tagColor), 110));
       if (r.bot && host) add(button(this, 582, y, 34, 30, '✕', () => net.send({ t: 'removeBot', id: r.bot! }), { fill: 0x8a4a4a, textSize: 24 }));
     });
-    if (host && boats < MAX_PLAYERS) add(button(this, 330, 574, 230, 36, t('lobby.addAi'), () => net.send({ t: 'addBot' }), { fill: 0x3d5266, textSize: 20 }));
 
     // My boat
     const bi = Math.max(0, BOATS.findIndex((b) => b.id === (me?.boatId ?? session.boatId)));
