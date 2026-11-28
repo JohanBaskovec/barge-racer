@@ -9,11 +9,11 @@ import { AIController } from './AIController';
 
 export const STEER = { deadZone: 40, fullThrottle: 180 };
 /**
- * The joystick (touch, default): a stick centred where the finger landed. Distances in game pixels
- * (a 1280-wide game on a phone held sideways: about 85 px per cm). `max`: beyond it, the centre
- * follows the finger, so turning back never needs a long slide.
+ * The joystick (touch, default): a stick centred where the finger landed, which stays there until
+ * the finger lifts. Distances in game pixels (a 1280-wide game on a phone held sideways: about
+ * 85 px per cm). Beyond `fullThrottle` only the direction still changes.
  */
-export const STICK = { deadZone: 12, fullThrottle: 110, max: 130 };
+export const STICK = { deadZone: 12, fullThrottle: 110 };
 
 /** Screen-space rectangles/circles where a press belongs to the HUD, never to steering. */
 export interface HudZone {
@@ -109,16 +109,10 @@ export class PointerController implements Controller {
     let heading: number, throttle: number;
     const a = this.anchor;
     if (a) {
-      // Joystick: the way from the stick's centre to the finger, the further the faster.
-      let dx = p.x - a.x, dy = p.y - a.y;
-      let d = Math.hypot(dx, dy);
-      if (d > STICK.max) {
-        a.x = p.x - (dx / d) * STICK.max;
-        a.y = p.y - (dy / d) * STICK.max;
-        dx = p.x - a.x;
-        dy = p.y - a.y;
-        d = STICK.max;
-      }
+      // Joystick: the way from the stick's centre (where the finger landed) to the finger, the
+      // further the faster. The centre never moves.
+      const dx = p.x - a.x, dy = p.y - a.y;
+      const d = Math.hypot(dx, dy);
       if (d < STICK.deadZone) return intent;
       heading = Math.atan2(dy, dx);
       throttle = clamp((d - STICK.deadZone) / (STICK.fullThrottle - STICK.deadZone), 0, 1);

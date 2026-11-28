@@ -21,8 +21,9 @@ stick; sliding it steers.
 - **Throttle**: the length of the slide, in game pixels (about 85 per cm on a phone
   held sideways): under 12 px nothing (coast, heading held), full throttle at
   110 px (about 1.3 cm), linear in between (`STICK` in `PointerController.ts`).
-- **The centre follows**: slide further than 130 px and the centre is dragged
-  along behind the thumb, so turning back never needs a long slide.
+- **The centre stays put**: it is where the thumb landed until the thumb lifts.
+  Sliding further than the ring only changes the direction (the knob stops at the
+  ring's edge). Lifting the thumb removes the stick; the next touch makes a new one.
 - **Reverse** and **release** work as with pointing (below).
 - The stick is drawn faintly under the thumb: a ring for the full-throttle
   distance and a knob.
