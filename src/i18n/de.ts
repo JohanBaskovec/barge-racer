@@ -20,6 +20,7 @@ export const de: Record<TranslationKey, string> = {
   'online.racing': 'In diesem Raum läuft gerade ein Rennen. Versuch es danach nochmal.',
   'online.noServer': 'Server nicht erreichbar.',
   'online.lost': 'Die Verbindung wurde getrennt.',
+  'online.rejoining': 'Zurück in Raum {code}…',
   'online.reconnecting': 'Verbindung verloren. Verbinde neu…',
   'lobby.away': 'Verbinde neu…',
   'lobby.watching': 'Schaut zu',

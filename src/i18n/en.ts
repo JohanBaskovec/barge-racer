@@ -22,6 +22,7 @@ export const en = {
   'online.racing': 'A race is going on in this room. Try again when it ends.',
   'online.noServer': "Can't reach the server.",
   'online.lost': 'The connection was lost.',
+  'online.rejoining': 'Back to room {code}…',
   'online.reconnecting': 'Connection lost. Reconnecting…',
   'lobby.away': 'Reconnecting…',
   'lobby.watching': 'Watching',

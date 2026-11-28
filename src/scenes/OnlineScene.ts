@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { t } from '../i18n';
-import { net } from '../net/client';
+import { net, savedSeat } from '../net/client';
 import { isRoomCode, randomRoomCode } from '../net/protocol';
 import { session } from '../session';
 import { background, button, fitText, text } from '../view/ui';
@@ -20,9 +20,13 @@ export class OnlineScene extends Phaser.Scene {
     super('Online');
   }
 
-  init(data: { code?: string; error?: string }): void {
+  private rejoining = false;
+
+  /** `rejoin`: the page was reloaded while in a room: take the seat back straight away. */
+  init(data: { code?: string; error?: string; rejoin?: boolean }): void {
     this.code = data?.code && isRoomCode(data.code) ? data.code : '';
     this.busy = false;
+    this.rejoining = !!data?.rejoin;
     if (data?.error) this.time.delayedCall(0, () => this.setStatus(data.error!));
   }
 
@@ -52,6 +56,22 @@ export class OnlineScene extends Phaser.Scene {
 
     this.status = text(this, 640, 580, '', 24, '#ffd0c4', false);
     button(this, 150, 660, 200, 64, t('common.back'), () => this.scene.start('Title'), { fill: 0x555f6b, textSize: 28 });
+    if (this.rejoining) void this.rejoin();
+  }
+
+  /** Back into the room this tab was in before it was reloaded, in the same seat (a race goes on). */
+  private async rejoin(): Promise<void> {
+    const seat = savedSeat();
+    if (!seat) return;
+    this.busy = true;
+    this.setStatus(t('online.rejoining', { code: seat.code }));
+    try {
+      await net.join(seat.code, seat.name, seat.boatId, seat.key);
+      this.scene.start('Lobby'); // straight on to the race if one is going
+    } catch {
+      this.setStatus(t('online.lost'));
+      this.busy = false;
+    }
   }
 
   private setStatus(s: string): void {

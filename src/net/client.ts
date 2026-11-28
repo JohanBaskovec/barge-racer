@@ -16,6 +16,41 @@ const RETRY_MS = [300, 1000, 2000, 3000, 4000, 5000, 5000, 5000, 5000];
 const SILENCE_MS = 6000;
 
 /**
+ * The seat in a room, kept in this tab's session storage so a page reload (or a phone reloading
+ * the tab after the browser was in the background) can take it back. Forgotten when leaving.
+ */
+const SEAT_KEY = 'barge-racer-seat';
+/** Older than this, a saved seat isn't tried (the race will be long over). */
+const SEAT_MAX_AGE_MS = 15 * 60 * 1000;
+
+export interface SavedSeat {
+  code: string;
+  key: string;
+  name: string;
+  boatId: string;
+  at: number;
+}
+
+/** The seat this tab had in a room before it was reloaded, if any (and recent). */
+export function savedSeat(): SavedSeat | null {
+  try {
+    const s = JSON.parse(sessionStorage.getItem(SEAT_KEY) ?? 'null') as SavedSeat | null;
+    return s && typeof s.code === 'string' && typeof s.key === 'string' && Date.now() - s.at < SEAT_MAX_AGE_MS ? s : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveSeat(seat: SavedSeat | null): void {
+  try {
+    if (seat) sessionStorage.setItem(SEAT_KEY, JSON.stringify(seat));
+    else sessionStorage.removeItem(SEAT_KEY);
+  } catch {
+    /* storage unavailable: a reload just loses the seat */
+  }
+}
+
+/**
  * The connection to a multiplayer room, shared by the lobby, race and results screens.
  * Scenes subscribe with `on(scene, type, fn)`, which unsubscribes when the scene shuts down.
  *
@@ -52,12 +87,16 @@ class NetClient {
     return this.connected || this.reconnecting;
   }
 
-  /** Open room `code` and join it. Resolves once in; rejects with 'full' or 'connection'. */
-  join(code: string, name: string, boatId: string): Promise<void> {
+  /**
+   * Open room `code` and join it. Resolves once in; rejects with 'full' or 'connection'. `key`:
+   * a seat saved before a page reload, to take it back.
+   */
+  join(code: string, name: string, boatId: string, key = ''): Promise<void> {
     this.leave();
     this.code = code;
     this.name = name;
     this.boatId = boatId;
+    this.key = key;
     return new Promise((resolve, reject) => this.open(resolve, reject));
   }
 
@@ -79,6 +118,7 @@ class NetClient {
       if (m.t === 'welcome') {
         this.you = m.you;
         this.key = m.key;
+        saveSeat({ code: this.code, key: m.key, name: this.name, boatId: this.boatId, at: Date.now() });
         settled = true;
         this.attempt = 0;
         this.reconnecting = false;
@@ -119,6 +159,7 @@ class NetClient {
   private lost(): void {
     this.reconnecting = false;
     this.key = '';
+    saveSeat(null);
     this.lobby = null;
     this.start = null;
     this.emit('closed', { t: 'error', reason: 'bad' });
@@ -142,6 +183,7 @@ class NetClient {
   }
 
   leave(): void {
+    saveSeat(null);
     this.stopPing();
     if (this.retryTimer) clearTimeout(this.retryTimer);
     this.retryTimer = null;

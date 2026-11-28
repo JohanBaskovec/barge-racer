@@ -57,8 +57,11 @@ own boat and **interpolation** of everyone else.
   as yours at the finish.
 - If the race ended while you were away, you come back to the room's lobby (you miss the results).
 - A race everyone has dropped out of waits a minute for someone to come back, then is dropped.
-- Reloading the page forgets the key: you join the room again as someone new (watching, if a race
-  is on).
+- **Reloading the page keeps your seat too**, and so does a phone reloading the tab after the
+  browser was in the background. The room's code and your key are kept in the tab's session
+  storage (`sessionStorage`, for 15 minutes); on starting, the game goes straight back into the
+  room ("Back to room ABCD…") with that key, so you are back in the race in your own boat, or in
+  the lobby. Leaving the room forgets it. Another tab is another player.
 
 ## Rooms and lobby
 
@@ -147,10 +150,13 @@ size (mushrooms) and the crates a mushroom has pulled away from home (only those
 others sit at home on every screen). Moving shots and pulled crates glide between
 snapshots like the other projectiles.
 
-Messages are JSON. A snapshot is about 1.6 KB with four boats and 2.9 KB with eight, so about
-32 to 60 KB/s per player (the server simulates an eight-boat race in about 0.25 ms a step,
-some 15 ms of CPU a second). That could be made
-much smaller with a binary format if ever needed.
+Messages are JSON. A snapshot is about 2 KB with four boats and 3.3 KB with eight (40 to 67 KB/s
+per player as JSON), but the WebSocket compresses them (`permessage-deflate`, which Cloudflare
+negotiates and browsers handle by themselves). The compression keeps its dictionary from one
+message to the next, and snapshots are much alike, so what travels is about **5 KB/s with four
+boats and 8 KB/s with eight**: some 0.3 to 0.5 MB a minute, about 1 MB a race. A binary format
+would save little more. The server simulates an eight-boat race in about 0.25 ms a step, some
+15 ms of CPU a second.
 
 ## Developing
 
@@ -168,7 +174,6 @@ everyone left. A whole four-race championship runs there too, and taunts.
 
 ## Not done yet
 
-- **Keeping your seat across a page reload** (the key would have to be saved in the browser).
 - **Matchmaking** with strangers: rooms are for people who share a code.
 - **Cheat protection** beyond the server being in charge: controls are clamped, but a modified
   client could still steer perfectly.
