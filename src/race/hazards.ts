@@ -352,6 +352,35 @@ export class HazardSystem {
       }
     }
   }
+
+  // ---- Debug menu (single player): set a hazard off on demand ----------------------
+
+  /** The police after this boat now, whatever its place: warned, then chased. */
+  debugPolice(r: Racer): void {
+    this.bullets = [];
+    this.police = { phase: 'warn', target: r.id, t: 0, x: r.x, y: r.y, heading: r.heading, side: this.sim.rng.chance(0.5) ? 1 : -1, fireT: 0.8 };
+    this.sim.emit({ type: 'cops', racer: r.id, phase: 'warn' });
+  }
+
+  /** An angler casting a line just ahead of this boat. */
+  debugAngler(r: Racer): void {
+    const track = this.sim.track;
+    let along = track.alongOf(r.progress) + TUNING.anglers.ahead * 0.8;
+    if (track.closed) along = ((along % track.length) + track.length) % track.length;
+    else along = Math.min(along, track.length - 100);
+    this.anglers = [{ id: this.nextId++, target: r.id, side: this.sim.rng.chance(0.5) ? 1 : -1, along, age: 0, hooked: false, dead: false }];
+  }
+
+  /** Birds (0), a rowing boat (1) or swimmers (2) on the water just ahead of this boat, on its line. */
+  debugCritter(r: Racer, kind: 0 | 1 | 2): void {
+    const track = this.sim.track;
+    let along = track.alongOf(r.progress) + 450;
+    if (track.closed) along = ((along % track.length) + track.length) % track.length;
+    else along = Math.min(along, track.length - 100);
+    const room = track.sampleAt(along).width / 2 - TUNING.critters.radius[kind] - 12;
+    const lat = Math.max(-room, Math.min(room, track.nearest(r.x, r.y, r.nearestIndex).lateral));
+    this.critters.push({ id: this.nextId++, kind, along, lat, dir: 1, age: 0, dead: false });
+  }
 }
 
 /** Whether a boat's hull touches a thin line from (ax, ay) to (bx, by). */

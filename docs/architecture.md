@@ -248,6 +248,19 @@ URL query parameters, read in `config.ts`:
 | `laps=<n>` | Override the number of laps |
 | `difficulty=<pond\|river\|ocean>` | Difficulty for `track=` |
 
+### Debug menu
+
+In a single-player race on a computer (a desktop OS with a mouse or trackpad: never on a
+phone or tablet, never online), the pause menu has a **Debug** button (bottom right) that
+opens `DebugScene`:
+
+- **Every item**: a click puts it in a free slot (or the first slot when both are full).
+- **Better version x3**: items come as their triple version (the Volunteer Squad and the
+  Big Bag for Volunteers and White Powder).
+- **Repair hull**.
+- **Police, Angler, Ducks, Rowers, Swimmers**: set that hazard off in front of you
+  (`HazardSystem.debugPolice` and friends) and go back to the race to see it.
+
 ## Testing
 
 - **Unit tests (Vitest)** for the pure logic:

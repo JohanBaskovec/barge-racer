@@ -10,6 +10,7 @@ import { net } from '../net/client';
 import { addFullscreenButton } from '../view/fullscreen';
 import { button, fitText, fmtTime, text } from '../view/ui';
 import type { RaceScene } from './RaceScene';
+import { DebugScene } from './DebugScene';
 import { STICK } from '../control/PointerController';
 
 /**
@@ -422,11 +423,22 @@ export class HudScene extends Phaser.Scene {
         this.scene.start('Online');
       } else this.scene.start('BoatSelect');
     }, { fill: 0x8a4a4a, textSize: 36 });
-    this.overlay = this.add.container(0, 0, [shade, title, resume, restart, opts, quit]).setDepth(100);
+    const items: Phaser.GameObjects.GameObject[] = [shade, title, resume, restart, opts, quit];
+    // Debug menu: single player, on a computer only.
+    if (!online && !this.race.spectating && DebugScene.available(this.game)) {
+      items.push(button(this, 1150, 670, 200, 56, t('debug.button'), () => this.scene.launch('Debug'), { fill: 0x6b4a8a, textSize: 26 }));
+    }
+    this.overlay = this.add.container(0, 0, items).setDepth(100);
+  }
+
+  /** The debug menu set a hazard off: back to the race to see it. */
+  resumeFromDebug(): void {
+    this.resume();
   }
 
   private resume(): void {
     this.scene.stop('Options');
+    this.scene.stop('Debug');
     this.overlay?.destroy();
     this.overlay = undefined;
     this.paused = false;
