@@ -286,9 +286,9 @@ fake crates that meet it head-on. Mostly given to the leader.
 
 ### 16. Nail Gun
 
-Three nails, 0.11 s apart, straight ahead (or behind, swiped down), fast (2.1 x the
-fastest boat). Each nail costs 13 hull and a jolt (the boat loses 20 % of its speed) but
-no spin-out and no blinking, so all three can hit the same boat: 39 in all.
+Six nails, 0.11 s apart, straight ahead (or behind, swiped down), fast (2.1 x the
+fastest boat). Each nail costs 9 hull and a jolt (the boat loses 20 % of its speed) but
+no spin-out and no blinking, so all six can hit the same boat: 54 in all.
 
 ### 17. Gas Siphoning
 
@@ -413,7 +413,7 @@ orange ring round its button and its uses left.
 | Kärcher | Sideways push on both sides | 24 (when they hit the bank) | 3.5 s | Stay out of reach, steer away |
 | Dicke Titten | Solid obstacle in front of every opponent | 40 | 0.55 s fall + 9 s | Dodge |
 | Giant Black Dildo | Melee buff (front) | 16 per target | 5 s | Stay out of its way |
-| Nail Gun | 3 straight shots | 3 x 13 | 1100 px | Dodge sideways |
+| Nail Gun | 6 straight shots | 6 x 9 | 1100 px | Dodge sideways |
 | Gas Siphoning | Opponents lose thrust and stop | 0 | 3 s | - |
 | Tugboat | Towed along the line, faster | 0 | 4 s | - |
 | Beer Dispenser | Full heal + a shield for the next hit | heals 100 % | until hit (45 s) | - |

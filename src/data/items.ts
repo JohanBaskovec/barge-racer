@@ -155,8 +155,8 @@ export const TUNING = {
   jigsaw: { duration: 4, damage: 30, reach: 62, halfAngle: (25 * Math.PI) / 180, reachMult: 1.2, speedMult: 1.05 },
   /** Giant dildo on the bow: ram boats to hurt them (a little). Also smashes things flying at it. */
   dildo: { duration: 5, damage: 16, halfAngle: (24 * Math.PI) / 180, reachMult: 1.15, speedMult: 1.05 },
-  /** Nail gun: three nails in quick succession, straight. Each one hurts (no blinking in between), none spins. */
-  nail: { speedMult: 2.1, damage: 13, radius: 6, range: 1100, every: 0.11, slow: 0.8 },
+  /** Nail gun: `count` nails in quick succession, straight. Each one hurts (no blinking in between), none spins. */
+  nail: { count: 6, speedMult: 2.1, damage: 9, radius: 6, range: 1100, every: 0.11, slow: 0.8 },
   /**
    * Dicke Titten: a giant pair drops onto the water `ahead` px in front of every opponent (on its
    * current line), `warn` s to see them coming before they are solid. Solid for `life` s; running

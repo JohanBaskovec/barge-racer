@@ -12,6 +12,8 @@ import type { RaceScene } from './RaceScene';
  */
 export class DebugScene extends Phaser.Scene {
   private triple = false;
+  /** Clicking an item makes an opponent use it, as if they had (to see what it does to you). */
+  private usedOnMe = false;
 
   constructor() {
     super('Debug');
@@ -31,11 +33,18 @@ export class DebugScene extends Phaser.Scene {
     centreLayout(this);
     fullScreenRect(this, 0x06243a, 0.94).setInteractive();
     text(this, 640, 52, t('debug.title'), 52).setStroke('#0b3a5b', 8);
-    const status = text(this, 640, 104, '', 24, '#ffe08a').setStroke('#0b3a5b', 5);
+    const status = text(this, 640, 92, '', 22, '#ffe08a').setStroke('#0b3a5b', 5);
     const say = (s: string): void => {
       status.setText(s).setAlpha(1);
       this.tweens.killTweensOf(status);
       this.tweens.add({ targets: status, alpha: 0, delay: 1400, duration: 400 });
+    };
+
+    // Back to the race (after setting something off, to see it).
+    const go = (fn: () => void): void => {
+      fn();
+      this.scene.stop();
+      hud.resumeFromDebug();
     };
 
     // Every item: a click puts it in a free slot (or the first one when both are full).
@@ -52,31 +61,43 @@ export class DebugScene extends Phaser.Scene {
       bg.on('pointerover', () => bg.setStrokeStyle(5, 0xffe08a, 1));
       bg.on('pointerout', () => bg.setStrokeStyle(4, 0xffffff, 0.8));
       bg.on('pointerup', () => {
+        const triple = this.triple && ITEM_INFO[id].uses < 3;
+        if (this.usedOnMe) {
+          // The boat just behind fires it forwards (at you); if you're last, the one just ahead.
+          const by = sim.racers.find((o) => o.position === me.position + 1) ?? sim.racers.find((o) => o.position === me.position - 1);
+          if (!by) return;
+          by.slots = [null, null];
+          by.rouletteItem = null;
+          sim.items.give(by, id, triple);
+          sim.items.use(by, 0, 'forward');
+          go(() => undefined);
+          return;
+        }
         if (sim.items.freeSlot(me) < 0) me.slots[0] = null;
         me.rouletteItem = null;
-        const triple = this.triple && ITEM_INFO[id].uses < 3;
         sim.items.give(me, id, triple);
         say(t('debug.given', { item: itemName(id) + (triple ? ' x3' : '') }));
       });
     });
 
-    // The better version, and a repair
-    const tri = button(this, 470, 500, 220, 60, t('debug.triple'), () => {
+    // The better version, an opponent using it on you, and a repair
+    const tri = button(this, 370, 500, 240, 60, t('debug.triple'), () => {
       this.triple = !this.triple;
       setSelected(tri, this.triple);
     }, { fill: 0xd9822b, textSize: 26 });
     setSelected(tri, this.triple);
-    button(this, 810, 500, 220, 60, t('debug.repair'), () => {
+    const onMe = button(this, 640, 500, 240, 60, t('debug.usedOnMe'), () => {
+      this.usedOnMe = !this.usedOnMe;
+      setSelected(onMe, this.usedOnMe);
+      say(t(this.usedOnMe ? 'debug.usedOnMeHint' : 'debug.toYou'));
+    }, { fill: 0x8a4a6a, textSize: 24 });
+    setSelected(onMe, this.usedOnMe);
+    button(this, 910, 500, 240, 60, t('debug.repair'), () => {
       me.hull = me.stats.maxHull;
       say(t('debug.repaired'));
     }, { fill: 0x2d9d5a, textSize: 26 });
 
     // Hazards: set one off in front of you, and back to the race to see it.
-    const go = (fn: () => void): void => {
-      fn();
-      this.scene.stop();
-      hud.resumeFromDebug();
-    };
     const hz = sim.hazards;
     const hazards: [string, () => void][] = [
       [t('debug.police'), () => hz.debugPolice(me)],

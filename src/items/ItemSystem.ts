@@ -173,8 +173,8 @@ export class ItemSystem {
         r.jigsawHit.clear();
         break;
       case 'nailGun':
-        // Three nails, one after the other: the next ones leave the bow a moment later.
-        for (let k = 0; k < 3; k++) {
+        // A burst of nails, one after the other: the next ones leave the bow a moment later.
+        for (let k = 0; k < TUNING.nail.count; k++) {
           this.shots.push({ id: this.nextId++, owner: r.id, kind: 2, wait: k * TUNING.nail.every, x: bx, y: by, heading, travelled: 0, age: 0, near: r.nearestIndex, dead: false });
         }
         break;

@@ -92,7 +92,7 @@ describe('giant dildo', () => {
 });
 
 describe('nail gun', () => {
-  it('fires three nails one after the other, and all three hurt the boat ahead', () => {
+  it('fires six nails one after the other, and all of them hurt the boat ahead', () => {
     const sim = lone();
     const [me, victim, c, d] = sim.racers;
     const a = sim.track.alongOf(me.progress) + 200;
@@ -101,15 +101,15 @@ describe('nail gun', () => {
     put(sim, d, a - 900, -60);
     sim.items.give(me, 'nailGun');
     sim.items.use(me, 0, 'forward');
-    expect(sim.items.shots.filter((s) => s.kind === 2).length).toBe(3);
-    expect(sim.items.shots.filter((s) => s.kind === 2 && s.wait > 0).length).toBe(2);
+    expect(sim.items.shots.filter((s) => s.kind === 2).length).toBe(6);
+    expect(sim.items.shots.filter((s) => s.kind === 2 && s.wait > 0).length).toBe(5);
     const before = victim.hull;
-    run(sim, 1.2, () => {
+    run(sim, 1.6, () => {
       put(sim, me, a);
       put(sim, victim, a + 320);
       disarm(sim);
     });
-    expect(before - victim.hull).toBeCloseTo(3 * TUNING.nail.damage, 5);
+    expect(before - victim.hull).toBeCloseTo(6 * TUNING.nail.damage, 5);
     expect(hasEffect(victim, 'spinOut')).toBe(false); // nails jolt, they don't spin
   });
 });
